@@ -18,7 +18,7 @@ fn main() {
     let mut parser = parse::Parser::new(lexer);
     let parse_result = parser.parse_crate();
 
-    let Ok(expr) = parse_result else {
+    let Some(expr) = parse_result else {
         eprintln!("Failed to parse source code");
         exit(1);
     };

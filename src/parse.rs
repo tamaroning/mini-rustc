@@ -10,24 +10,49 @@ impl Parser {
         Parser { lexer }
     }
 
-    fn peek() -> Token {
-        todo!()
+    fn peek_token(&mut self) -> Option<&Token> {
+        self.lexer.peek_token()
     }
 
-    pub fn parse_crate(&mut self) -> Result<Expr, ()> {
-        self.parse_expr()
+    fn skip_token(&mut self) -> Option<Token> {
+        self.lexer.skip_token()
     }
 
-    pub fn parse_expr(&mut self) -> Result<Expr, ()> {
-        let res = self.lexer.tokenize();
-        match &res {
-            Ok(t) => match t.kind {
-                TokenKind::NumLit(n) => Ok(Expr {
+    fn eat_expected(&mut self, kind: TokenKind) -> bool {
+        match self.lexer.peek_token() {
+            Some(t) => t.kind == kind,
+            None => false,
+        }
+    }
+
+    fn at_eof(&mut self) -> bool {
+        matches!(
+            self.peek_token(),
+            Some(&Token {
+                kind: TokenKind::Eof,
+                ..
+            })
+        )
+    }
+
+    pub fn parse_crate(&mut self) -> Option<Expr> {
+        let expr = self.parse_expr();
+        if !self.eat_expected(TokenKind::Eof) {
+            return None;
+        }
+        expr
+    }
+
+    pub fn parse_expr(&mut self) -> Option<Expr> {
+        let t = self.lexer.skip_token();
+        match &t {
+            Some(t) => match t.kind {
+                TokenKind::NumLit(n) => Some(Expr {
                     kind: ExprKind::NumLit(n),
                 }),
-                _ => Err(()),
+                _ => None,
             },
-            Err(()) => Err(()),
+            None => None,
         }
     }
 }

@@ -77,11 +77,11 @@ impl Lexer {
                 '(' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::OpenParen))
-                },
+                }
                 ')' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::CloseParen))
-                },
+                }
                 '+' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::BinOp(BinOp::Plus)))
@@ -95,7 +95,10 @@ impl Lexer {
                     Ok(Token::new(TokenKind::BinOp(BinOp::Star)))
                 }
                 // Unknown token
-                _ => Err(()),
+                _ => {
+                    eprintln!("Unknwon token starting with: {:?}", c);
+                    Err(())
+                }
             }
         } else {
             // EOF

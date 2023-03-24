@@ -24,7 +24,7 @@ impl Parser {
             Some(t) if t.kind == kind => {
                 self.lexer.skip_token();
                 true
-            },
+            }
             _ => false,
         }
     }
@@ -41,7 +41,7 @@ impl Parser {
 
     pub fn parse_crate(&mut self) -> Option<Expr> {
         let expr = self.parse_expr();
-        if !self.skip_expected_token(TokenKind::Eof) {
+        if !self.at_eof() {
             return None;
         }
         expr
@@ -53,8 +53,11 @@ impl Parser {
         };
 
         match t.kind {
-            TokenKind::NumLit(_) => self.parse_binary(),
-            _ => None,
+            TokenKind::NumLit(_) | TokenKind::OpenParen => self.parse_binary(),
+            _ => {
+                eprintln!("Expected expr, but found {:?}", t);
+                None
+            }
         }
     }
 
@@ -63,7 +66,7 @@ impl Parser {
         self.parse_binary_add()
     }
 
-    // add ::= mul ("+"|"-") add 
+    // add ::= mul ("+"|"-") add
     fn parse_binary_add(&mut self) -> Option<Expr> {
         let Some(lhs) = self.parse_binary_mul() else {
             return None;
@@ -116,7 +119,6 @@ impl Parser {
         })
     }
 
-
     // unary ::= ("+"|"-") primary
     fn parse_binary_unary(&mut self) -> Option<Expr> {
         let primary = self.parse_binary_primary();
@@ -133,7 +135,6 @@ impl Parser {
                 kind: ExprKind::NumLit(n),
             }),
             TokenKind::OpenParen => {
-                self.skip_token();
                 let Some(expr) = self.parse_expr() else {
                     return None;
                 };
@@ -143,7 +144,7 @@ impl Parser {
                 }
                 Some(expr)
             }
-            t => {
+            _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
                 None
             }

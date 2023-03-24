@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Expr, ExprKind};
+use crate::ast::{BinOp, Expr, ExprKind, UnOp};
 
 pub fn codegen(expr: &Expr) -> Result<(), ()> {
     println!(".intel_syntax noprefix");
@@ -19,6 +19,23 @@ fn codegen_expr(expr: &Expr) -> Result<(), ()> {
     match &expr.kind {
         ExprKind::NumLit(n) => {
             println!("\tpush {}", n);
+        }
+        ExprKind::Unary(unop, inner_expr) => {
+            match unop {
+                UnOp::Plus => return codegen_expr(&*inner_expr),
+                UnOp::Minus => {
+                    // compile `-expr`as `0 - expr`
+                    println!("\tpush 0");
+                    let Ok(()) = codegen_expr(inner_expr) else {
+                        return Err(());
+                    };
+                    println!("\tpop rdi");
+                    println!("\tpop rax");
+                    println!("\tsub rax, rdi");
+                    println!("\tpush rax");
+                    return Ok(());
+                }
+            }
         }
         ExprKind::Binary(binop, lhs, rhs) => {
             let Ok(()) = codegen_expr(lhs) else {

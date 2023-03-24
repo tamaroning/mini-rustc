@@ -1,4 +1,4 @@
-use crate::ast::{self, Expr, ExprKind};
+use crate::ast::{self, Expr, ExprKind, UnOp};
 use crate::lexer::{self, Lexer, Token, TokenKind};
 
 pub struct Parser {
@@ -53,7 +53,9 @@ impl Parser {
         };
 
         match t.kind {
-            TokenKind::NumLit(_) | TokenKind::OpenParen => self.parse_binary(),
+            TokenKind::NumLit(_)
+            | TokenKind::OpenParen
+            | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus) => self.parse_binary(),
             _ => {
                 eprintln!("Expected expr, but found {:?}", t);
                 None
@@ -121,8 +123,26 @@ impl Parser {
 
     // unary ::= ("+"|"-") primary
     fn parse_binary_unary(&mut self) -> Option<Expr> {
-        let primary = self.parse_binary_primary();
-        primary
+        let Some(t) = self.lexer.peek_token() else {
+            return None;
+        };
+
+        let unup = match &t.kind {
+            TokenKind::BinOp(lexer::BinOp::Plus) => UnOp::Plus,
+            TokenKind::BinOp(lexer::BinOp::Minus) => UnOp::Minus,
+            _ => {
+                return self.parse_binary_primary();
+            }
+        };
+        // skip unary op token
+        self.skip_token();
+
+        let Some(primary) = self.parse_binary_primary() else {
+            return None;
+        };
+        Some(Expr {
+            kind: ExprKind::Unary(unup, Box::new(primary)),
+        })
     }
 
     // primary ::= num | "(" expr ")"

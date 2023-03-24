@@ -1,14 +1,15 @@
 #!/bin/bash
 RUSTC="./target/debug/mini-rustc"
 TMP="./tmp.s"
-EXE="./tmp.exe"
+EXE="./tmp"
 CC="cc"
 
 assert() {
   expected="$1"
   input="$2"
 
-  $RUSTC "$input" > tmp.s
+  rm $TMP $EXE
+  $RUSTC "$input" > $TMP
   $CC -o $EXE $TMP
   $EXE
   actual="$?"
@@ -25,3 +26,4 @@ cargo build
 
 assert 0 0
 assert 42 42
+assert 42 "42 1"

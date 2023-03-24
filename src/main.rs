@@ -23,7 +23,7 @@ fn main() {
         exit(1);
     };
 
-    let codegen_result = codegen::codegen(expr);
+    let codegen_result = codegen::codegen(&expr);
     let Ok(()) = codegen_result else {
         eprintln!("Failed to generate assembly");
         exit(1);

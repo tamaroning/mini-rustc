@@ -13,6 +13,8 @@ impl Token {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
+    OpenParen,
+    CloseParen,
     BinOp(BinOp),
     NumLit(u32),
     Eof,
@@ -47,11 +49,11 @@ impl Lexer {
         self.char_stream.peek()
     }
 
-    fn skip(&mut self) -> Option<char> {
+    fn skip_input(&mut self) -> Option<char> {
         self.char_stream.next()
     }
 
-    fn skip_by(&mut self, n: usize) {
+    fn skip_input_by(&mut self, n: usize) {
         for _ in 0..n {
             self.char_stream.next();
         }
@@ -60,7 +62,7 @@ impl Lexer {
     fn skip_whitespaces(&mut self) {
         while let Some(c) = self.peek_input()
             && is_space(*c) {
-            self.skip();
+            self.skip_input();
         }
     }
 
@@ -72,9 +74,26 @@ impl Lexer {
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
                 '0'..='9' => Ok(self.parse_number_lit()),
-                '+' => Ok(Token::new(TokenKind::BinOp(BinOp::Plus))),
-                '-' => Ok(Token::new(TokenKind::BinOp(BinOp::Minus))),
-                '*' => Ok(Token::new(TokenKind::BinOp(BinOp::Star))),
+                '(' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::OpenParen))
+                },
+                ')' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::CloseParen))
+                },
+                '+' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::Plus)))
+                }
+                '-' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::Minus)))
+                }
+                '*' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::Star)))
+                }
                 // Unknown token
                 _ => Err(()),
             }
@@ -95,10 +114,10 @@ impl Lexer {
             match c {
                 '0'..='9' => {
                     chars.push(**c);
-                    self.skip();
+                    self.skip_input();
                 }
                 '_' => {
-                    self.skip();
+                    self.skip_input();
                     continue;
                 }
                 _ => break,
@@ -140,14 +159,14 @@ impl Lexer {
 fn test_peek() {
     let mut lexer = Lexer::new("123456");
     assert_eq!(lexer.peek_input(), Some(&'1'));
-    lexer.skip();
+    lexer.skip_input();
     assert_eq!(lexer.peek_input(), Some(&'2'));
-    lexer.skip_by(3);
+    lexer.skip_input_by(3);
     assert_eq!(lexer.peek_input(), Some(&'5'));
-    assert_eq!(lexer.skip(), Some('5'));
-    assert_eq!(lexer.skip(), Some('6'));
+    assert_eq!(lexer.skip_input(), Some('5'));
+    assert_eq!(lexer.skip_input(), Some('6'));
     assert_eq!(lexer.peek_input(), None);
-    assert_eq!(lexer.skip(), None);
+    assert_eq!(lexer.skip_input(), None);
 }
 
 #[test]
@@ -170,11 +189,17 @@ fn test_tokenize() {
 
 #[test]
 fn test_parser_func() {
-    let mut lexer = Lexer::new("123 456 ");
+    let mut lexer = Lexer::new("123 + 456 ");
     assert_eq!(
         lexer.skip_token(),
         Some(Token {
             kind: TokenKind::NumLit(123)
+        })
+    );
+    assert_eq!(
+        lexer.skip_token(),
+        Some(Token {
+            kind: TokenKind::BinOp(BinOp::Plus)
         })
     );
     assert_eq!(

@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Ident, Stmt, StmtKind, UnOp};
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp};
 use std::collections::HashMap;
 
 use super::BackendCtxt;
@@ -72,7 +72,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn pop_current_frame(&mut self) {
-        if !self.current_frame.is_some() {
+        if self.current_frame.is_none() {
             panic!("ICE: cannot pop the current frame");
         }
         self.current_frame = None;
@@ -86,7 +86,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn codegen_main_func(&mut self, krate: &Crate) -> Result<(), ()> {
-        let frame = FrameInfo::new(&self.bctx);
+        let frame = FrameInfo::new(self.bctx);
         if self.bctx.ctx.dump_enabled {
             dbg!(&frame);
         }

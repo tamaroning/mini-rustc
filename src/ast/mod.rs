@@ -1,5 +1,7 @@
 pub mod visitor;
 
+pub type NodeId = u32;
+
 #[derive(Debug)]
 pub struct Crate {
     pub stmts: Vec<Stmt>,
@@ -29,7 +31,7 @@ pub struct Ident {
 #[derive(Debug)]
 pub struct Expr {
     pub kind: ExprKind,
-    pub id: u32,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

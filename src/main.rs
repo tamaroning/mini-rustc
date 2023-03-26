@@ -5,6 +5,7 @@ mod backend;
 mod lexer;
 mod parse;
 mod ty;
+mod typeck;
 
 use std::process::exit;
 
@@ -31,7 +32,18 @@ fn main() {
         dbg!(&krate);
     }
 
-    let ctx = analysis::Ctxt::new(dump_enabled);
+    let mut ctx = analysis::Ctxt::new(dump_enabled);
+
+    let typeck_result = typeck::typeck(&mut ctx, &krate);
+    let Ok(()) = typeck_result else {
+        if let Err(errors) = typeck_result {
+            for e in errors {
+                eprintln!("{}", e);
+            }
+        }
+        eprintln!("Failed to typecheck crate");
+        exit(1);
+    };
 
     if dump_enabled {
         dbg!(&ctx);

@@ -14,6 +14,7 @@ impl Token {
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     // keywords
+    I32,
     Let,
     // Symbols
     Eq,
@@ -142,6 +143,9 @@ impl Lexer {
         }
         let s: String = chars.into_iter().collect();
         match s.as_str() {
+            "i32" => Token {
+                kind: TokenKind::I32,
+            },
             "let" => Token {
                 kind: TokenKind::Let,
             },

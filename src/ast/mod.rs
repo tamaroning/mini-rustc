@@ -13,7 +13,12 @@ pub struct Stmt {
 #[derive(Debug)]
 pub enum StmtKind {
     ExprStmt(Box<Expr>),
-    Let(Ident),
+    Let(LetStmt),
+}
+
+#[derive(Debug)]
+pub struct LetStmt {
+    pub ident: Ident,
 }
 
 #[derive(Debug)]

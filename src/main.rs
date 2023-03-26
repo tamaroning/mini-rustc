@@ -28,7 +28,9 @@ fn main() {
     dbg!(&krate);
 
     let mut ctx = analysis::Ctxt::new();
-    analysis::resolve(&ctx, &krate);
+    analysis::resolve(&mut ctx, &krate);
+
+    dbg!(&ctx);
 
     let codegen_result = codegen::codegen(&ctx, &krate);
     let Ok(()) = codegen_result else {

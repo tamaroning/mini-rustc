@@ -1,6 +1,6 @@
 use super::parse_expr::is_expr_start;
 use super::Parser;
-use crate::ast::{Ident, Stmt, StmtKind};
+use crate::ast::{Ident, LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
 
 pub fn is_stmt_start(t: &Token) -> bool {
@@ -24,7 +24,9 @@ impl Parser {
                     return None;
                 }
                 Some(Stmt {
-                    kind: StmtKind::Let(Ident { symbol }),
+                    kind: StmtKind::Let(LetStmt {
+                        ident: Ident { symbol },
+                    }),
                 })
             }
             _ if is_expr_start(t) => {

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::ast;
+use crate::ast::visitor::{go, Visitor};
+use crate::ast::{self, LetStmt};
 use crate::ty::Ty;
 
 #[derive(Debug)]
 pub struct Ctxt<'ctx> {
-    ty_mapping: HashMap<&'ctx str, Ty>,
+    ty_mapping: HashMap<&'ctx String, Ty>,
 }
 
 impl<'ctx> Ctxt<'ctx> {
@@ -15,36 +16,38 @@ impl<'ctx> Ctxt<'ctx> {
         }
     }
 
-    pub fn set_type(&mut self, name: &'ctx str, ty: Ty) {
+    pub fn set_type(&mut self, name: &'ctx String, ty: Ty) {
         let t = self.ty_mapping.insert(name, ty);
         if t.is_some() {
             panic!("ICE: dulplicated identifier? {name}");
         }
     }
 
-    pub fn lookup_type(&self, name: &str) -> Option<&Ty> {
+    pub fn lookup_type(&self, name: &String) -> Option<&Ty> {
         self.ty_mapping.get(name)
     }
 }
 
-pub fn resolve(ctx: &Ctxt, krate: &ast::Crate) {}
+pub fn resolve<'ctx, 'a>(ctx: &'a mut Ctxt<'ctx>, krate: &'ctx ast::Crate) {
+    let resolver: &mut dyn Visitor = &mut Resolver { ctx };
+    go(resolver, krate);
+}
 
-pub struct Resolver;
+pub struct Resolver<'ctx, 'a> {
+    ctx: &'a mut Ctxt<'ctx>,
+}
 
-impl ast::visitor::Visitor for Resolver {
-    fn visit_crate(&mut self, krate: &ast::Crate) {
-        todo!()
+impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver<'ctx, '_> {
+    fn visit_crate(&mut self, _krate: &'ctx ast::Crate) {}
+
+    fn visit_stmt(&mut self, _stmt: &'ctx ast::Stmt) {}
+
+    fn visit_expr(&mut self, _expr: &'ctx ast::Expr) {}
+
+    fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
+        let LetStmt { ident } = &let_stmt;
+        self.ctx.set_type(&ident.symbol, Ty::I32);
     }
 
-    fn visit_stmt(&mut self, stmt: &ast::Stmt) {
-        todo!()
-    }
-
-    fn visit_expr(&mut self, expr: &ast::Expr) {
-        todo!()
-    }
-
-    fn visit_ident(&mut self, ident: &ast::Ident) {
-        todo!()
-    }
+    fn visit_ident(&mut self, _ident: &'ctx ast::Ident) {}
 }

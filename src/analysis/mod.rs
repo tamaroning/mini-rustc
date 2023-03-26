@@ -26,6 +26,11 @@ impl<'ctx> Ctxt<'ctx> {
     pub fn lookup_type(&self, name: &String) -> Option<&Ty> {
         self.ty_mapping.get(name)
     }
+
+    pub fn get_all_local_vars(&self) -> Vec<(&String, &Ty)> {
+        let v: Vec<(&String, &Ty)> = self.ty_mapping.iter().map(|(m, ty)| (*m, ty)).collect();
+        v
+    }
 }
 
 pub fn resolve<'ctx, 'a>(ctx: &'a mut Ctxt<'ctx>, krate: &'ctx ast::Crate) {

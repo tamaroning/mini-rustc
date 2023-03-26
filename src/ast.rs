@@ -1,4 +1,19 @@
 #[derive(Debug)]
+pub struct Crate {
+    pub stmts: Vec<Stmt>,
+}
+
+#[derive(Debug)]
+pub struct Stmt {
+    pub kind: StmtKind,
+}
+
+#[derive(Debug)]
+pub enum StmtKind {
+    ExprStmt(Box<Expr>),
+}
+
+#[derive(Debug)]
 pub struct Expr {
     pub kind: ExprKind,
 }

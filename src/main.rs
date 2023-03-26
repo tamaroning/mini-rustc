@@ -18,12 +18,12 @@ fn main() {
     let mut parser = parse::Parser::new(lexer);
     let parse_result = parser.parse_crate();
 
-    let Some(expr) = parse_result else {
+    let Some(krate) = parse_result else {
         eprintln!("Failed to parse source code");
         exit(1);
     };
 
-    let codegen_result = codegen::codegen(&expr);
+    let codegen_result = codegen::codegen(&krate);
     let Ok(()) = codegen_result else {
         eprintln!("Failed to generate assembly");
         exit(1);

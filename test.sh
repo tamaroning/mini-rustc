@@ -24,12 +24,13 @@ assert() {
 
 cargo build
 
-assert 0 0
-assert 42 42
-assert 6 "1+2+3"
-assert 80 "20*4"
-assert 5 "2*5+4-3*3"
-assert 150 "10*(4+5+6)"
-assert 13 "(((1))+(((4*((((3))))))))"
-assert 5 "+3+2"
-assert 4 "-3+7"
+assert 0 "0;"
+assert 42 "42;"
+assert 6 "1+2+3;"
+assert 80 "20*4;"
+assert 5 "2*5+4-3*3;"
+assert 150 "10*(4+5+6);"
+assert 13 "(((1))+(((4*((((3))))))));"
+assert 5 "+3+2;"
+assert 4 "-3+7;"
+assert 10 "3+8;4+6;"

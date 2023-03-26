@@ -13,6 +13,7 @@ impl Token {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
+    Semi,
     OpenParen,
     CloseParen,
     BinOp(BinOp),
@@ -74,6 +75,10 @@ impl Lexer {
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
                 '0'..='9' => Ok(self.parse_number_lit()),
+                ';' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::Semi))
+                }
                 '(' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::OpenParen))
@@ -136,7 +141,7 @@ impl Lexer {
 
     pub fn peek_token(&mut self) -> Option<&Token> {
         // do tokenize if the current token is not buffered
-        if self.buffered_tokens.len() < 1 {
+        if self.buffered_tokens.is_empty() {
             self.tokenize();
         }
         match &self.buffered_tokens[0] {
@@ -148,7 +153,7 @@ impl Lexer {
     /// Skip the current token. Keep returning EOF after lexer reached EOF
     pub fn skip_token(&mut self) -> Option<Token> {
         // make sure that the current token is buffered
-        if self.buffered_tokens.len() < 1 {
+        if self.buffered_tokens.is_empty() {
             self.tokenize();
         }
         match self.buffered_tokens.pop_front() {

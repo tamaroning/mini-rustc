@@ -1,49 +1,58 @@
-use crate::ast::{BinOp, Expr, ExprKind, UnOp};
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp};
 
-pub fn codegen(expr: &Expr) -> Result<(), ()> {
+pub fn codegen(krate: &Crate) -> Result<(), ()> {
     println!(".intel_syntax noprefix");
     println!(".globl main");
     println!("main:");
 
-    let Ok(()) = codegen_expr(expr) else {
-        return Err(());
-    };
+    codegen_stmts(&krate.stmts)?;
 
-    println!("\tpop rax");
     println!("\tret");
 
     Ok(())
+}
+
+fn codegen_stmts(stmts: &Vec<Stmt>) -> Result<(), ()> {
+    for stmt in stmts {
+        codegen_stmt(stmt)?;
+    }
+    Ok(())
+}
+
+fn codegen_stmt(stmt: &Stmt) -> Result<(), ()> {
+    match &stmt.kind {
+        StmtKind::ExprStmt(expr) => {
+            codegen_expr(expr)?;
+            println!("\tpop rax");
+            Ok(())
+        }
+    }
 }
 
 fn codegen_expr(expr: &Expr) -> Result<(), ()> {
     match &expr.kind {
         ExprKind::NumLit(n) => {
             println!("\tpush {}", n);
+            Ok(())
         }
         ExprKind::Unary(unop, inner_expr) => {
             match unop {
-                UnOp::Plus => return codegen_expr(&*inner_expr),
+                UnOp::Plus => codegen_expr(inner_expr),
                 UnOp::Minus => {
                     // compile `-expr`as `0 - expr`
                     println!("\tpush 0");
-                    let Ok(()) = codegen_expr(inner_expr) else {
-                        return Err(());
-                    };
+                    codegen_expr(inner_expr)?;
                     println!("\tpop rdi");
                     println!("\tpop rax");
                     println!("\tsub rax, rdi");
                     println!("\tpush rax");
-                    return Ok(());
+                    Ok(())
                 }
             }
         }
         ExprKind::Binary(binop, lhs, rhs) => {
-            let Ok(()) = codegen_expr(lhs) else {
-                return Err(());
-            };
-            let Ok(()) = codegen_expr(rhs) else {
-                return Err(());
-            };
+            codegen_expr(lhs)?;
+            codegen_expr(rhs)?;
             println!("\tpop rdi");
             println!("\tpop rax");
 
@@ -60,8 +69,7 @@ fn codegen_expr(expr: &Expr) -> Result<(), ()> {
                 }
             };
             println!("\tpush rax");
+            Ok(())
         }
-        _ => todo!(),
     }
-    Ok(())
 }

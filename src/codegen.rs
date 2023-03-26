@@ -91,7 +91,9 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
 
     fn codegen_main_func(&mut self, krate: &Crate) -> Result<(), ()> {
         let frame = FrameInfo::new(self.ctx);
-        dbg!(&frame);
+        if self.ctx.dump_enabled {
+            dbg!(&frame);
+        }
         self.push_current_frame(frame);
 
         println!("main:");

@@ -7,12 +7,14 @@ use crate::ty::Ty;
 #[derive(Debug)]
 pub struct Ctxt<'ctx> {
     ty_mapping: HashMap<&'ctx String, Ty>,
+    pub dump_enabled: bool,
 }
 
 impl<'ctx> Ctxt<'ctx> {
-    pub fn new() -> Self {
+    pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
             ty_mapping: HashMap::new(),
+            dump_enabled,
         }
     }
 

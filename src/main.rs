@@ -31,7 +31,7 @@ fn main() {
         dbg!(&krate);
     }
 
-    let mut ctx = analysis::Ctxt::new();
+    let mut ctx = analysis::Ctxt::new(dump_enabled);
     analysis::resolve(&mut ctx, &krate);
 
     if dump_enabled {

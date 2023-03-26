@@ -50,5 +50,8 @@ fn walk_expr<'ctx>(v: &mut dyn Visitor<'ctx>, expr: &'ctx Expr) {
         ExprKind::Unary(_op, inner) => {
             walk_expr(v, inner);
         }
+        ExprKind::Ident(ident) => {
+            walk_ident(v, ident);
+        }
     }
 }

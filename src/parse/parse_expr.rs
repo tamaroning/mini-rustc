@@ -1,6 +1,6 @@
 use super::Parser;
 use crate::{
-    ast::{self, Expr, ExprKind, UnOp},
+    ast::{self, Expr, ExprKind, Ident, UnOp},
     lexer::{self, Token, TokenKind},
 };
 
@@ -8,6 +8,7 @@ pub fn is_expr_start(token: &Token) -> bool {
     matches!(
         token.kind,
         TokenKind::NumLit(_)
+            | TokenKind::Ident(_)
             | TokenKind::OpenParen
             | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
     )
@@ -100,7 +101,7 @@ impl Parser {
         })
     }
 
-    // primary ::= num | "(" expr ")"
+    // primary ::= num | ident | "(" expr ")"
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let Some(t) = self.lexer.skip_token() else {
             return None;
@@ -108,6 +109,9 @@ impl Parser {
         match t.kind {
             TokenKind::NumLit(n) => Some(Expr {
                 kind: ExprKind::NumLit(n),
+            }),
+            TokenKind::Ident(symbol) => Some(Expr {
+                kind: ExprKind::Ident(Ident { symbol }),
             }),
             TokenKind::OpenParen => {
                 let Some(expr) = self.parse_expr() else {

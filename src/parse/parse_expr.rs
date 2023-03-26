@@ -16,15 +16,34 @@ pub fn is_expr_start(token: &Token) -> bool {
 
 impl Parser {
     pub fn parse_expr(&mut self) -> Option<Expr> {
-        self.parse_binary()
+        self.parse_assign()
     }
 
-    // binary ::= add
+    /// assign ::= binary ("=" assign)?
+    fn parse_assign(&mut self) -> Option<Expr> {
+        let Some(lhs) = self.parse_binary() else {
+            return None;
+        };
+        let t = self.lexer.peek_token().unwrap();
+        if t.kind != TokenKind::Eq {
+            return Some(lhs);
+        }
+        self.skip_token();
+        let Some(rhs) = self.parse_assign() else {
+            return None;
+        };
+        Some(Expr {
+            kind: ExprKind::Assign(Box::new(lhs), Box::new(rhs)),
+            id: self.get_next_id(),
+        })
+    }
+
+    /// binary ::= add
     fn parse_binary(&mut self) -> Option<Expr> {
         self.parse_binary_add()
     }
 
-    // add ::= mul ("+"|"-") add
+    /// add ::= mul ("+"|"-") add
     fn parse_binary_add(&mut self) -> Option<Expr> {
         let Some(lhs) = self.parse_binary_mul() else {
             return None;
@@ -52,7 +71,7 @@ impl Parser {
         })
     }
 
-    // mul ::= unary "*" mul
+    /// mul ::= unary "*" mul
     fn parse_binary_mul(&mut self) -> Option<Expr> {
         let Some(lhs) = self.parse_binary_unary() else {
             return None;
@@ -79,7 +98,7 @@ impl Parser {
         })
     }
 
-    // unary ::= ("+"|"-") primary
+    /// unary ::= ("+"|"-") primary
     fn parse_binary_unary(&mut self) -> Option<Expr> {
         let Some(t) = self.lexer.peek_token() else {
             return None;
@@ -104,7 +123,7 @@ impl Parser {
         })
     }
 
-    // primary ::= num | ident | "(" expr ")"
+    /// primary ::= num | ident | "(" expr ")"
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let Some(t) = self.lexer.skip_token() else {
             return None;

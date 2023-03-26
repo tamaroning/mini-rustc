@@ -38,6 +38,7 @@ pub enum ExprKind {
     Unary(UnOp, Box<Expr>),
     NumLit(u32),
     Ident(Ident),
+    Assign(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug)]

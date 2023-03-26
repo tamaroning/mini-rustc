@@ -31,15 +31,15 @@ impl<'ctx> FrameInfo<'ctx> {
     fn new(bctx: &'ctx BackendCtxt) -> Self {
         let mut locals = HashMap::new();
 
-        let mut current_ofsset: u32 = 0;
+        let mut current_ofsset: u32 = 16;
         for sym in &bctx.locals {
             let local = LocalInfo {
                 offset: current_ofsset,
-                // assume size of type equals to 4
-                size: 4,
+                // assume size of type equals to 8
+                size: 8,
             };
             locals.insert(*sym, local);
-            current_ofsset += 4;
+            current_ofsset += 8;
         }
         FrameInfo {
             locals,
@@ -97,7 +97,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         // return 0 for empty body
         println!("\tmov rax, 0");
         self.codegen_stmts(&krate.stmts)?;
-        self.codegen_func_epilogue(krate)?;
+        self.codegen_func_epilogue();
 
         self.pop_current_frame();
         Ok(())
@@ -111,11 +111,10 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         Ok(())
     }
 
-    fn codegen_func_epilogue(&self, krate: &Crate) -> Result<(), ()> {
+    fn codegen_func_epilogue(&self) {
         println!("\tmov rsp, rbp");
         println!("\tpop rbp");
         println!("\tret");
-        Ok(())
     }
 
     fn codegen_stmts(&self, stmts: &Vec<Stmt>) -> Result<(), ()> {
@@ -139,10 +138,12 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     fn codegen_expr(&self, expr: &Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::NumLit(n) => {
+                println!("#lit");
                 println!("\tpush {}", n);
                 Ok(())
             }
             ExprKind::Unary(unop, inner_expr) => {
+                println!("#unary");
                 match unop {
                     UnOp::Plus => self.codegen_expr(inner_expr),
                     UnOp::Minus => {
@@ -158,6 +159,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 }
             }
             ExprKind::Binary(binop, lhs, rhs) => {
+                println!("#binary");
                 self.codegen_expr(lhs)?;
                 self.codegen_expr(rhs)?;
                 println!("\tpop rdi");
@@ -178,22 +180,38 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tpush rax");
                 Ok(())
             }
-            ExprKind::Ident(ident) => {
-                self.codegen_lval(ident)?;
+            ExprKind::Ident(_ident) => {
+                println!("#ident");
+                self.codegen_lval(expr)?;
                 println!("\tpop rax");
                 println!("\tmov rax, [rax]");
                 println!("\tpush rax");
                 Ok(())
             }
+            ExprKind::Assign(lhs, rhs) => {
+                println!("#assign");
+                self.codegen_lval(lhs)?;
+                self.codegen_expr(rhs)?;
+                println!("\tpop rdi");
+                println!("\tpop rax");
+                println!("\tmov [rax], rdi");
+                // TODO: unit typeなのでpushしない
+                println!("\tpush rdi");
+                Ok(())
+            }
         }
     }
 
-    fn codegen_lval(&self, ident: &Ident) -> Result<(), ()> {
+    fn codegen_lval(&self, expr: &Expr) -> Result<(), ()> {
+        let ExprKind::Ident(ident) = &expr.kind else {
+            eprintln!("Expected ident, but found {:?}", expr);
+            return Err(());
+        };
         let Some(local) = self.get_current_frame().get_local_info(&ident.symbol) else {
             eprintln!("Unknwon identifier: {}", ident.symbol);
             return Err(());
         };
-        // gen lval
+        println!("#lval");
         println!("\tmov rax, rbp");
         println!("\tsub rax, {}", local.offset);
         println!("\tpush rax");

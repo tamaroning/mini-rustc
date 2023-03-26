@@ -43,7 +43,7 @@ fn walk_expr<'ctx>(v: &mut dyn Visitor<'ctx>, expr: &'ctx Expr) {
     v.visit_expr(expr);
     match &expr.kind {
         ExprKind::NumLit(_) => (),
-        ExprKind::Binary(_op, l, r) => {
+        ExprKind::Binary(_, l, r) | ExprKind::Assign(l, r) => {
             walk_expr(v, l);
             walk_expr(v, r);
         }

@@ -1,4 +1,4 @@
-mod visitor;
+pub mod visitor;
 
 #[derive(Debug)]
 pub struct Crate {
@@ -13,6 +13,12 @@ pub struct Stmt {
 #[derive(Debug)]
 pub enum StmtKind {
     ExprStmt(Box<Expr>),
+    Let(Ident),
+}
+
+#[derive(Debug)]
+pub struct Ident {
+    pub symbol: String,
 }
 
 #[derive(Debug)]

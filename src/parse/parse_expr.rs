@@ -1,28 +1,21 @@
 use super::Parser;
 use crate::{
     ast::{self, Expr, ExprKind, UnOp},
-    lexer::{self, TokenKind},
+    lexer::{self, Token, TokenKind},
 };
 
+pub fn is_expr_start(token: &Token) -> bool {
+    matches!(
+        token.kind,
+        TokenKind::NumLit(_)
+            | TokenKind::OpenParen
+            | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
+    )
+}
+
 impl Parser {
-    pub fn is_expr_start(&mut self) -> bool {
-        let t = self.lexer.peek_token().unwrap();
-
-        matches!(
-            t.kind,
-            TokenKind::NumLit(_)
-                | TokenKind::OpenParen
-                | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
-        )
-    }
-
     pub fn parse_expr(&mut self) -> Option<Expr> {
-        if self.is_expr_start() {
-            self.parse_binary()
-        } else {
-            eprintln!("Expected expr, but found {:?}", self.peek_token().unwrap());
-            None
-        }
+        self.parse_binary()
     }
 
     // binary ::= add

@@ -13,11 +13,19 @@ impl Token {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
+    // keywords
+    Let,
+    // Symbols
+    Eq,
     Semi,
     OpenParen,
     CloseParen,
     BinOp(BinOp),
+    /// Identifier
+    Ident(String),
+    /// Number
     NumLit(u32),
+    /// EOF
     Eof,
 }
 
@@ -74,7 +82,12 @@ impl Lexer {
 
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
+                'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
                 '0'..='9' => Ok(self.parse_number_lit()),
+                '=' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::Eq))
+                }
                 ';' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::Semi))
@@ -114,6 +127,28 @@ impl Lexer {
         self.skip_whitespaces();
 
         self.buffered_tokens.push_back(tokenize_res);
+    }
+
+    fn parse_keyword_or_ident(&mut self) -> Token {
+        let mut chars = vec![];
+        while let Some(c) = &self.peek_input() {
+            match c {
+                'A'..='Z' | 'a'..='z' | '_' => {
+                    chars.push(**c);
+                    self.skip_input();
+                }
+                _ => break,
+            };
+        }
+        let s: String = chars.into_iter().collect();
+        match s.as_str() {
+            "let" => Token {
+                kind: TokenKind::Let,
+            },
+            _ => Token {
+                kind: TokenKind::Ident(s),
+            },
+        }
     }
 
     fn parse_number_lit(&mut self) -> Token {

@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+mod analysis;
 mod ast;
 mod codegen;
 mod lexer;
@@ -24,9 +25,12 @@ fn main() {
         exit(1);
     };
 
-    let mut ctxt = ty::Ctxt::new();
+    dbg!(&krate);
 
-    let codegen_result = codegen::codegen(&krate);
+    let mut ctx = analysis::Ctxt::new();
+    analysis::resolve(&ctx, &krate);
+
+    let codegen_result = codegen::codegen(&ctx, &krate);
     let Ok(()) = codegen_result else {
         eprintln!("Failed to generate assembly");
         exit(1);

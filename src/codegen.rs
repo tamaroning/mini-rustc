@@ -1,6 +1,7 @@
+use crate::analysis::Ctxt;
 use crate::ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp};
 
-pub fn codegen(krate: &Crate) -> Result<(), ()> {
+pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
     println!(".intel_syntax noprefix");
     println!(".globl main");
     println!("main:");
@@ -26,6 +27,7 @@ fn codegen_stmt(stmt: &Stmt) -> Result<(), ()> {
             println!("\tpop rax");
             Ok(())
         }
+        StmtKind::Let(_name) => Ok(()),
     }
 }
 

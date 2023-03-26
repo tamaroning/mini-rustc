@@ -1,7 +1,10 @@
 mod parse_expr;
+mod parse_stmt;
 
 use crate::ast::{Crate, Stmt, StmtKind};
 use crate::lexer::{Lexer, Token, TokenKind};
+
+use self::parse_stmt::is_stmt_start;
 
 pub struct Parser {
     lexer: Lexer,
@@ -54,7 +57,7 @@ impl Parser {
     fn parse_stmts(&mut self) -> Option<Vec<Stmt>> {
         let mut stmts = vec![];
 
-        while self.is_stmt_start() {
+        while is_stmt_start(self.peek_token().unwrap()) {
             if let Some(stmt) = self.parse_stmt() {
                 stmts.push(stmt);
             } else {
@@ -62,27 +65,5 @@ impl Parser {
             }
         }
         Some(stmts)
-    }
-
-    fn parse_stmt(&mut self) -> Option<Stmt> {
-        if self.is_expr_start() {
-            let Some(expr) = self.parse_expr() else {
-                return None;
-            };
-            if !self.skip_expected_token(TokenKind::Semi) {
-                eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
-                return None;
-            }
-            Some(Stmt {
-                kind: StmtKind::ExprStmt(Box::new(expr)),
-            })
-        } else {
-            eprintln!("Expected expr, but found {:?}", self.peek_token().unwrap());
-            None
-        }
-    }
-
-    fn is_stmt_start(&mut self) -> bool {
-        self.is_expr_start()
     }
 }

@@ -1,3 +1,5 @@
+mod visitor;
+
 #[derive(Debug)]
 pub struct Crate {
     pub stmts: Vec<Stmt>,

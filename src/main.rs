@@ -3,6 +3,7 @@ mod ast;
 mod codegen;
 mod lexer;
 mod parse;
+mod ty;
 
 use std::process::exit;
 
@@ -22,6 +23,8 @@ fn main() {
         eprintln!("Failed to parse source code");
         exit(1);
     };
+
+    let mut ctxt = ty::Ctxt::new();
 
     let codegen_result = codegen::codegen(&krate);
     let Ok(()) = codegen_result else {

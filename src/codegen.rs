@@ -5,6 +5,7 @@ pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
     println!(".intel_syntax noprefix");
     println!(".globl main");
     println!("main:");
+    println!("\tmov rax, 0");
 
     codegen_stmts(&krate.stmts)?;
 

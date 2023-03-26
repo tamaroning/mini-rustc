@@ -1,48 +1,44 @@
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Ident, Stmt, StmtKind, UnOp};
 use std::collections::HashMap;
 
-use crate::analysis::Ctxt;
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Ident, Stmt, StmtKind, UnOp};
-use crate::ty::Ty;
+use super::BackendCtxt;
 
-pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
-    let mut codegen = Codegen::new(ctx);
+pub fn codegen(bctx: &BackendCtxt, krate: &Crate) -> Result<(), ()> {
+    let mut codegen = Codegen::new(bctx);
     codegen.codegen_crate(krate)?;
     Ok(())
 }
 
 struct Codegen<'a, 'ctx> {
-    ctx: &'a Ctxt<'ctx>,
-    current_frame: Option<FrameInfo<'ctx>>,
+    bctx: &'a BackendCtxt<'a, 'ctx>,
+    current_frame: Option<FrameInfo<'a>>,
 }
 
 #[derive(Debug)]
-struct FrameInfo<'ctx> {
+struct FrameInfo<'a> {
     size: u32,
-    locals: HashMap<&'ctx String, LocalInfo<'ctx>>,
+    locals: HashMap<&'a String, LocalInfo>,
 }
 
 #[derive(Debug)]
-struct LocalInfo<'ctx> {
+struct LocalInfo {
     offset: u32,
     size: u32,
-    align: u32,
-    ty: &'ctx Ty,
+    // align: u32,
 }
 
 impl<'ctx> FrameInfo<'ctx> {
-    fn new(ctx: &'ctx Ctxt) -> Self {
+    fn new(bctx: &'ctx BackendCtxt) -> Self {
         let mut locals = HashMap::new();
 
         let mut current_ofsset: u32 = 0;
-        for (sym, ty) in ctx.get_all_local_vars() {
+        for sym in &bctx.locals {
             let local = LocalInfo {
                 offset: current_ofsset,
                 // assume size of type equals to 4
                 size: 4,
-                align: 4,
-                ty,
             };
-            locals.insert(sym, local);
+            locals.insert(*sym, local);
             current_ofsset += 4;
         }
         FrameInfo {
@@ -57,9 +53,9 @@ impl<'ctx> FrameInfo<'ctx> {
 }
 
 impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
-    fn new(ctx: &'a Ctxt<'ctx>) -> Self {
+    fn new(bctx: &'a BackendCtxt<'a, 'ctx>) -> Self {
         Codegen {
-            ctx,
+            bctx,
             current_frame: None,
         }
     }
@@ -90,8 +86,8 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn codegen_main_func(&mut self, krate: &Crate) -> Result<(), ()> {
-        let frame = FrameInfo::new(self.ctx);
-        if self.ctx.dump_enabled {
+        let frame = FrameInfo::new(&self.bctx);
+        if self.bctx.ctx.dump_enabled {
             dbg!(&frame);
         }
         self.push_current_frame(frame);

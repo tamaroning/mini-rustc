@@ -48,6 +48,7 @@ impl Parser {
 
         Some(Expr {
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
+            id: self.get_next_id(),
         })
     }
 
@@ -74,6 +75,7 @@ impl Parser {
 
         Some(Expr {
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
+            id: self.get_next_id(),
         })
     }
 
@@ -98,6 +100,7 @@ impl Parser {
         };
         Some(Expr {
             kind: ExprKind::Unary(unup, Box::new(primary)),
+            id: self.get_next_id(),
         })
     }
 
@@ -109,9 +112,11 @@ impl Parser {
         match t.kind {
             TokenKind::NumLit(n) => Some(Expr {
                 kind: ExprKind::NumLit(n),
+                id: self.get_next_id(),
             }),
             TokenKind::Ident(symbol) => Some(Expr {
                 kind: ExprKind::Ident(Ident { symbol }),
+                id: self.get_next_id(),
             }),
             TokenKind::OpenParen => {
                 let Some(expr) = self.parse_expr() else {

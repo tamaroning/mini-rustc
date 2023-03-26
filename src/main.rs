@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 mod analysis;
 mod ast;
-mod codegen;
+mod backend;
 mod lexer;
 mod parse;
 mod ty;
@@ -31,14 +31,13 @@ fn main() {
         dbg!(&krate);
     }
 
-    let mut ctx = analysis::Ctxt::new(dump_enabled);
-    analysis::resolve(&mut ctx, &krate);
+    let ctx = analysis::Ctxt::new(dump_enabled);
 
     if dump_enabled {
         dbg!(&ctx);
     }
 
-    let codegen_result = codegen::codegen(&ctx, &krate);
+    let codegen_result = backend::compile(&ctx, &krate);
     let Ok(()) = codegen_result else {
         eprintln!("Failed to generate assembly");
         exit(1);

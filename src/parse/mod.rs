@@ -1,18 +1,28 @@
 mod parse_expr;
 mod parse_stmt;
 
-use crate::ast::{Crate, Stmt, StmtKind};
+use crate::ast::{Crate, Stmt};
 use crate::lexer::{Lexer, Token, TokenKind};
 
 use self::parse_stmt::is_stmt_start;
 
 pub struct Parser {
     lexer: Lexer,
+    next_node_id: u32,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
-        Parser { lexer }
+        Parser {
+            lexer,
+            next_node_id: 0,
+        }
+    }
+
+    pub fn get_next_id(&mut self) -> u32 {
+        let id = self.next_node_id;
+        self.next_node_id += 1;
+        id
     }
 
     fn peek_token(&mut self) -> Option<&Token> {

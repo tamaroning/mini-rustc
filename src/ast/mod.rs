@@ -29,6 +29,7 @@ pub struct Ident {
 #[derive(Debug)]
 pub struct Expr {
     pub kind: ExprKind,
+    pub id: u32,
 }
 
 #[derive(Debug)]

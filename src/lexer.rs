@@ -16,9 +16,14 @@ pub enum TokenKind {
     // keywords
     I32,
     Let,
+    Return,
     // Symbols
+    /// !
+    Bang,
     Eq,
+    /// ;
     Semi,
+    Colon,
     OpenParen,
     CloseParen,
     BinOp(BinOp),
@@ -85,6 +90,10 @@ impl Lexer {
             match c {
                 'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
                 '0'..='9' => Ok(self.parse_number_lit()),
+                '!' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::Bang))
+                }
                 '=' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::Eq))
@@ -92,6 +101,10 @@ impl Lexer {
                 ';' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::Semi))
+                }
+                ':' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::Colon))
                 }
                 '(' => {
                     self.skip_input();
@@ -147,6 +160,9 @@ impl Lexer {
                 kind: TokenKind::I32,
             },
             "let" => Token {
+                kind: TokenKind::Let,
+            },
+            "return" => Token {
                 kind: TokenKind::Let,
             },
             _ => Token {

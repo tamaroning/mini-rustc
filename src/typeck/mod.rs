@@ -33,8 +33,8 @@ impl<'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_local_type(&mut self, ident: &'ctx Ident, ty: Ty) {
-        self.local_ty_mappings.insert(&ident.symbol, Rc::new(ty));
+    fn insert_local_type(&mut self, ident: &'ctx Ident, ty: Rc<Ty>) {
+        self.local_ty_mappings.insert(&ident.symbol, Rc::clone(&ty));
     }
 
     fn get_local_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
@@ -44,8 +44,8 @@ impl<'ctx> TypeChecker<'ctx> {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let LetStmt { ident } = let_stmt;
-        self.insert_local_type(ident, Ty::I32);
+        let LetStmt { ident, ty } = let_stmt;
+        self.insert_local_type(ident, Rc::clone(ty));
     }
 
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
@@ -56,7 +56,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 if **lhs_ty == **rhs_ty {
                     Rc::new(Ty::Unit)
                 } else {
-                    self.error("lhs and rhs of assign have different types".to_string());
+                    self.error(format!(
+                        "Cannot assign {:?} value to {:?} variable",
+                        rhs_ty, lhs_ty
+                    ));
                     return;
                 }
             }

@@ -1,3 +1,7 @@
+use std::rc::Rc;
+
+use crate::ty::Ty;
+
 pub mod visitor;
 
 pub type NodeId = u32;
@@ -21,6 +25,7 @@ pub enum StmtKind {
 #[derive(Debug)]
 pub struct LetStmt {
     pub ident: Ident,
+    pub ty: Rc<Ty>,
 }
 
 #[derive(Debug)]

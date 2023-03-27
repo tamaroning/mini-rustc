@@ -147,7 +147,7 @@ impl Lexer {
         let mut chars = vec![];
         while let Some(c) = &self.peek_input() {
             match c {
-                'A'..='Z' | 'a'..='z' | '_' => {
+                'A'..='Z' | 'a'..='z' | '_' | '0'..='9' => {
                     chars.push(**c);
                     self.skip_input();
                 }

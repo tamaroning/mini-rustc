@@ -36,7 +36,7 @@ struct StackAnalyzer<'ctx, 'a, 'b> {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for StackAnalyzer<'ctx, '_, '_> {
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let LetStmt { ident } = &let_stmt;
+        let LetStmt { ident, ty: _ty } = &let_stmt;
         self.bctx.locals.push(&ident.symbol);
     }
 }

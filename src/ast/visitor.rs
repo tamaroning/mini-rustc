@@ -12,6 +12,8 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_expr_post(&mut self, _expr: &'ctx Expr) {}
     fn visit_ident(&mut self, _ident: &'ctx Ident) {}
     fn visit_ident_post(&mut self, _ident: &'ctx Ident) {}
+    fn visit_type(&mut self, _ty: &'ctx Ty) {}
+    fn visit_type_post(&mut self, _ty: &'ctx Ty) {}
 }
 
 pub fn go<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
@@ -39,14 +41,20 @@ fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {
 
 fn walk_let_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, let_stmt: &'ctx LetStmt) {
     v.visit_let_stmt(let_stmt);
-    let LetStmt { ident } = let_stmt;
+    let LetStmt { ident, ty } = let_stmt;
     walk_ident(v, ident);
+    walk_type(v, ty);
     v.visit_let_stmt(let_stmt);
 }
 
 fn walk_ident<'ctx, V: Visitor<'ctx>>(v: &mut V, ident: &'ctx Ident) {
     v.visit_ident(ident);
     v.visit_ident_post(ident);
+}
+
+fn walk_type<'ctx, V: Visitor<'ctx>>(v: &mut V, ty: &'ctx Ty) {
+    v.visit_type(ty);
+    v.visit_type_post(ty);
 }
 
 fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {

@@ -44,6 +44,7 @@ pub enum ExprKind {
     Binary(BinOp, Box<Expr>, Box<Expr>),
     Unary(UnOp, Box<Expr>),
     NumLit(u32),
+    BoolLit(bool),
     Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
@@ -54,6 +55,10 @@ pub enum BinOp {
     Add,
     Sub,
     Mul,
+    Eq,
+    Ne,
+    Gt,
+    Lt,
 }
 
 #[derive(Debug)]

@@ -1,5 +1,5 @@
 use crate::analysis::Ctxt;
-use crate::ast::{self, Crate, ExprKind, Ident, LetStmt};
+use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt};
 use crate::ty::Ty;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -48,6 +48,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.insert_local_type(ident, Rc::clone(ty));
     }
 
+    // use post order
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
         let ty: Rc<Ty> = match &expr.kind {
             ExprKind::Assign(l, r) => {
@@ -56,24 +57,42 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 if **lhs_ty == **rhs_ty {
                     Rc::new(Ty::Unit)
                 } else {
-                    self.error(format!(
-                        "Cannot assign {:?} value to {:?} variable",
-                        rhs_ty, lhs_ty
-                    ));
+                    self.error(format!("Cannot assign {:?} to {:?}", rhs_ty, lhs_ty));
                     return;
                 }
             }
-            ExprKind::Binary(_op, l, r) => {
+            ExprKind::Binary(op, l, r) => {
                 let lhs_ty = &self.ctx.get_type(l.id);
                 let rhs_ty = &self.ctx.get_type(r.id);
-                if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
-                    Rc::new(Ty::I32)
-                } else {
-                    self.error("Both lhs and rhs must be type of i32".to_string());
-                    return;
+                match op {
+                    BinOp::Add | BinOp::Sub | BinOp::Mul => {
+                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
+                            Rc::new(Ty::I32)
+                        } else {
+                            self.error("Both lhs and rhs must be type of i32".to_string());
+                            return;
+                        }
+                    }
+                    BinOp::Gt | BinOp::Lt => {
+                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
+                            Rc::new(Ty::Bool)
+                        } else {
+                            self.error("Both lhs and rhs must be type of i32".to_string());
+                            return;
+                        }
+                    }
+                    BinOp::Eq | BinOp::Ne => {
+                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
+                            Rc::new(Ty::Bool)
+                        } else {
+                            self.error("Both lhs and rhs must have the same type".to_string());
+                            return;
+                        }
+                    }
                 }
             }
             ExprKind::NumLit(_) => Rc::new(Ty::I32),
+            ExprKind::BoolLit(_) => Rc::new(Ty::Bool),
             ExprKind::Unary(_op, inner) => {
                 let inner_ty = &self.ctx.get_type(inner.id);
                 if **inner_ty == Ty::I32 {

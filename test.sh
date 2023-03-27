@@ -48,8 +48,12 @@ assert 11 'return 3+8; return 4+6;'
 assert 0 'let a: i32; let b: i32; return 0;'
 assert 128 'let a: i32; a=120; a=a+8; return a;'
 assert 1 'let a: i32; let b: i32; a=1; b=100; return a;'
+assert 1 'return true;'
+# assert 0 'return ((3 == 2) != true);'
 
 compile_fail 'a; return 0;'
 compile_fail 'let a: i32; let b: i32; a=10; a=(a=10); return a;'
+compile_fail 'let b: bool; b = 100;'
+compile_fail 'let u: (); u = 0;'
 
 echo OK

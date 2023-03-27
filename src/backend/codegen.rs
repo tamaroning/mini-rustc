@@ -145,6 +145,14 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tpush {}", n);
                 Ok(())
             }
+            ExprKind::BoolLit(b) => {
+                if *b {
+                    println!("\tpush 1");
+                } else {
+                    println!("\tpush 0");
+                }
+                Ok(())
+            }
             ExprKind::Unary(unop, inner_expr) => {
                 println!("#unary");
                 match unop {
@@ -179,6 +187,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                         // NOTE: Result of mul is stored to rax
                         println!("\tmul rdi");
                     }
+                    _ => todo!(),
                 };
                 println!("\tpush rax");
                 Ok(())
@@ -187,6 +196,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("#ident");
                 self.codegen_lval(expr)?;
                 println!("\tpop rax");
+                // TODO: use al, ax, eax for type whose size is < 8
                 println!("\tmov rax, [rax]");
                 println!("\tpush rax");
                 Ok(())

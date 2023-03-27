@@ -3,4 +3,5 @@ pub enum Ty {
     Unit,
     Never,
     I32,
+    Bool,
 }

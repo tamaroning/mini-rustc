@@ -76,6 +76,8 @@ impl Parser {
             TokenKind::Bang => Some(Ty::Never),
             // i32
             TokenKind::I32 => Some(Ty::I32),
+            // bool
+            TokenKind::Bool => Some(Ty::Bool),
             _ => {
                 eprintln!("Expected type, but found {:?}", t);
                 None

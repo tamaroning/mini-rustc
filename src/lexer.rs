@@ -17,7 +17,11 @@ pub enum TokenKind {
     I32,
     Let,
     Return,
-    // Symbols
+    Fn,
+    Bool,
+    True,
+    False,
+    // Single-character symbols
     /// !
     Bang,
     Eq,
@@ -26,6 +30,8 @@ pub enum TokenKind {
     Colon,
     OpenParen,
     CloseParen,
+    OpenBrace,
+    CloseBrace,
     BinOp(BinOp),
     /// Identifier
     Ident(String),
@@ -40,6 +46,10 @@ pub enum BinOp {
     Plus,
     Minus,
     Star,
+    Eq,
+    Ne,
+    Gt,
+    Lt,
 }
 
 fn is_space(c: char) -> bool {
@@ -90,13 +100,31 @@ impl Lexer {
             match c {
                 'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
                 '0'..='9' => Ok(self.parse_number_lit()),
-                '!' => {
-                    self.skip_input();
-                    Ok(Token::new(TokenKind::Bang))
-                }
                 '=' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Eq))
+                    if self.peek_input() == Some(&'=') {
+                        self.skip_input();
+                        Ok(Token::new(TokenKind::BinOp(BinOp::Eq)))
+                    } else {
+                        Ok(Token::new(TokenKind::Eq))
+                    }
+                }
+                '!' => {
+                    self.skip_input();
+                    if self.peek_input() == Some(&'=') {
+                        self.skip_input();
+                        Ok(Token::new(TokenKind::BinOp(BinOp::Ne)))
+                    } else {
+                        Ok(Token::new(TokenKind::Bang))
+                    }
+                }
+                '>' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::Gt)))
+                }
+                '<' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::Lt)))
                 }
                 ';' => {
                     self.skip_input();
@@ -113,6 +141,14 @@ impl Lexer {
                 ')' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::CloseParen))
+                }
+                '{' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::OpenBrace))
+                }
+                '}' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::CloseBrace))
                 }
                 '+' => {
                     self.skip_input();
@@ -159,11 +195,23 @@ impl Lexer {
             "i32" => Token {
                 kind: TokenKind::I32,
             },
+            "bool" => Token {
+                kind: TokenKind::Bool,
+            },
+            "true" => Token {
+                kind: TokenKind::True,
+            },
+            "false" => Token {
+                kind: TokenKind::False,
+            },
             "let" => Token {
                 kind: TokenKind::Let,
             },
             "return" => Token {
                 kind: TokenKind::Return,
+            },
+            "fn" => Token {
+                kind: TokenKind::Fn,
             },
             _ => Token {
                 kind: TokenKind::Ident(s),

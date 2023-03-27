@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::parse_expr::is_expr_start;
 use super::Parser;
-use crate::ast::{Ident, LetStmt, Stmt, StmtKind};
+use crate::ast::{LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
 use crate::ty::Ty;
 

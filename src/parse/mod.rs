@@ -2,11 +2,9 @@ mod parse_expr;
 mod parse_item;
 mod parse_stmt;
 
-use crate::ast::{Crate, Func, Ident, Stmt};
-use crate::lexer::{Lexer, Token, TokenKind};
-
 use self::parse_item::is_item_start;
-use self::parse_stmt::is_stmt_start;
+use crate::ast::{Crate, Func, Ident};
+use crate::lexer::{Lexer, Token, TokenKind};
 
 pub struct Parser {
     lexer: Lexer,

@@ -16,7 +16,7 @@ impl Parser {
                 self.skip_token();
                 let t = self.skip_token().unwrap();
                 let TokenKind::Ident(symbol) = t.kind else {
-                    eprintln!("Expected ident, but found {:?}", t);
+                    eprintln!("Expected ident pattern, but found {:?}", t);
                     return None;
                 };
                 if !self.skip_expected_token(TokenKind::Semi) {

@@ -87,6 +87,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     return;
                 }
             },
+            ExprKind::Return(_) => Rc::new(Ty::Never),
         };
         self.ctx.insert_type(expr.id, ty);
     }

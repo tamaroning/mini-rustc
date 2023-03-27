@@ -11,12 +11,26 @@ pub fn is_expr_start(token: &Token) -> bool {
             | TokenKind::Ident(_)
             | TokenKind::OpenParen
             | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
+            | TokenKind::Return
     )
 }
 
 impl Parser {
     pub fn parse_expr(&mut self) -> Option<Expr> {
-        self.parse_assign()
+        let t = self.peek_token().unwrap();
+        match &t.kind {
+            TokenKind::Return => {
+                self.skip_token();
+                let Some(e) = self.parse_expr() else {
+                    return None;
+                };
+                Some(Expr {
+                    kind: ExprKind::Return(Box::new(e)),
+                    id: self.get_next_id(),
+                })
+            }
+            _ => self.parse_assign(),
+        }
     }
 
     /// assign ::= binary ("=" assign)?

@@ -163,7 +163,7 @@ impl Lexer {
                 kind: TokenKind::Let,
             },
             "return" => Token {
-                kind: TokenKind::Let,
+                kind: TokenKind::Return,
             },
             _ => Token {
                 kind: TokenKind::Ident(s),

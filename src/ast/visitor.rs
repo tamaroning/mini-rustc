@@ -63,6 +63,9 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Ident(ident) => {
             walk_ident(v, ident);
         }
+        ExprKind::Return(inner) => {
+            walk_expr(v, inner);
+        }
     }
     v.visit_expr_post(expr);
 }

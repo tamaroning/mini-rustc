@@ -112,9 +112,11 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn codegen_func_epilogue(&self) {
+        /*
         println!("\tmov rsp, rbp");
         println!("\tpop rbp");
         println!("\tret");
+        */
     }
 
     fn codegen_stmts(&self, stmts: &Vec<Stmt>) -> Result<(), ()> {
@@ -128,6 +130,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         match &stmt.kind {
             StmtKind::ExprStmt(expr) => {
                 self.codegen_expr(expr)?;
+                // TODO: do not output this for never types
                 println!("\tpop rax");
                 Ok(())
             }
@@ -197,6 +200,14 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tmov [rax], rdi");
                 // TODO: unit typeなのでpushしない
                 println!("\tpush rdi");
+                Ok(())
+            }
+            ExprKind::Return(inner) => {
+                self.codegen_expr(inner)?;
+                println!("\tpop rax");
+                println!("\tmov rsp, rbp");
+                println!("\tpop rbp");
+                println!("\tret");
                 Ok(())
             }
         }

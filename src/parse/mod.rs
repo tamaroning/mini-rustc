@@ -1,9 +1,11 @@
 mod parse_expr;
+mod parse_item;
 mod parse_stmt;
 
-use crate::ast::{Crate, Stmt};
+use crate::ast::{Crate, Func, Ident, Stmt};
 use crate::lexer::{Lexer, Token, TokenKind};
 
+use self::parse_item::is_item_start;
 use self::parse_stmt::is_stmt_start;
 
 pub struct Parser {
@@ -54,26 +56,37 @@ impl Parser {
         )
     }
 
+    /// crate ::= item*
     pub fn parse_crate(&mut self) -> Option<Crate> {
-        let Some(stmts) = self.parse_stmts() else {
+        let Some(items) = self.parse_items() else {
             return None;
         };
         if !self.at_eof() {
             return None;
         }
-        Some(Crate { stmts })
+        Some(Crate { items })
     }
 
-    fn parse_stmts(&mut self) -> Option<Vec<Stmt>> {
-        let mut stmts = vec![];
+    fn parse_items(&mut self) -> Option<Vec<Func>> {
+        let mut items = vec![];
 
-        while is_stmt_start(self.peek_token().unwrap()) {
-            if let Some(stmt) = self.parse_stmt() {
-                stmts.push(stmt);
+        while is_item_start(self.peek_token().unwrap()) {
+            if let Some(item) = self.parse_item() {
+                items.push(item);
             } else {
                 return None;
             }
         }
-        Some(stmts)
+        Some(items)
+    }
+
+    fn parse_ident(&mut self) -> Option<Ident> {
+        let t = self.skip_token()?;
+        if let TokenKind::Ident(symbol) = t.kind {
+            Some(Ident { symbol })
+        } else {
+            eprintln!("Expected ident, but found {:?}", t);
+            None
+        }
     }
 }

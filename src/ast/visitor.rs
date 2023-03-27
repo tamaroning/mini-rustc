@@ -4,6 +4,8 @@ use super::*;
 pub trait Visitor<'ctx>: Sized {
     fn visit_crate(&mut self, _krate: &'ctx Crate) {}
     fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
+    fn visit_func(&mut self, _krate: &'ctx Func) {}
+    fn visit_func_post(&mut self, _krate: &'ctx Func) {}
     fn visit_stmt(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_stmt_post(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_let_stmt(&mut self, _let_stmt: &'ctx LetStmt) {}
@@ -11,9 +13,7 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_expr(&mut self, _expr: &'ctx Expr) {}
     fn visit_expr_post(&mut self, _expr: &'ctx Expr) {}
     fn visit_ident(&mut self, _ident: &'ctx Ident) {}
-    fn visit_ident_post(&mut self, _ident: &'ctx Ident) {}
     fn visit_type(&mut self, _ty: &'ctx Ty) {}
-    fn visit_type_post(&mut self, _ty: &'ctx Ty) {}
 }
 
 pub fn go<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
@@ -22,12 +22,23 @@ pub fn go<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
 
 fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
     v.visit_crate(krate);
-    for stmt in &krate.stmts {
+    for func in &krate.items {
+        {
+            walk_func(v, func);
+        }
+    }
+    v.visit_crate_post(krate);
+}
+
+fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
+    v.visit_func(func);
+    walk_ident(v, &func.name);
+    for stmt in &func.stmts {
         {
             walk_stmt(v, stmt);
         }
     }
-    v.visit_crate_post(krate);
+    v.visit_func_post(func);
 }
 
 fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {
@@ -49,12 +60,10 @@ fn walk_let_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, let_stmt: &'ctx LetStmt) {
 
 fn walk_ident<'ctx, V: Visitor<'ctx>>(v: &mut V, ident: &'ctx Ident) {
     v.visit_ident(ident);
-    v.visit_ident_post(ident);
 }
 
 fn walk_type<'ctx, V: Visitor<'ctx>>(v: &mut V, ty: &'ctx Ty) {
     v.visit_type(ty);
-    v.visit_type_post(ty);
 }
 
 fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {

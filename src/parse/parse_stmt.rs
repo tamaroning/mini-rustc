@@ -35,11 +35,7 @@ impl Parser {
 
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
         assert!(self.skip_expected_token(TokenKind::Let));
-        let t = self.skip_token().unwrap();
-        let TokenKind::Ident(symbol) = t.kind else {
-                    eprintln!("Expected ident pattern, but found {:?}", t);
-                    return None;
-                };
+        let ident = self.parse_ident()?;
         // skip colon
         if !self.skip_expected_token(TokenKind::Colon) {
             eprintln!("Expected ':', but found {:?}", self.peek_token().unwrap());
@@ -54,7 +50,7 @@ impl Parser {
         }
         Some(Stmt {
             kind: StmtKind::Let(LetStmt {
-                ident: Ident { symbol },
+                ident,
                 ty: Rc::new(ty),
             }),
         })

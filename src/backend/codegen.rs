@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp},
+    ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp},
     ty::Ty,
 };
 use std::collections::HashMap;
@@ -84,22 +84,24 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     fn codegen_crate(&mut self, krate: &Crate) -> Result<(), ()> {
         println!(".intel_syntax noprefix");
         println!(".globl main");
-        self.codegen_main_func(krate)?;
+        for func in &krate.items {
+            self.codegen_func(func)?;
+        }
         Ok(())
     }
 
-    fn codegen_main_func(&mut self, krate: &Crate) -> Result<(), ()> {
+    fn codegen_func(&mut self, func: &Func) -> Result<(), ()> {
         let frame = FrameInfo::new(self.bctx);
         if self.bctx.ctx.dump_enabled {
             dbg!(&frame);
         }
         self.push_current_frame(frame);
 
-        println!("main:");
+        println!("{}:", func.name.symbol);
         self.codegen_func_prologue()?;
         // return 0 for empty body
         println!("\tmov rax, 0");
-        self.codegen_stmts(&krate.stmts)?;
+        self.codegen_stmts(&func.stmts)?;
         self.codegen_func_epilogue();
 
         self.pop_current_frame();

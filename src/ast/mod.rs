@@ -8,6 +8,12 @@ pub type NodeId = u32;
 
 #[derive(Debug)]
 pub struct Crate {
+    pub items: Vec<Func>,
+}
+
+#[derive(Debug)]
+pub struct Func {
+    pub name: Ident,
     pub stmts: Vec<Stmt>,
 }
 

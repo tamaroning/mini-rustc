@@ -49,11 +49,10 @@ assert 0 'fn main() { let a: i32; let b: i32; return 0; }'
 assert 128 'fn main() { let a: i32; a=120; a=a+8; return a; }'
 assert 1 'fn main() { let a: i32; let b: i32; a=1; b=100; return a; }'
 assert 1 'fn main() { return true; }'
-# assert 0 'return ((3 == 2) != true);'
 
 compile_fail 'fn main() { a; return 0; }'
 compile_fail 'fn main() { let a: i32; let b: i32; a=10; a=(a=10); return a; }'
 compile_fail 'fn main() { let b: bool; b = 100; }'
-compile_fail 'fn main() { let u: (); u = 0; }'
+compile_fail 'fn main() { let u: (); u = (return 0); }'
 
 echo OK

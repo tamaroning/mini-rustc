@@ -21,7 +21,25 @@ impl Ctxt {
         self.ty_mappings.insert(node_id, ty);
     }
 
-    pub fn get_type(&mut self, node_id: NodeId) -> Rc<Ty> {
+    pub fn get_type(&self, node_id: NodeId) -> Rc<Ty> {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
     }
+
+    pub fn type_info(&self, ty: &Ty) -> TyInfo {
+        let size = match ty {
+            Ty::I32 => 4,
+            Ty::Bool => 1,
+            Ty::Never => 0,
+            Ty::Unit => 0,
+        };
+        TyInfo { size }
+    }
+
+    pub fn is_zst(&self, ty: &Ty) -> bool {
+        self.type_info(ty).size == 0
+    }
+}
+
+pub struct TyInfo {
+    pub size: u32,
 }

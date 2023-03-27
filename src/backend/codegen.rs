@@ -1,4 +1,7 @@
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp};
+use crate::{
+    ast::{BinOp, Crate, Expr, ExprKind, Stmt, StmtKind, UnOp},
+    ty::Ty,
+};
 use std::collections::HashMap;
 
 use super::BackendCtxt;
@@ -158,7 +161,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 match unop {
                     UnOp::Plus => self.codegen_expr(inner_expr),
                     UnOp::Minus => {
-                        // compile `-expr`as `0 - expr`
+                        // compile `-expr` as `0 - expr`
                         println!("\tpush 0");
                         self.codegen_expr(inner_expr)?;
                         println!("\tpop rdi");

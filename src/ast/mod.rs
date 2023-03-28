@@ -13,7 +13,7 @@ pub struct Crate {
 #[derive(Debug)]
 pub struct Func {
     pub name: Ident,
-    pub stmts: Vec<Stmt>,
+    pub body: Block,
     pub id: NodeId,
 }
 

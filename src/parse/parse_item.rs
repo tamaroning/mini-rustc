@@ -14,7 +14,7 @@ impl Parser {
         self.parse_func()
     }
 
-    /// func ::= "fn" ident "(" ")" "->" i32 "{" stmt*  "}"
+    /// func ::= "fn" ident "(" ")" "->" "i32" block
     pub fn parse_func(&mut self) -> Option<Func> {
         if !self.skip_expected_token(TokenKind::Fn) {
             return None;
@@ -32,17 +32,11 @@ impl Parser {
         if !self.skip_expected_token(TokenKind::I32) {
             return None;
         }
+        let block = self.parse_block()?;
 
-        if !self.skip_expected_token(TokenKind::OpenBrace) {
-            return None;
-        }
-        let stmts = self.parse_stmts()?;
-        if !self.skip_expected_token(TokenKind::CloseBrace) {
-            return None;
-        }
         Some(Func {
             name,
-            stmts,
+            body: block,
             id: self.get_next_id(),
         })
     }

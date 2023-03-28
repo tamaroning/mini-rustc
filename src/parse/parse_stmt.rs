@@ -1,6 +1,6 @@
 use super::parse_expr::is_expr_start;
 use super::Parser;
-use crate::ast::{LetStmt, Stmt, StmtKind};
+use crate::ast::{Block, LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
 use crate::ty::Ty;
 use std::rc::Rc;
@@ -80,6 +80,25 @@ impl Parser {
             _ => {
                 eprintln!("Expected type, but found {:?}", t);
                 None
+            }
+        }
+    }
+
+    /// block ::= "{" stmt* "}"
+    pub fn parse_block(&mut self) -> Option<Block> {
+        if !self.skip_expected_token(TokenKind::OpenBrace) {
+            eprintln!("Expected '{{' but found {:?}", self.peek_token()?);
+            return None;
+        }
+        let mut stmts = vec![];
+        loop {
+            let t = self.peek_token()?;
+            if is_stmt_start(t) {
+                let stmt = self.parse_stmt()?;
+                stmts.push(stmt);
+            } else if t.kind == TokenKind::CloseBrace {
+                self.skip_token();
+                return Some(Block { stmts });
             }
         }
     }

@@ -33,7 +33,7 @@ fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
 fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     v.visit_func(func);
     walk_ident(v, &func.name);
-    for stmt in &func.stmts {
+    for stmt in &func.body.stmts {
         {
             walk_stmt(v, stmt);
         }

@@ -155,21 +155,33 @@ impl Parser {
 
     /// primary ::= num | true | false | ident ("(" ")")? | "(" expr ")" | block
     fn parse_binary_primary(&mut self) -> Option<Expr> {
-        let t = self.lexer.skip_token()?;
+        let t = self.lexer.peek_token()?;
         match t.kind {
-            TokenKind::NumLit(n) => Some(Expr {
-                kind: ExprKind::NumLit(n),
-                id: self.get_next_id(),
-            }),
-            TokenKind::True => Some(Expr {
-                kind: ExprKind::BoolLit(true),
-                id: self.get_next_id(),
-            }),
-            TokenKind::False => Some(Expr {
-                kind: ExprKind::BoolLit(false),
-                id: self.get_next_id(),
-            }),
-            TokenKind::Ident(symbol) => {
+            TokenKind::NumLit(n) => {
+                self.skip_token();
+                Some(Expr {
+                    kind: ExprKind::NumLit(n),
+                    id: self.get_next_id(),
+                })
+            }
+            TokenKind::True => {
+                self.skip_token();
+                Some(Expr {
+                    kind: ExprKind::BoolLit(true),
+                    id: self.get_next_id(),
+                })
+            }
+            TokenKind::False => {
+                self.skip_token();
+                Some(Expr {
+                    kind: ExprKind::BoolLit(false),
+                    id: self.get_next_id(),
+                })
+            }
+            TokenKind::Ident(_) => {
+                let TokenKind::Ident(symbol) = self.skip_token()?.kind else {
+                    unreachable!();
+                };
                 let t = self.peek_token()?;
                 if t.kind == TokenKind::OpenParen {
                     self.skip_token();
@@ -186,6 +198,7 @@ impl Parser {
                 }
             }
             TokenKind::OpenParen => {
+                self.skip_token();
                 let expr = self.parse_expr()?;
                 if !self.skip_expected_token(TokenKind::CloseParen) {
                     eprintln!("Expected ')', but found {:?}", self.peek_token());
@@ -193,29 +206,13 @@ impl Parser {
                 }
                 Some(expr)
             }
-            TokenKind::OpenBrace => self.parse_block(),
+            TokenKind::OpenBrace => Some(Expr {
+                kind: ExprKind::Block(self.parse_block()?),
+                id: self.get_next_id(),
+            }),
             _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
                 None
-            }
-        }
-    }
-
-    /// block ::= "{" stmt* "}"
-    /// NOTE: "{" is already parsed
-    fn parse_block(&mut self) -> Option<Expr> {
-        let mut stmts = vec![];
-        loop {
-            let t = self.peek_token()?;
-            if is_stmt_start(t) {
-                let stmt = self.parse_stmt()?;
-                stmts.push(stmt);
-            } else if t.kind == TokenKind::CloseBrace {
-                self.skip_token();
-                return Some(Expr {
-                    kind: ExprKind::Block(Block { stmts }),
-                    id: self.get_next_id(),
-                });
             }
         }
     }

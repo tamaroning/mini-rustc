@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
+use crate::ast::{BinOp, Block, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
 use std::collections::HashMap;
 
 use super::BackendCtxt;
@@ -98,7 +98,8 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         self.codegen_func_prologue()?;
         // return 0 for empty body
         println!("\tmov rax, 0");
-        self.codegen_stmts(&func.stmts)?;
+        self.codegen_stmts(&func.body.stmts)?;
+        // codegen of the last stmt results the last computation result stored in rax
         self.codegen_func_epilogue();
 
         self.pop_current_frame();

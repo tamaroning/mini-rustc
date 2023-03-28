@@ -22,10 +22,12 @@ impl Parser {
                     self.skip_token();
                     Some(Stmt {
                         kind: StmtKind::Semi(Box::new(expr)),
+                        id: self.get_next_id(),
                     })
                 } else {
                     Some(Stmt {
                         kind: StmtKind::Expr(Box::new(expr)),
+                        id: self.get_next_id(),
                     })
                 }
             }
@@ -56,6 +58,7 @@ impl Parser {
                 ident,
                 ty: Rc::new(ty),
             }),
+            id: self.get_next_id(),
         })
     }
 

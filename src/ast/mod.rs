@@ -21,6 +21,7 @@ pub struct Func {
 #[derive(Debug)]
 pub struct Stmt {
     pub kind: StmtKind,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

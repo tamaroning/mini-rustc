@@ -115,11 +115,9 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn codegen_func_epilogue(&self) {
-        /*
         println!("\tmov rsp, rbp");
         println!("\tpop rbp");
         println!("\tret");
-        */
     }
 
     fn codegen_stmts(&self, stmts: &Vec<Stmt>) -> Result<(), ()> {

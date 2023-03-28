@@ -1,5 +1,5 @@
 use crate::analysis::Ctxt;
-use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt};
+use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::ty::Ty;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -35,8 +35,8 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_local_type(&mut self, ident: &'ctx Ident, ty: Rc<Ty>) {
-        self.local_ty_mappings.insert(&ident.symbol, Rc::clone(&ty));
+    fn insert_local_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
+        self.local_ty_mappings.insert(symbol, Rc::clone(&ty));
     }
 
     fn get_local_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
@@ -58,23 +58,30 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
+        self.push_return_type(&func.ret_ty);
         self.ctx.set_fn_type(
             func.name.symbol.clone(),
             Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty))),
         );
-        self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
         self.pop_return_type();
     }
 
-    fn visit_stmt_post(&mut self, _stmt: &'ctx ast::Stmt) {
+    fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
         // TODO: typecheck StmtKind::Semi and StmtKind::Expr
-    }
-
-    fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let LetStmt { ident, ty } = let_stmt;
-        self.insert_local_type(ident, Rc::clone(ty));
+        let ty: Rc<Ty> = match &stmt.kind {
+            StmtKind::Let(LetStmt { ident, ty }) => {
+                self.insert_local_type(&ident.symbol, Rc::clone(ty));
+                Rc::clone(ty)
+            }
+            StmtKind::Semi(_) => Rc::new(Ty::Unit),
+            StmtKind::Expr(expr) => {
+                let expr_ty = self.ctx.get_type(expr.id);
+                expr_ty
+            }
+        };
+        self.ctx.insert_type(stmt.id, ty);
     }
 
     // use post order
@@ -163,8 +170,14 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Block(_block) => {
-                todo!()
+            ExprKind::Block(block) => {
+                if let Some(stmt) = block.stmts.last() {
+                    let last_stmt_ty = &self.ctx.get_type(stmt.id);
+                    Rc::clone(last_stmt_ty)
+                } else {
+                    // no statement. Unit type
+                    Rc::new(Ty::Unit)
+                }
             }
         };
         self.ctx.insert_type(expr.id, ty);

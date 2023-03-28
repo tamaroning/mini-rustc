@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
     let mut checker = TypeChecker::new(ctx);
-    ast::visitor::go(&mut checker, krate);
+    //ast::visitor::go(&mut checker, krate);
     if checker.errors.is_empty() {
         Ok(())
     } else {
@@ -144,7 +144,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 }
             }
             ExprKind::Call(ident) => {
-                todo!();
+                // TODO: name resolution is required to typecheck call expr
+                Rc::new(Ty::Error)
             }
         };
         self.ctx.insert_type(expr.id, ty);

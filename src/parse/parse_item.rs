@@ -40,7 +40,11 @@ impl Parser {
         if !self.skip_expected_token(TokenKind::CloseBrace) {
             return None;
         }
-        Some(Func { name, stmts })
+        Some(Func {
+            name,
+            stmts,
+            id: self.get_next_id(),
+        })
     }
 
     fn parse_stmts(&mut self) -> Option<Vec<Stmt>> {

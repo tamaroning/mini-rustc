@@ -31,6 +31,7 @@ impl Ctxt {
             Ty::Bool => 1,
             Ty::Never => 0,
             Ty::Unit => 0,
+            Ty::Error => unreachable!(),
         };
         TyInfo { size }
     }

@@ -15,6 +15,7 @@ pub struct Crate {
 pub struct Func {
     pub name: Ident,
     pub stmts: Vec<Stmt>,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

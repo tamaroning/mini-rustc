@@ -4,8 +4,8 @@ use super::*;
 pub trait Visitor<'ctx>: Sized {
     fn visit_crate(&mut self, _krate: &'ctx Crate) {}
     fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
-    fn visit_func(&mut self, _krate: &'ctx Func) {}
-    fn visit_func_post(&mut self, _krate: &'ctx Func) {}
+    fn visit_func(&mut self, _func: &'ctx Func) {}
+    fn visit_func_post(&mut self, _func: &'ctx Func) {}
     fn visit_stmt(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_stmt_post(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_let_stmt(&mut self, _let_stmt: &'ctx LetStmt) {}

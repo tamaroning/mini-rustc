@@ -130,9 +130,15 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
 
     fn codegen_stmt(&self, stmt: &Stmt) -> Result<(), ()> {
         match &stmt.kind {
-            StmtKind::ExprStmt(expr) => {
+            StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
-                // TODO: do not output this for never types
+                // store the last result of computation to rax
+                println!("\tpop rax");
+                Ok(())
+            }
+            StmtKind::Expr(expr) => {
+                self.codegen_expr(expr)?;
+                // store the last result of computation to rax
                 println!("\tpop rax");
                 Ok(())
             }
@@ -210,8 +216,9 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tpop rdi");
                 println!("\tpop rax");
                 println!("\tmov [rax], rdi");
-                // TODO: unit typeなのでpushしない
-                println!("\tpush rdi");
+                // TODO: It is better not to push to stack
+                // push dummy similarly to other exprs for simplicity
+                println!("\tpush 99");
                 Ok(())
             }
             ExprKind::Return(inner) => {
@@ -224,6 +231,13 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
             }
             ExprKind::Call(ident) => {
                 println!("\tcall {}", ident.symbol);
+                println!("\tpush rax");
+                Ok(())
+            }
+            ExprKind::Block(block) => {
+                self.codegen_stmts(&block.stmts)?;
+                // codegen_stmt results rax with the last result of computation in it
+                // so push it to stack
                 println!("\tpush rax");
                 Ok(())
             }

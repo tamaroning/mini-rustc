@@ -1,10 +1,9 @@
-use std::rc::Rc;
-
 use super::parse_expr::is_expr_start;
 use super::Parser;
 use crate::ast::{LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
 use crate::ty::Ty;
+use std::rc::Rc;
 
 pub fn is_stmt_start(t: &Token) -> bool {
     is_expr_start(t) || matches!(t.kind, TokenKind::Let)
@@ -18,13 +17,17 @@ impl Parser {
             TokenKind::Let => self.parse_let_stmt(),
             _ if is_expr_start(t) => {
                 let expr = self.parse_expr()?;
-                if !self.skip_expected_token(TokenKind::Semi) {
-                    eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
-                    return None;
+                let t = self.peek_token()?;
+                if t.kind == TokenKind::Semi {
+                    self.skip_token();
+                    Some(Stmt {
+                        kind: StmtKind::Semi(Box::new(expr)),
+                    })
+                } else {
+                    Some(Stmt {
+                        kind: StmtKind::Expr(Box::new(expr)),
+                    })
                 }
-                Some(Stmt {
-                    kind: StmtKind::ExprStmt(Box::new(expr)),
-                })
             }
             _ => {
                 eprintln!("Expected expr, but found {:?}", self.peek_token().unwrap());

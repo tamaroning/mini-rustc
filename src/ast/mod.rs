@@ -1,6 +1,5 @@
-use std::rc::Rc;
-
 use crate::ty::Ty;
+use std::rc::Rc;
 
 pub mod visitor;
 
@@ -25,7 +24,10 @@ pub struct Stmt {
 
 #[derive(Debug)]
 pub enum StmtKind {
-    ExprStmt(Box<Expr>),
+    /// Expression without trailing semicolon
+    Expr(Box<Expr>),
+    /// Expression with trailing semicolon
+    Semi(Box<Expr>),
     Let(LetStmt),
 }
 
@@ -56,6 +58,12 @@ pub enum ExprKind {
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
     Call(Ident),
+    Block(Block),
+}
+
+#[derive(Debug)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
 }
 
 #[derive(Debug)]

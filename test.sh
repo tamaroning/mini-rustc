@@ -9,7 +9,7 @@ assert() {
   input="$2"
 
   rm $TMP $EXE
-  $RUSTC "$input" > $TMP
+  $RUSTC "$input" >$TMP
   $CC -o $EXE $TMP
   $EXE
   actual="$?"
@@ -24,7 +24,7 @@ assert() {
 
 compile_fail() {
   input="$1"
-  $RUSTC "$input" >& /dev/null
+  $RUSTC "$input" >&/dev/null
   code="$?"
   if [ "$code" = 1 ]; then
     echo "$input => Failed to compile"
@@ -49,6 +49,8 @@ assert 0 'fn main() -> i32 { let a: i32; let b: i32; return 0; }'
 assert 128 'fn main() -> i32 { let a: i32; a=120; a=a+8; return a; }'
 assert 1 'fn main() -> i32 { let a: i32; let b: i32; a=1; b=100; return a; }'
 assert 5 'fn main() -> i32 { return five(); } fn five() -> i32 { return 5; }'
+assert 2 'fn main() -> i32 { return {1; 2}; }'
+assert 3 'fn main() -> i32 { let a: i32; a = { 1; 2; 3 }; 4; return a; }'
 
 #compile_fail 'fn main() -> i32 { a; return 0; }'
 #compile_fail 'fn main() -> i32 { let a: i32; let b: i32; a=10; a=(a=10); return a; }'

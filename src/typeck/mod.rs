@@ -64,6 +64,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.pop_return_type();
     }
 
+    fn visit_stmt_post(&mut self, _stmt: &'ctx ast::Stmt) {
+        // TODO: typecheck StmtKind::Semi and StmtKind::Expr
+    }
+
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
         let LetStmt { ident, ty } = let_stmt;
         self.insert_local_type(ident, Rc::clone(ty));
@@ -145,7 +149,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
             ExprKind::Call(ident) => {
                 // TODO: name resolution is required to typecheck call expr
-                Rc::new(Ty::Error)
+                todo!();
+            }
+            ExprKind::Block(block) => {
+                todo!()
             }
         };
         self.ctx.insert_type(expr.id, ty);

@@ -1,6 +1,6 @@
-use super::Parser;
+use super::{parse_stmt::is_stmt_start, Parser};
 use crate::{
-    ast::{self, Expr, ExprKind, Ident, UnOp},
+    ast::{self, Block, Expr, ExprKind, Ident, UnOp},
     lexer::{self, Token, TokenKind},
 };
 
@@ -10,6 +10,7 @@ pub fn is_expr_start(token: &Token) -> bool {
         TokenKind::NumLit(_)
             | TokenKind::Ident(_)
             | TokenKind::OpenParen
+            | TokenKind::OpenBrace
             | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
             | TokenKind::Return
             | TokenKind::True
@@ -152,7 +153,7 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false | ident ("(" ")")? | "(" expr ")"
+    /// primary ::= num | true | false | ident ("(" ")")? | "(" expr ")" | block
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = self.lexer.skip_token()?;
         match t.kind {
@@ -192,9 +193,29 @@ impl Parser {
                 }
                 Some(expr)
             }
+            TokenKind::OpenBrace => self.parse_block(),
             _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
                 None
+            }
+        }
+    }
+
+    /// block ::= "{" stmt* "}"
+    /// NOTE: "{" is already parsed
+    fn parse_block(&mut self) -> Option<Expr> {
+        let mut stmts = vec![];
+        loop {
+            let t = self.peek_token()?;
+            if is_stmt_start(t) {
+                let stmt = self.parse_stmt()?;
+                stmts.push(stmt);
+            } else if t.kind == TokenKind::CloseBrace {
+                self.skip_token();
+                return Some(Expr {
+                    kind: ExprKind::Block(Block { stmts }),
+                    id: self.get_next_id(),
+                });
             }
         }
     }

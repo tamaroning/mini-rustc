@@ -44,7 +44,8 @@ fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
 fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {
     v.visit_stmt(stmt);
     match &stmt.kind {
-        StmtKind::ExprStmt(expr) => walk_expr(v, expr),
+        StmtKind::Semi(expr) => walk_expr(v, expr),
+        StmtKind::Expr(expr) => walk_expr(v, expr),
         StmtKind::Let(let_stmt) => walk_let_stmt(v, let_stmt),
     }
     v.visit_stmt_post(stmt);
@@ -85,6 +86,11 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         }
         ExprKind::Call(ident) => {
             walk_ident(v, ident);
+        }
+        ExprKind::Block(block) => {
+            for stmt in &block.stmts {
+                walk_stmt(v, stmt);
+            }
         }
     }
     v.visit_expr_post(expr);

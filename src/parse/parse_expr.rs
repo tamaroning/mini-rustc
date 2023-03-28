@@ -1,6 +1,6 @@
-use super::{parse_stmt::is_stmt_start, Parser};
+use super::Parser;
 use crate::{
-    ast::{self, Block, Expr, ExprKind, Ident, UnOp},
+    ast::{self, Expr, ExprKind, Ident, UnOp},
     lexer::{self, Token, TokenKind},
 };
 

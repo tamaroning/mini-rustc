@@ -1,14 +1,15 @@
-use crate::ast::{Func, NodeId};
+use crate::ast::NodeId;
 use crate::ty::Ty;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Ctxt {
+    // move to typing context?
+    /// Result of typecheck
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
-    /// ref-node-id to def-node-id mappings
-    // resolved_names: HashMap<NodeId, NodeId>,
-    // node_mappings: HashMap<NodeId, Func>,
+    // move to typing context?
+    fn_types: HashMap<String, Rc<Ty>>,
     pub dump_enabled: bool,
 }
 
@@ -16,8 +17,7 @@ impl Ctxt {
     pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
             ty_mappings: HashMap::new(),
-            //resolved_names: HashMap::new(),
-            //node_mappings: HashMap::new(),
+            fn_types: HashMap::new(),
             dump_enabled,
         }
     }
@@ -30,6 +30,15 @@ impl Ctxt {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
     }
 
+    pub fn lookup_fn_type(&self, func_name: &String) -> Option<Rc<Ty>> {
+        self.fn_types.get(func_name).map(Rc::clone)
+    }
+
+    pub fn set_fn_type(&mut self, func_name: String, fn_ty: Rc<Ty>) {
+        self.fn_types.insert(func_name, fn_ty);
+    }
+
+    /*
     pub fn type_info(&self, ty: &Ty) -> TyInfo {
         let size = match ty {
             Ty::I32 => 4,
@@ -44,6 +53,7 @@ impl Ctxt {
     pub fn is_zst(&self, ty: &Ty) -> bool {
         self.type_info(ty).size == 0
     }
+    */
 }
 
 pub struct TyInfo {

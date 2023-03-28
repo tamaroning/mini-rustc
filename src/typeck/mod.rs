@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
     let mut checker = TypeChecker::new(ctx);
-    //ast::visitor::go(&mut checker, krate);
+    ast::visitor::go(&mut checker, krate);
     if checker.errors.is_empty() {
         Ok(())
     } else {
@@ -16,12 +16,12 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 
 struct TypeChecker<'chk> {
     local_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
-    current_return_type: Option<Rc<Ty>>,
+    current_return_type: Option<&'chk Ty>,
     ctx: &'chk mut Ctxt,
     errors: Vec<String>,
 }
 
-impl<'ctx> TypeChecker<'ctx> {
+impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             local_ty_mappings: HashMap::new(),
@@ -43,11 +43,11 @@ impl<'ctx> TypeChecker<'ctx> {
         self.local_ty_mappings.get(&ident.symbol).map(Rc::clone)
     }
 
-    fn peek_return_type(&self) -> &Rc<Ty> {
+    fn peek_return_type(&self) -> &Ty {
         self.current_return_type.as_ref().unwrap()
     }
 
-    fn push_return_type(&mut self, ty: Rc<Ty>) {
+    fn push_return_type(&mut self, ty: &'chk Ty) {
         self.current_return_type = Some(ty);
     }
 
@@ -57,8 +57,12 @@ impl<'ctx> TypeChecker<'ctx> {
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
-    fn visit_func(&mut self, _func: &'ctx ast::Func) {
-        self.push_return_type(Rc::new(Ty::I32));
+    fn visit_func(&mut self, func: &'ctx ast::Func) {
+        self.ctx.set_fn_type(
+            func.name.symbol.clone(),
+            Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty))),
+        );
+        self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
         self.pop_return_type();
@@ -136,7 +140,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             },
             ExprKind::Return(expr) => {
                 let actual_ret_ty = self.ctx.get_type(expr.id);
-                let expected_ret_ty = Rc::clone(self.current_return_type.as_ref().unwrap());
+                let expected_ret_ty = self.peek_return_type();
                 if *actual_ret_ty == *expected_ret_ty {
                     Rc::new(Ty::Never)
                 } else {
@@ -149,9 +153,17 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
             ExprKind::Call(ident) => {
                 // TODO: name resolution is required to typecheck call expr
-                todo!();
+                if let Some(fn_ty) = self.ctx.lookup_fn_type(&ident.symbol) {
+                    let Ty::Fn(_, ret_ty) = &*fn_ty else {
+                        panic!("ICE");
+                    };
+                    Rc::clone(ret_ty)
+                } else {
+                    self.error(format!("{} is not defined", ident.symbol));
+                    Rc::new(Ty::Error)
+                }
             }
-            ExprKind::Block(block) => {
+            ExprKind::Block(_block) => {
                 todo!()
             }
         };

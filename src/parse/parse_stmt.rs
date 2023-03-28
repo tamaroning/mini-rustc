@@ -59,7 +59,7 @@ impl Parser {
         })
     }
 
-    fn parse_type(&mut self) -> Option<Ty> {
+    pub fn parse_type(&mut self) -> Option<Ty> {
         let t = self.skip_token().unwrap();
         match &t.kind {
             // Unit type: ()

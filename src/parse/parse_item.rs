@@ -1,7 +1,8 @@
-use crate::ast::{Func, Stmt};
+use std::rc::Rc;
+
+use crate::ast::Func;
 use crate::lexer::{Token, TokenKind};
 
-use super::parse_stmt::is_stmt_start;
 use super::Parser;
 
 pub fn is_item_start(token: &Token) -> bool {
@@ -29,28 +30,14 @@ impl Parser {
         if !self.skip_expected_token(TokenKind::Arrow) {
             return None;
         }
-        if !self.skip_expected_token(TokenKind::I32) {
-            return None;
-        }
+        let ret_ty = self.parse_type()?;
         let block = self.parse_block()?;
 
         Some(Func {
             name,
+            ret_ty: Rc::new(ret_ty),
             body: block,
             id: self.get_next_id(),
         })
-    }
-
-    fn parse_stmts(&mut self) -> Option<Vec<Stmt>> {
-        let mut stmts = vec![];
-
-        while is_stmt_start(self.peek_token().unwrap()) {
-            if let Some(stmt) = self.parse_stmt() {
-                stmts.push(stmt);
-            } else {
-                return None;
-            }
-        }
-        Some(stmts)
     }
 }

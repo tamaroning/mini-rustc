@@ -143,6 +143,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
+            ExprKind::Call(ident) => {
+                todo!();
+            }
         };
         self.ctx.insert_type(expr.id, ty);
     }

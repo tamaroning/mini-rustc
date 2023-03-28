@@ -222,6 +222,11 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tret");
                 Ok(())
             }
+            ExprKind::Call(ident) => {
+                println!("\tcall {}", ident.symbol);
+                println!("\tpush rax");
+                Ok(())
+            }
         }
     }
 

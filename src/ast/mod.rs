@@ -55,6 +55,7 @@ pub enum ExprKind {
     Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
+    Call(Ident),
 }
 
 #[derive(Debug)]

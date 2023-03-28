@@ -152,7 +152,7 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false | ident | "(" expr ")"
+    /// primary ::= num | true | false | ident ("(" ")")? | "(" expr ")"
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = self.lexer.skip_token()?;
         match t.kind {
@@ -168,10 +168,22 @@ impl Parser {
                 kind: ExprKind::BoolLit(false),
                 id: self.get_next_id(),
             }),
-            TokenKind::Ident(symbol) => Some(Expr {
-                kind: ExprKind::Ident(Ident { symbol }),
-                id: self.get_next_id(),
-            }),
+            TokenKind::Ident(symbol) => {
+                let t = self.peek_token()?;
+                if t.kind == TokenKind::OpenParen {
+                    self.skip_token();
+                    self.skip_expected_token(TokenKind::CloseParen);
+                    Some(Expr {
+                        kind: ExprKind::Call(Ident { symbol }),
+                        id: self.get_next_id(),
+                    })
+                } else {
+                    Some(Expr {
+                        kind: ExprKind::Ident(Ident { symbol }),
+                        id: self.get_next_id(),
+                    })
+                }
+            }
             TokenKind::OpenParen => {
                 let expr = self.parse_expr()?;
                 if !self.skip_expected_token(TokenKind::CloseParen) {

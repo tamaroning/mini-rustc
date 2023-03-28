@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Func, Stmt};
+use crate::ast::{Func, Stmt};
 use crate::lexer::{Token, TokenKind};
 
 use super::parse_stmt::is_stmt_start;
@@ -14,6 +14,7 @@ impl Parser {
         self.parse_func()
     }
 
+    /// func ::= "fn" ident "(" ")" "->" i32 "{" stmt*  "}"
     pub fn parse_func(&mut self) -> Option<Func> {
         if !self.skip_expected_token(TokenKind::Fn) {
             return None;
@@ -23,6 +24,12 @@ impl Parser {
             return None;
         }
         if !self.skip_expected_token(TokenKind::CloseParen) {
+            return None;
+        }
+        if !self.skip_expected_token(TokenKind::Arrow) {
+            return None;
+        }
+        if !self.skip_expected_token(TokenKind::I32) {
             return None;
         }
 

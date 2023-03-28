@@ -21,7 +21,8 @@ pub enum TokenKind {
     Bool,
     True,
     False,
-    // Single-character symbols
+    /// ->
+    Arrow,
     /// !
     Bang,
     Eq,
@@ -118,6 +119,15 @@ impl Lexer {
                         Ok(Token::new(TokenKind::Bang))
                     }
                 }
+                '-' => {
+                    self.skip_input();
+                    if self.peek_input() == Some(&'>') {
+                        self.skip_input();
+                        Ok(Token::new(TokenKind::Arrow))
+                    } else {
+                        Ok(Token::new(TokenKind::BinOp(BinOp::Minus)))
+                    }
+                }
                 '>' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::BinOp(BinOp::Gt)))
@@ -153,10 +163,6 @@ impl Lexer {
                 '+' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::BinOp(BinOp::Plus)))
-                }
-                '-' => {
-                    self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::Minus)))
                 }
                 '*' => {
                     self.skip_input();

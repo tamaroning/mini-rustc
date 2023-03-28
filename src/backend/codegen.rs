@@ -1,7 +1,4 @@
-use crate::{
-    ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp},
-    ty::Ty,
-};
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
 use std::collections::HashMap;
 
 use super::BackendCtxt;

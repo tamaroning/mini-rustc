@@ -12,6 +12,7 @@ pub fn codegen(bctx: &BackendCtxt, krate: &Crate) -> Result<(), ()> {
 struct Codegen<'a, 'ctx> {
     bctx: &'a BackendCtxt<'a, 'ctx>,
     current_frame: Option<FrameInfo<'a>>,
+    next_label_id: u32,
 }
 
 #[derive(Debug)]
@@ -57,7 +58,14 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         Codegen {
             bctx,
             current_frame: None,
+            next_label_id: 0,
         }
+    }
+
+    fn get_new_label_id(&mut self) -> u32 {
+        let id = self.next_label_id;
+        self.next_label_id += 1;
+        id
     }
 
     fn push_current_frame(&mut self, frame: FrameInfo<'ctx>) {
@@ -120,14 +128,14 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         println!("\tret");
     }
 
-    fn codegen_stmts(&self, stmts: &Vec<Stmt>) -> Result<(), ()> {
+    fn codegen_stmts(&mut self, stmts: &Vec<Stmt>) -> Result<(), ()> {
         for stmt in stmts {
             self.codegen_stmt(stmt)?;
         }
         Ok(())
     }
 
-    fn codegen_stmt(&self, stmt: &Stmt) -> Result<(), ()> {
+    fn codegen_stmt(&mut self, stmt: &Stmt) -> Result<(), ()> {
         match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
@@ -145,7 +153,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         }
     }
 
-    fn codegen_expr(&self, expr: &Expr) -> Result<(), ()> {
+    fn codegen_expr(&mut self, expr: &Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::NumLit(n) => {
                 println!("#lit");
@@ -238,6 +246,26 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 // codegen_stmt results rax with the last result of computation in it
                 // so push it to stack
                 println!("\tpush rax");
+                Ok(())
+            }
+            ExprKind::If(cond, then, els) => {
+                let label_id = self.get_new_label_id();
+                self.codegen_expr(cond)?;
+                println!("\tpop rax");
+                println!("\tcmp rax, 0");
+                if els.is_some() {
+                    println!("\tje .Lelse{label_id}");
+                } else {
+                    println!("\tje .Lend{label_id}");
+                }
+                self.codegen_expr(then)?;
+
+                if let Some(els) = els {
+                    println!("\tjmp .Lend{label_id}");
+                    println!(".Lelse{label_id}:");
+                    self.codegen_expr(els)?;
+                }
+                println!(".Lend{label_id}:");
                 Ok(())
             }
         }

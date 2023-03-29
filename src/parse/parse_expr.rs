@@ -15,14 +15,16 @@ pub fn is_expr_start(token: &Token) -> bool {
             | TokenKind::Return
             | TokenKind::True
             | TokenKind::False
+            | TokenKind::If
     )
 }
 
 impl Parser {
-    /// expr ::= "return" expr | assign
+    /// expr ::= "return" expr | assign | ifExpr
     pub fn parse_expr(&mut self) -> Option<Expr> {
         let t = self.peek_token()?;
         match &t.kind {
+            TokenKind::If => self.parse_if_expr(),
             TokenKind::Return => {
                 self.skip_token();
                 let e = self.parse_expr()?;
@@ -33,6 +35,43 @@ impl Parser {
             }
             _ => self.parse_assign(),
         }
+    }
+
+    /// ifExpr ::= "if" expr  block ("else" block)?
+    fn parse_if_expr(&mut self) -> Option<Expr> {
+        if !self.skip_expected_token(TokenKind::If) {
+            eprintln!(
+                "Expected \"if\", but found {:?}",
+                self.peek_token().unwrap()
+            );
+            return None;
+        }
+        let cond = self.parse_expr()?;
+        let then_block = self.parse_block()?;
+        let t = self.peek_token()?;
+        let els = if t.kind == TokenKind::Else {
+            self.skip_token();
+            Some(self.parse_block()?)
+        } else {
+            None
+        };
+
+        Some(Expr {
+            kind: ExprKind::If(
+                Box::new(cond),
+                Box::new(Expr {
+                    kind: ExprKind::Block(then_block),
+                    id: self.get_next_id(),
+                }),
+                els.map(|bl| {
+                    Box::new(Expr {
+                        kind: ExprKind::Block(bl),
+                        id: self.get_next_id(),
+                    })
+                }),
+            ),
+            id: self.get_next_id(),
+        })
     }
 
     /// assign ::= equality ("=" assign)?

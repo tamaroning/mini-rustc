@@ -21,6 +21,8 @@ pub enum TokenKind {
     Bool,
     True,
     False,
+    If,
+    Else,
     /// ->
     Arrow,
     /// !
@@ -218,6 +220,12 @@ impl Lexer {
             },
             "fn" => Token {
                 kind: TokenKind::Fn,
+            },
+            "if" => Token {
+                kind: TokenKind::If,
+            },
+            "else" => Token {
+                kind: TokenKind::Else,
             },
             _ => Token {
                 kind: TokenKind::Ident(s),

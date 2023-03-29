@@ -12,6 +12,8 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_let_stmt_post(&mut self, _let_stmt: &'ctx LetStmt) {}
     fn visit_expr(&mut self, _expr: &'ctx Expr) {}
     fn visit_expr_post(&mut self, _expr: &'ctx Expr) {}
+    fn visit_block(&mut self, _block: &'ctx Block) {}
+    fn visit_block_post(&mut self, _block: &'ctx Block) {}
     fn visit_ident(&mut self, _ident: &'ctx Ident) {}
     fn visit_type(&mut self, _ty: &'ctx Ty) {}
 }
@@ -88,10 +90,23 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
             walk_ident(v, ident);
         }
         ExprKind::Block(block) => {
-            for stmt in &block.stmts {
-                walk_stmt(v, stmt);
+            walk_block(v, block);
+        }
+        ExprKind::If(cond, then, els) => {
+            walk_expr(v, cond);
+            walk_expr(v, then);
+            if let Some(els) = els {
+                walk_expr(v, els);
             }
         }
     }
     v.visit_expr_post(expr);
+}
+
+fn walk_block<'ctx, V: Visitor<'ctx>>(v: &mut V, block: &'ctx Block) {
+    v.visit_block(block);
+    for stmt in &block.stmts {
+        walk_stmt(v, stmt);
+    }
+    v.visit_block_post(block);
 }

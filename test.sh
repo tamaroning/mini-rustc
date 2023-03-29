@@ -53,6 +53,8 @@ assert 0 'fn tru() -> bool { return true; } fn main() -> i32 { tru(); return 0; 
 assert 2 'fn main() -> i32 { return {1; 2}; }'
 assert 3 'fn main() -> i32 { let a: i32; a = { 1; 2; 3 }; 4; return a; }'
 assert 10 'fn main() -> i32 { 10 }'
+assert 1 'fn main() -> i32 { if true { 1 } else { 0 } }'
+assert 4 'fn main() -> i32 { if false { 3 } else { 4 } }'
 
 compile_fail 'fn main() -> i32 { a; return 0; }'
 compile_fail 'fn main() -> i32 { let a: i32; let b: i32; a=10; a=(a=10); return a; }'

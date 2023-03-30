@@ -71,6 +71,8 @@ assert 10 'fn main() -> i32 { let arr: [i32; 10]; arr[4] = 10; arr[4] }'
 assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] = 4; arr2[arr[3] + 1] = 6; arr2[5] }'
 # empty func body
 assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
+# multi-dimension array
+assert 10 'fn main() -> i32 { let a: [[i32; 2]; 3]; a[2][1] = 10; a[2][1] }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

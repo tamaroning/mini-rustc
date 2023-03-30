@@ -183,11 +183,13 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false | ident | callExpr | indexExpr | ifExpr | returnExpr | "(" expr ")" | block
+    /// primary ::= num | true | false
+    ///     | ident | callExpr | indexExpr | ifExpr
+    ///     | returnExpr | "(" expr ")" | block
     /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = self.lexer.peek_token()?;
-        let primary = match t.kind {
+        let mut expr = match t.kind {
             TokenKind::NumLit(n) => {
                 self.skip_token();
                 Expr {
@@ -245,13 +247,18 @@ impl Parser {
                 return None;
             }
         };
-
-        let t = self.peek_token()?;
-        Some(match &t.kind {
-            TokenKind::OpenParen => self.parse_call_expr(primary)?,
-            TokenKind::OpenBracket => self.parse_index_expr(primary)?,
-            _ => primary,
-        })
+        // deal with tailing `(...)` (func call), `[...]` (indexing)
+        loop {
+            let t = self.peek_token()?;
+            match &t.kind {
+                TokenKind::OpenParen => {
+                    expr = self.parse_call_expr(expr)?;
+                }
+                TokenKind::OpenBracket => expr = self.parse_index_expr(expr)?,
+                _ => break,
+            }
+        }
+        Some(expr)
     }
 
     /// callExpr ::= primary "(" callParams? ")"
@@ -291,10 +298,17 @@ impl Parser {
     /// NOTE: first primary is already parsed
     fn parse_index_expr(&mut self, array_expr: Expr) -> Option<Expr> {
         // skip '['
-        self.skip_token();
+        if !self.skip_expected_token(TokenKind::OpenBracket) {
+            eprintln!("Expected '[', but found {:?}", self.peek_token()?);
+            return None;
+        }
         let index = self.parse_expr()?;
 
-        self.skip_expected_token(TokenKind::CloseBracket);
+        // skip ']'
+        if !self.skip_expected_token(TokenKind::CloseBracket) {
+            eprintln!("Expected ']', but found {:?}", self.peek_token()?);
+            return None;
+        }
         Some(Expr {
             kind: ExprKind::Index(Box::new(array_expr), Box::new(index)),
             id: self.get_next_id(),

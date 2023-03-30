@@ -20,7 +20,16 @@ impl Ty {
             Ty::Array(elem_ty, n) => elem_ty.get_size() * n,
             Ty::Fn(_, _) => 8, // = pointer size
             Ty::Never => 0,
-            Ty::Error => 0,
+            Ty::Error => panic!("ICE"),
         }
     }
+    /*
+    pub fn get_elem_type(&self) -> Option<Rc<Ty>> {
+        if let Ty::Array(elem_ty, _) = &self {
+            Some(Rc::clone(elem_ty))
+        } else {
+            None
+        }
+    }
+    */
 }

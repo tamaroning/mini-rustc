@@ -119,7 +119,11 @@ impl Parser {
             } else if t.kind == TokenKind::CloseBrace {
                 self.skip_token();
                 return Some(Block { stmts });
+            } else {
+                eprintln!("Expected '}}' or statement, but found {:?}", t);
+                break;
             }
         }
+        None
     }
 }

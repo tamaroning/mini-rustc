@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::ast;
 use crate::ast::visitor::{self};
-use crate::ty::Ty;
 
 const INIT_LOCAL_OR_PARAM_OFFSET: u32 = 16;
 
@@ -45,6 +44,7 @@ impl<'ctx> FrameInfo<'ctx> {
 struct FuncAnalyzer<'a> {
     current_offset: u32,
     frame_info: FrameInfo<'a>,
+    // FIXME: alignment
 }
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {

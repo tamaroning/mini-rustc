@@ -277,8 +277,9 @@ impl<'a> Codegen<'a> {
                 self.codegen_lval(array)?;
                 self.codegen_expr(index)?;
                 println!("\tpop rdi"); // index
-                println!("\tmov rax, 8");
-                println!("\tmul rdi"); // rax <- index *8
+                let elem_ty_size = self.ctx.get_type(expr.id).get_size();
+                println!("\tmov rax, {}", elem_ty_size);
+                println!("\tmul rdi"); // rax <- index * size_of(elem)
                 println!("\tpop rdi"); // rdi <- array base
                 println!("\tadd rax, rdi");
                 println!("\tpush rax");

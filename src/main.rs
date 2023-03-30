@@ -28,11 +28,11 @@ fn main() {
         exit(1);
     };
 
-    if dump_enabled {
+    let mut ctx = analysis::Ctxt::new(dump_enabled);
+
+    if ctx.dump_enabled {
         dbg!(&krate);
     }
-
-    let mut ctx = analysis::Ctxt::new(dump_enabled);
 
     let typeck_result = typeck::typeck(&mut ctx, &krate);
     let Ok(()) = typeck_result else {
@@ -44,10 +44,6 @@ fn main() {
         eprintln!("Failed to typecheck crate");
         exit(1);
     };
-
-    if dump_enabled {
-        dbg!(&ctx);
-    }
 
     let codegen_result = backend::compile(&ctx, &krate);
     let Ok(()) = codegen_result else {

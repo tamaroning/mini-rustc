@@ -1,10 +1,6 @@
-use crate::{
-    analysis::Ctxt,
-    ast::{self, BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp},
-};
-use std::collections::HashMap;
-
 use super::frame_info::FrameInfo;
+use crate::analysis::Ctxt;
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 

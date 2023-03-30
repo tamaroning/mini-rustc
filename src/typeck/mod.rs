@@ -83,10 +83,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 Rc::clone(ty)
             }
             StmtKind::Semi(_) => Rc::new(Ty::Unit),
-            StmtKind::Expr(expr) => {
-                let expr_ty = self.ctx.get_type(expr.id);
-                expr_ty
-            }
+            StmtKind::Expr(expr) => self.ctx.get_type(expr.id),
         };
         self.ctx.insert_type(stmt.id, ty);
     }

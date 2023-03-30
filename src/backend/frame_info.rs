@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::ast::visitor::{self, Visitor};
-use crate::{analysis::Ctxt, ast};
+use crate::ast;
+use crate::ast::visitor::{self};
 
 #[derive(Debug)]
 pub struct FrameInfo<'a> {

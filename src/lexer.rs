@@ -82,11 +82,13 @@ impl Lexer {
         self.char_stream.next()
     }
 
+    /*
     fn skip_input_by(&mut self, n: usize) {
         for _ in 0..n {
             self.char_stream.next();
         }
     }
+    */
 
     fn skip_whitespaces(&mut self) {
         while let Some(c) = self.peek_input()
@@ -291,7 +293,9 @@ fn test_peek() {
     assert_eq!(lexer.peek_input(), Some(&'1'));
     lexer.skip_input();
     assert_eq!(lexer.peek_input(), Some(&'2'));
-    lexer.skip_input_by(3);
+    lexer.skip_input();
+    lexer.skip_input();
+    lexer.skip_input();
     assert_eq!(lexer.peek_input(), Some(&'5'));
     assert_eq!(lexer.skip_input(), Some('5'));
     assert_eq!(lexer.skip_input(), Some('6'));

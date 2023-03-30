@@ -56,6 +56,8 @@ impl Ctxt {
     */
 }
 
+/*
 pub struct TyInfo {
     pub size: u32,
 }
+*/

@@ -71,7 +71,7 @@ impl Parser {
                     kind: ExprKind::Block(then_block),
                     id: self.get_next_id(),
                 }),
-                els.map(|expr| Box::new(expr)),
+                els.map(Box::new),
             ),
             id: self.get_next_id(),
         })

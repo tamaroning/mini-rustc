@@ -7,7 +7,7 @@ use crate::ty::Ty;
 use super::Parser;
 
 pub fn is_item_start(token: &Token) -> bool {
-    matches!(token.kind, TokenKind::Fn)
+    matches!(token.kind, TokenKind::Fn | TokenKind::Struct)
 }
 
 impl Parser {
@@ -81,7 +81,7 @@ impl Parser {
     fn parse_func_param(&mut self) -> Option<(Ident, Rc<Ty>)> {
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found {:?}", self.peek_token()?);
+            eprintln!("Expected ':', but found {:?}", self.peek_token());
             return None;
         }
         let ty = self.parse_type()?;
@@ -93,17 +93,23 @@ impl Parser {
             eprintln!("Expected \"struct\", but found {:?}", self.peek_token());
             return None;
         }
+        let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenBrace) {
             eprintln!("Expected '{{', but found {:?}", self.peek_token());
             return None;
         }
-        let fields = self.parse_struct_fields()?;
+
+        let fields = if matches!(self.peek_token().unwrap().kind, TokenKind::Ident(_)) {
+            self.parse_struct_fields()?
+        } else {
+            vec![]
+        };
         if !self.skip_expected_token(TokenKind::CloseBrace) {
             eprintln!("Expected '}}', but found {:?}", self.peek_token());
             return None;
         }
 
-        Some(StructItem { fields })
+        Some(StructItem { ident, fields })
     }
 
     fn parse_struct_fields(&mut self) -> Option<Vec<(Ident, Rc<Ty>)>> {
@@ -119,10 +125,11 @@ impl Parser {
         Some(fields)
     }
 
+    /// structField ::= ident ":" type
     fn parse_struct_field(&mut self) -> Option<(Ident, Rc<Ty>)> {
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found {:?}", self.peek_token()?);
+            eprintln!("Expected ':', but found {:?}", self.peek_token());
             return None;
         }
         let ty = self.parse_type()?;

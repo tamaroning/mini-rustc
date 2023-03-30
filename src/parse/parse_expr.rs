@@ -28,10 +28,7 @@ impl Parser {
     /// ifExpr ::= "if" expr  block ("else" (block | ifExpr))?
     fn parse_if_expr(&mut self) -> Option<Expr> {
         if !self.skip_expected_token(TokenKind::If) {
-            eprintln!(
-                "Expected \"if\", but found {:?}",
-                self.peek_token().unwrap()
-            );
+            eprintln!("Expected \"if\", but found {:?}", self.peek_token());
             return None;
         }
         let cond = self.parse_expr()?;
@@ -299,14 +296,14 @@ impl Parser {
     fn parse_index_expr(&mut self, array_expr: Expr) -> Option<Expr> {
         // skip '['
         if !self.skip_expected_token(TokenKind::OpenBracket) {
-            eprintln!("Expected '[', but found {:?}", self.peek_token()?);
+            eprintln!("Expected '[', but found {:?}", self.peek_token());
             return None;
         }
         let index = self.parse_expr()?;
 
         // skip ']'
         if !self.skip_expected_token(TokenKind::CloseBracket) {
-            eprintln!("Expected ']', but found {:?}", self.peek_token()?);
+            eprintln!("Expected ']', but found {:?}", self.peek_token());
             return None;
         }
         Some(Expr {

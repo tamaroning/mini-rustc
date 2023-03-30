@@ -23,6 +23,7 @@ pub enum ItemKind {
 
 #[derive(Debug)]
 pub struct StructItem {
+    pub ident: Ident,
     pub fields: Vec<(Ident, Rc<Ty>)>,
 }
 

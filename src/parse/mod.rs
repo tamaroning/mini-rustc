@@ -69,11 +69,7 @@ impl Parser {
         let mut items = vec![];
 
         while is_item_start(self.peek_token().unwrap()) {
-            if let Some(item) = self.parse_item() {
-                items.push(item);
-            } else {
-                return None;
-            }
+            items.push(self.parse_item()?);
         }
         Some(items)
     }

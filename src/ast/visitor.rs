@@ -90,8 +90,8 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Return(inner) => {
             walk_expr(v, inner);
         }
-        ExprKind::Call(ident, args) => {
-            walk_ident(v, ident);
+        ExprKind::Call(func, args) => {
+            walk_expr(v, func);
             for arg in args {
                 walk_expr(v, arg);
             }
@@ -106,8 +106,8 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
                 walk_expr(v, els);
             }
         }
-        ExprKind::Index(ident, index) => {
-            walk_ident(v, ident);
+        ExprKind::Index(array, index) => {
+            walk_expr(v, array);
             walk_expr(v, index);
         }
     }

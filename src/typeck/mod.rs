@@ -16,7 +16,7 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 
 struct TypeChecker<'chk> {
     // To allow shadowing, this contains func params
-    param_or_local_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
+    ident_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
     current_return_type: Option<&'chk Ty>,
     ctx: &'chk mut Ctxt,
     errors: Vec<String>,
@@ -25,7 +25,7 @@ struct TypeChecker<'chk> {
 impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
-            param_or_local_ty_mappings: HashMap::new(),
+            ident_ty_mappings: HashMap::new(),
             current_return_type: None,
             ctx,
             errors: vec![],
@@ -36,15 +36,12 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_param_or_local_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
-        self.param_or_local_ty_mappings
-            .insert(symbol, Rc::clone(&ty));
+    fn insert_ident_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
+        self.ident_ty_mappings.insert(symbol, Rc::clone(&ty));
     }
 
-    fn get_param_or_local_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
-        self.param_or_local_ty_mappings
-            .get(&ident.symbol)
-            .map(Rc::clone)
+    fn get_ident_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
+        self.ident_ty_mappings.get(&ident.symbol).map(Rc::clone)
     }
 
     fn peek_return_type(&self) -> &Ty {
@@ -63,12 +60,17 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         self.push_return_type(&func.ret_ty);
+        // TODO: param type
+        let func_ty = Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty)));
+        /*
         self.ctx.set_fn_type(
             func.name.symbol.clone(),
-            Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty))),
+            Rc::clone(&func_ty),
         );
+        */
+        self.insert_ident_type(&func.name.symbol, func_ty);
         for (param, param_ty) in &func.params {
-            self.insert_param_or_local_type(&param.symbol, Rc::clone(param_ty));
+            self.insert_ident_type(&param.symbol, Rc::clone(param_ty));
         }
     }
     fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
@@ -79,7 +81,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // TODO: typecheck StmtKind::Semi and StmtKind::Expr
         let ty: Rc<Ty> = match &stmt.kind {
             StmtKind::Let(LetStmt { ident, ty }) => {
-                self.insert_param_or_local_type(&ident.symbol, Rc::clone(ty));
+                self.insert_ident_type(&ident.symbol, Rc::clone(ty));
                 Rc::clone(ty)
             }
             StmtKind::Semi(_) => Rc::new(Ty::Unit),
@@ -142,7 +144,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Ident(ident) => match self.get_param_or_local_type(ident) {
+            ExprKind::Ident(ident) => match self.get_ident_type(ident) {
                 Some(ty) => ty,
                 None => {
                     self.error(format!("Could not find type of {}", ident.symbol));
@@ -162,15 +164,13 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Call(ident, _args) => {
+            ExprKind::Call(expr, _args) => {
                 // TODO: typecheck args
-                if let Some(fn_ty) = self.ctx.lookup_fn_type(&ident.symbol) {
-                    let Ty::Fn(_, ret_ty) = &*fn_ty else {
-                        panic!("ICE");
-                    };
-                    Rc::clone(ret_ty)
+                let maybe_func_ty = self.ctx.get_type(expr.id);
+                if let Ty::Fn(_param_ty, ret_ty) = &*maybe_func_ty {
+                    Rc::clone(&ret_ty)
                 } else {
-                    self.error(format!("{} is not defined", ident.symbol));
+                    self.error(format!("Expected fn type, but found {:?}", maybe_func_ty));
                     Rc::new(Ty::Error)
                 }
             }

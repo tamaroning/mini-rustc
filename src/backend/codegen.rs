@@ -1,6 +1,6 @@
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, Stmt, StmtKind, UnOp};
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
@@ -205,7 +205,7 @@ impl<'a> Codegen<'a> {
                 println!("\tret");
                 Ok(())
             }
-            ExprKind::Call(ident, args) => {
+            ExprKind::Call(func, args) => {
                 if args.len() > 6 {
                     todo!("number of args must be < 6");
                 }
@@ -215,7 +215,8 @@ impl<'a> Codegen<'a> {
                 for i in 0..args.len() {
                     println!("\tpop {}", PARAM_REGISTERS[i]);
                 }
-                println!("\tcall {}", ident.symbol);
+                let name = self.retrieve_name(func)?;
+                println!("\tcall {}", name.symbol);
                 println!("\tpush rax");
                 Ok(())
             }
@@ -275,6 +276,13 @@ impl<'a> Codegen<'a> {
         } else {
             eprintln!("Unknwon identifier: {}", ident.symbol);
             Err(())
+        }
+    }
+
+    fn retrieve_name<'b>(&'b self, expr: &'b Expr) -> Result<&Ident, ()> {
+        match &expr.kind {
+            ExprKind::Ident(ident) => Ok(ident),
+            _ => Err(()),
         }
     }
 }

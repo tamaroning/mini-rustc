@@ -20,21 +20,9 @@ pub fn is_expr_start(token: &Token) -> bool {
 }
 
 impl Parser {
-    /// expr ::= "return" expr | assign | ifExpr
+    /// expr ::= assign
     pub fn parse_expr(&mut self) -> Option<Expr> {
-        let t = self.peek_token()?;
-        match &t.kind {
-            TokenKind::If => self.parse_if_expr(),
-            TokenKind::Return => {
-                self.skip_token();
-                let e = self.parse_expr()?;
-                Some(Expr {
-                    kind: ExprKind::Return(Box::new(e)),
-                    id: self.get_next_id(),
-                })
-            }
-            _ => self.parse_assign(),
-        }
+        self.parse_assign()
     }
 
     /// ifExpr ::= "if" expr  block ("else" (block | ifExpr))?
@@ -195,45 +183,48 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false | ident | callExpr | indexExpr | "(" expr ")" | block
+    /// primary ::= num | true | false | ident | callExpr | indexExpr | ifExpr | returnExpr | "(" expr ")" | block
+    /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = self.lexer.peek_token()?;
-        match t.kind {
+        let primary = match t.kind {
             TokenKind::NumLit(n) => {
                 self.skip_token();
-                Some(Expr {
+                Expr {
                     kind: ExprKind::NumLit(n),
                     id: self.get_next_id(),
-                })
+                }
             }
             TokenKind::True => {
                 self.skip_token();
-                Some(Expr {
+                Expr {
                     kind: ExprKind::BoolLit(true),
                     id: self.get_next_id(),
-                })
+                }
             }
             TokenKind::False => {
                 self.skip_token();
-                Some(Expr {
+                Expr {
                     kind: ExprKind::BoolLit(false),
                     id: self.get_next_id(),
-                })
+                }
+            }
+            TokenKind::If => self.parse_if_expr()?,
+            TokenKind::Return => {
+                self.skip_token();
+                let e = self.parse_expr()?;
+                Expr {
+                    kind: ExprKind::Return(Box::new(e)),
+                    id: self.get_next_id(),
+                }
             }
             TokenKind::Ident(_) => {
                 let TokenKind::Ident(symbol) = self.skip_token()?.kind else {
                     unreachable!();
                 };
-                let t = self.peek_token()?;
-                if t.kind == TokenKind::OpenParen {
-                    self.parse_call_expr(symbol)
-                } else if t.kind == TokenKind::OpenBracket {
-                    self.parse_index_expr(symbol)
-                } else {
-                    Some(Expr {
-                        kind: ExprKind::Ident(Ident { symbol }),
-                        id: self.get_next_id(),
-                    })
+                Expr {
+                    kind: ExprKind::Ident(Ident { symbol }),
+                    id: self.get_next_id(),
                 }
             }
             TokenKind::OpenParen => {
@@ -243,22 +234,29 @@ impl Parser {
                     eprintln!("Expected ')', but found {:?}", self.peek_token());
                     return None;
                 }
-                Some(expr)
+                expr
             }
-            TokenKind::OpenBrace => Some(Expr {
+            TokenKind::OpenBrace => Expr {
                 kind: ExprKind::Block(self.parse_block()?),
                 id: self.get_next_id(),
-            }),
+            },
             _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
-                None
+                return None;
             }
-        }
+        };
+
+        let t = self.peek_token()?;
+        Some(match &t.kind {
+            TokenKind::OpenParen => self.parse_call_expr(primary)?,
+            TokenKind::OpenBracket => self.parse_index_expr(primary)?,
+            _ => primary,
+        })
     }
 
-    /// callExpr ::= ident "(" callParams? ")"
-    /// NOTE: ident is already parsed
-    fn parse_call_expr(&mut self, ident_sym: String) -> Option<Expr> {
+    /// callExpr ::= primary "(" callParams? ")"
+    /// NOTE: first primary is already parsed
+    fn parse_call_expr(&mut self, fn_expr: Expr) -> Option<Expr> {
         // skip '('
         self.skip_token();
         let args = if self.peek_token()?.kind == TokenKind::CloseParen {
@@ -269,7 +267,7 @@ impl Parser {
 
         self.skip_expected_token(TokenKind::CloseParen);
         Some(Expr {
-            kind: ExprKind::Call(Ident { symbol: ident_sym }, args),
+            kind: ExprKind::Call(Box::new(fn_expr), args),
             id: self.get_next_id(),
         })
     }
@@ -289,16 +287,16 @@ impl Parser {
         Some(args)
     }
 
-    /// callExpr ::= ident "[" expr "]"
-    /// NOTE: ident is already parsed
-    fn parse_index_expr(&mut self, ident_sym: String) -> Option<Expr> {
+    /// indexExpr ::= priamry "[" expr "]"
+    /// NOTE: first primary is already parsed
+    fn parse_index_expr(&mut self, array_expr: Expr) -> Option<Expr> {
         // skip '['
         self.skip_token();
         let index = self.parse_expr()?;
 
         self.skip_expected_token(TokenKind::CloseBracket);
         Some(Expr {
-            kind: ExprKind::Index(Ident { symbol: ident_sym }, Box::new(index)),
+            kind: ExprKind::Index(Box::new(array_expr), Box::new(index)),
             id: self.get_next_id(),
         })
     }

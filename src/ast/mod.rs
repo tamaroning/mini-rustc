@@ -60,11 +60,11 @@ pub enum ExprKind {
     Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
-    Call(Ident, Vec<Expr>),
+    Call(Box<Expr>, Vec<Expr>),
     Block(Block),
     /// cond, then (only block expr), else
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
-    Index(Ident, Box<Expr>),
+    Index(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug)]

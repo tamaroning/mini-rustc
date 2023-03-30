@@ -64,6 +64,7 @@ pub enum ExprKind {
     Block(Block),
     /// cond, then (only block expr), else
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
+    Index(Ident, Box<Expr>),
 }
 
 #[derive(Debug)]

@@ -188,6 +188,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 let then_ty = &self.ctx.get_type(then.id);
                 Rc::clone(then_ty)
             }
+            ExprKind::Index(ident, index) => {
+                todo!()
+            }
         };
         self.ctx.insert_type(expr.id, ty);
     }

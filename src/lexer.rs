@@ -35,6 +35,8 @@ pub enum TokenKind {
     OpenParen,
     CloseParen,
     OpenBrace,
+    CloseBracket,
+    OpenBracket,
     CloseBrace,
     BinOp(BinOp),
     /// Identifier
@@ -168,6 +170,14 @@ impl Lexer {
                 '}' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::CloseBrace))
+                }
+                '[' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::OpenBracket))
+                }
+                ']' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::CloseBracket))
                 }
                 '+' => {
                     self.skip_input();

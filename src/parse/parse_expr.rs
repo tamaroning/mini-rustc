@@ -195,7 +195,7 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false | ident ("(" ")")? | "(" expr ")" | block
+    /// primary ::= num | true | false | ident | callExpr | indexExpr | "(" expr ")" | block
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = self.lexer.peek_token()?;
         match t.kind {
@@ -227,6 +227,8 @@ impl Parser {
                 let t = self.peek_token()?;
                 if t.kind == TokenKind::OpenParen {
                     self.parse_call_expr(symbol)
+                } else if t.kind == TokenKind::OpenBracket {
+                    self.parse_index_expr(symbol)
                 } else {
                     Some(Expr {
                         kind: ExprKind::Ident(Ident { symbol }),
@@ -257,6 +259,7 @@ impl Parser {
     /// callExpr ::= ident "(" callParams? ")"
     /// NOTE: ident is already parsed
     fn parse_call_expr(&mut self, ident_sym: String) -> Option<Expr> {
+        // skip '('
         self.skip_token();
         let args = if self.peek_token()?.kind == TokenKind::CloseParen {
             vec![]
@@ -284,5 +287,19 @@ impl Parser {
             }
         }
         Some(args)
+    }
+
+    /// callExpr ::= ident "[" expr "]"
+    /// NOTE: ident is already parsed
+    fn parse_index_expr(&mut self, ident_sym: String) -> Option<Expr> {
+        // skip '['
+        self.skip_token();
+        let index = self.parse_expr()?;
+
+        self.skip_expected_token(TokenKind::CloseBracket);
+        Some(Expr {
+            kind: ExprKind::Index(Ident { symbol: ident_sym }, Box::new(index)),
+            id: self.get_next_id(),
+        })
     }
 }

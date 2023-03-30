@@ -7,5 +7,6 @@ pub enum Ty {
     I32,
     Bool,
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
+    Array(Rc<Ty>, u32),
     Error,
 }

@@ -246,6 +246,9 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
                 Ok(())
             }
+            ExprKind::Index(ident, index) => {
+                todo!()
+            }
         }
     }
 

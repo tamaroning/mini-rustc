@@ -80,6 +80,23 @@ impl Parser {
             TokenKind::I32 => Some(Ty::I32),
             // bool
             TokenKind::Bool => Some(Ty::Bool),
+            // [type; n]
+            TokenKind::OpenBracket => {
+                let elem_ty = self.parse_type()?;
+                if !self.skip_expected_token(TokenKind::Semi) {
+                    eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
+                    return None;
+                }
+                let t = self.skip_token()?;
+                let TokenKind::NumLit(n) = t.kind else {
+                    return None;
+                };
+                if !self.skip_expected_token(TokenKind::CloseBracket) {
+                    eprintln!("Expected ']', but found {:?}", self.peek_token().unwrap());
+                    return None;
+                }
+                Some(Ty::Array(Rc::new(elem_ty), n))
+            }
             _ => {
                 eprintln!("Expected type, but found {:?}", t);
                 None

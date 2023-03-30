@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::ast;
 use crate::ast::visitor::{self};
+use crate::ty::Ty;
 
 #[derive(Debug)]
 pub struct FrameInfo<'a> {
@@ -58,6 +59,9 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
         }
     }
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
+        if let Ty::Array(..) = *let_stmt.ty {
+            todo!();
+        }
         let local = LocalInfo {
             offset: self.current_offset,
             // assume size of type equals to 8

@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use super::BackendCtxt;
 
+const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
 pub fn codegen(bctx: &BackendCtxt, krate: &Crate) -> Result<(), ()> {
     let mut codegen = Codegen::new(bctx);
     codegen.codegen_crate(krate)?;
@@ -19,6 +21,7 @@ struct Codegen<'a, 'ctx> {
 struct FrameInfo<'a> {
     size: u32,
     locals: HashMap<&'a String, LocalInfo>,
+    args: HashMap<&'a String, LocalInfo>,
 }
 
 #[derive(Debug)]
@@ -31,6 +34,7 @@ struct LocalInfo {
 impl<'ctx> FrameInfo<'ctx> {
     fn new(bctx: &'ctx BackendCtxt) -> Self {
         let mut locals = HashMap::new();
+        let mut args = HashMap::new();
 
         let mut current_ofsset: u32 = 16;
         for sym in &bctx.locals {
@@ -44,6 +48,7 @@ impl<'ctx> FrameInfo<'ctx> {
         }
         FrameInfo {
             locals,
+            args,
             size: current_ofsset,
         }
     }
@@ -236,7 +241,16 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                 println!("\tret");
                 Ok(())
             }
-            ExprKind::Call(ident) => {
+            ExprKind::Call(ident, args) => {
+                if args.len() > 6 {
+                    todo!("number of args must be < 6");
+                }
+                for param in args {
+                    self.codegen_expr(param)?;
+                }
+                for i in 0..args.len() {
+                    println!("\tpop {}", PARAM_REGISTERS[i]);
+                }
                 println!("\tcall {}", ident.symbol);
                 println!("\tpush rax");
                 Ok(())

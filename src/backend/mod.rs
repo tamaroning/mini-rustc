@@ -6,8 +6,10 @@ use crate::ast::visitor;
 use crate::ast::{self, LetStmt};
 
 pub fn compile(ctx: &Ctxt, krate: &ast::Crate) -> Result<(), ()> {
+    // create context
     let mut bctx = BackendCtxt::new(ctx);
 
+    // collect information about stack frames
     let analyzer = &mut StackAnalyzer { bctx: &mut bctx };
     visitor::go(analyzer, krate);
 

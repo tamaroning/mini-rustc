@@ -86,8 +86,11 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Return(inner) => {
             walk_expr(v, inner);
         }
-        ExprKind::Call(ident) => {
+        ExprKind::Call(ident, args) => {
             walk_ident(v, ident);
+            for arg in args {
+                walk_expr(v, arg);
+            }
         }
         ExprKind::Block(block) => {
             walk_block(v, block);

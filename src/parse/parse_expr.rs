@@ -223,12 +223,7 @@ impl Parser {
                 };
                 let t = self.peek_token()?;
                 if t.kind == TokenKind::OpenParen {
-                    self.skip_token();
-                    self.skip_expected_token(TokenKind::CloseParen);
-                    Some(Expr {
-                        kind: ExprKind::Call(Ident { symbol }),
-                        id: self.get_next_id(),
-                    })
+                    self.parse_call_expr(symbol)
                 } else {
                     Some(Expr {
                         kind: ExprKind::Ident(Ident { symbol }),
@@ -254,5 +249,37 @@ impl Parser {
                 None
             }
         }
+    }
+
+    /// callExpr ::= ident "(" callParams? ")"
+    /// NOTE: ident is already parsed
+    fn parse_call_expr(&mut self, ident_sym: String) -> Option<Expr> {
+        self.skip_token();
+        let args = if self.peek_token()?.kind == TokenKind::CloseParen {
+            vec![]
+        } else {
+            self.parse_call_params()?
+        };
+
+        self.skip_expected_token(TokenKind::CloseParen);
+        Some(Expr {
+            kind: ExprKind::Call(Ident { symbol: ident_sym }, args),
+            id: self.get_next_id(),
+        })
+    }
+
+    /// callParams ::= callParam ("," callParam)* ","?
+    /// callParam = expr
+    fn parse_call_params(&mut self) -> Option<Vec<Expr>> {
+        let mut args = vec![];
+        args.push(self.parse_expr()?);
+
+        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+            self.skip_token();
+            if is_expr_start(self.peek_token()?) {
+                args.push(self.parse_expr()?);
+            }
+        }
+        Some(args)
     }
 }

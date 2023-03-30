@@ -13,6 +13,7 @@ pub struct Crate {
 #[derive(Debug)]
 pub struct Func {
     pub name: Ident,
+    pub params: Vec<(Ident, Rc<Ty>)>,
     pub ret_ty: Rc<Ty>,
     pub body: Block,
     pub id: NodeId,
@@ -59,7 +60,7 @@ pub enum ExprKind {
     Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
-    Call(Ident),
+    Call(Ident, Vec<Expr>),
     Block(Block),
     /// cond, then (only block expr), else
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),

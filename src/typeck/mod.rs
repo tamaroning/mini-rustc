@@ -158,8 +158,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Call(ident) => {
-                // TODO: name resolution is required to typecheck call expr
+            ExprKind::Call(ident, _args) => {
+                // TODO: typecheck args
                 if let Some(fn_ty) = self.ctx.lookup_fn_type(&ident.symbol) {
                     let Ty::Fn(_, ret_ty) = &*fn_ty else {
                         panic!("ICE");
@@ -179,8 +179,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Unit)
                 }
             }
-            ExprKind::If(cond, then, els) => {
-                // TODO:
+            ExprKind::If(_cond, then, _els) => {
+                // TODO: typecheck cond and els
                 let then_ty = &self.ctx.get_type(then.id);
                 Rc::clone(then_ty)
             }

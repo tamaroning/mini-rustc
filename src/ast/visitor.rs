@@ -22,6 +22,10 @@ pub fn go<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
     walk_crate(v, krate);
 }
 
+pub fn go_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
+    walk_func(v, func);
+}
+
 fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
     v.visit_crate(krate);
     for func in &krate.items {

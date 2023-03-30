@@ -1,67 +1,29 @@
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp};
+use crate::{
+    analysis::Ctxt,
+    ast::{self, BinOp, Crate, Expr, ExprKind, Func, Stmt, StmtKind, UnOp},
+};
 use std::collections::HashMap;
 
-use super::BackendCtxt;
+use super::frame_info::FrameInfo;
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-pub fn codegen(bctx: &BackendCtxt, krate: &Crate) -> Result<(), ()> {
-    let mut codegen = Codegen::new(bctx);
+pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
+    let mut codegen = Codegen::new(ctx);
     codegen.codegen_crate(krate)?;
     Ok(())
 }
 
-struct Codegen<'a, 'ctx> {
-    bctx: &'a BackendCtxt<'a, 'ctx>,
+struct Codegen<'a> {
+    ctx: &'a Ctxt,
     current_frame: Option<FrameInfo<'a>>,
     next_label_id: u32,
 }
 
-#[derive(Debug)]
-struct FrameInfo<'a> {
-    size: u32,
-    locals: HashMap<&'a String, LocalInfo>,
-    args: HashMap<&'a String, LocalInfo>,
-}
-
-#[derive(Debug)]
-struct LocalInfo {
-    offset: u32,
-    size: u32,
-    // align: u32,
-}
-
-impl<'ctx> FrameInfo<'ctx> {
-    fn new(bctx: &'ctx BackendCtxt) -> Self {
-        let mut locals = HashMap::new();
-        let mut args = HashMap::new();
-
-        let mut current_ofsset: u32 = 16;
-        for sym in &bctx.locals {
-            let local = LocalInfo {
-                offset: current_ofsset,
-                // assume size of type equals to 8
-                size: 8,
-            };
-            locals.insert(*sym, local);
-            current_ofsset += 8;
-        }
-        FrameInfo {
-            locals,
-            args,
-            size: current_ofsset,
-        }
-    }
-
-    fn get_local_info(&self, symbol: &String) -> Option<&LocalInfo> {
-        self.locals.get(symbol)
-    }
-}
-
-impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
-    fn new(bctx: &'a BackendCtxt<'a, 'ctx>) -> Self {
+impl<'a> Codegen<'a> {
+    fn new(ctx: &'a Ctxt) -> Self {
         Codegen {
-            bctx,
+            ctx,
             current_frame: None,
             next_label_id: 0,
         }
@@ -73,7 +35,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         id
     }
 
-    fn push_current_frame(&mut self, frame: FrameInfo<'ctx>) {
+    fn push_current_frame(&mut self, frame: FrameInfo<'a>) {
         self.current_frame = Some(frame);
     }
 
@@ -91,7 +53,7 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         self.current_frame = None;
     }
 
-    fn codegen_crate(&mut self, krate: &Crate) -> Result<(), ()> {
+    fn codegen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(".intel_syntax noprefix");
         println!(".globl main");
         for func in &krate.items {
@@ -100,17 +62,15 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         Ok(())
     }
 
-    fn codegen_func(&mut self, func: &Func) -> Result<(), ()> {
-        let frame = FrameInfo::new(self.bctx);
-        if self.bctx.ctx.dump_enabled {
+    fn codegen_func(&mut self, func: &'a Func) -> Result<(), ()> {
+        let frame = FrameInfo::compute(func);
+        if self.ctx.dump_enabled {
             dbg!(&frame);
         }
         self.push_current_frame(frame);
 
         println!("{}:", func.name.symbol);
         self.codegen_func_prologue()?;
-        // return 0 for empty body
-        println!("\tmov rax, 0");
         self.codegen_stmts(&func.body.stmts)?;
         // codegen of the last stmt results the last computation result stored in rax
         self.codegen_func_epilogue();
@@ -124,6 +84,9 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
         println!("\tpush rbp");
         println!("\tmov rbp, rsp");
         println!("\tsub rsp, {}", frame.size);
+        for (i, (_, local)) in frame.args.iter().enumerate() {
+            println!("\tmov [rbp-{}], {}", local.offset, PARAM_REGISTERS[i]);
+        }
         Ok(())
     }
 
@@ -207,6 +170,11 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
                         // NOTE: Result of mul is stored to rax
                         println!("\tmul rdi");
                     }
+                    BinOp::Eq => {
+                        println!("\tcmp rax,rdi");
+                        println!("\tsete al");
+                        println!("\tmovzb rax, al");
+                    }
                     _ => todo!(),
                 };
                 println!("\tpush rax");
@@ -287,17 +255,27 @@ impl<'a: 'ctx, 'ctx> Codegen<'a, 'ctx> {
 
     fn codegen_lval(&self, expr: &Expr) -> Result<(), ()> {
         let ExprKind::Ident(ident) = &expr.kind else {
-            eprintln!("Expected ident, but found {:?}", expr);
+            eprintln!("ICE: Cannot codegen {:?} as lval", expr);
             return Err(());
         };
-        let Some(local) = self.get_current_frame().get_local_info(&ident.symbol) else {
+        // Try to find ident in all locals
+        if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
+            println!("#lval");
+            println!("\tmov rax, rbp");
+            println!("\tsub rax, {}", local.offset);
+            println!("\tpush rax");
+            Ok(())
+        }
+        // Try to find ident in all args
+        else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
+            println!("#lval");
+            println!("\tmov rax, rbp");
+            println!("\tsub rax, {}", arg.offset);
+            println!("\tpush rax");
+            Ok(())
+        } else {
             eprintln!("Unknwon identifier: {}", ident.symbol);
-            return Err(());
-        };
-        println!("#lval");
-        println!("\tmov rax, rbp");
-        println!("\tsub rax, {}", local.offset);
-        println!("\tpush rax");
-        Ok(())
+            Err(())
+        }
     }
 }

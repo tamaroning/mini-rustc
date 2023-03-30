@@ -37,7 +37,7 @@ impl Parser {
         }
     }
 
-    /// ifExpr ::= "if" expr  block ("else" block)?
+    /// ifExpr ::= "if" expr  block ("else" (block | ifExpr))?
     fn parse_if_expr(&mut self) -> Option<Expr> {
         if !self.skip_expected_token(TokenKind::If) {
             eprintln!(
@@ -51,7 +51,15 @@ impl Parser {
         let t = self.peek_token()?;
         let els = if t.kind == TokenKind::Else {
             self.skip_token();
-            Some(self.parse_block()?)
+            let t = self.peek_token()?;
+            if t.kind == TokenKind::If {
+                Some(self.parse_if_expr()?)
+            } else {
+                Some(Expr {
+                    kind: ExprKind::Block(self.parse_block()?),
+                    id: self.get_next_id(),
+                })
+            }
         } else {
             None
         };
@@ -63,12 +71,7 @@ impl Parser {
                     kind: ExprKind::Block(then_block),
                     id: self.get_next_id(),
                 }),
-                els.map(|bl| {
-                    Box::new(Expr {
-                        kind: ExprKind::Block(bl),
-                        id: self.get_next_id(),
-                    })
-                }),
+                els.map(|expr| Box::new(expr)),
             ),
             id: self.get_next_id(),
         })

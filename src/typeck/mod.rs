@@ -15,7 +15,8 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 }
 
 struct TypeChecker<'chk> {
-    local_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
+    // To allow shadowing, this contains func params
+    param_or_local_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
     current_return_type: Option<&'chk Ty>,
     ctx: &'chk mut Ctxt,
     errors: Vec<String>,
@@ -24,7 +25,7 @@ struct TypeChecker<'chk> {
 impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
-            local_ty_mappings: HashMap::new(),
+            param_or_local_ty_mappings: HashMap::new(),
             current_return_type: None,
             ctx,
             errors: vec![],
@@ -35,12 +36,15 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_local_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
-        self.local_ty_mappings.insert(symbol, Rc::clone(&ty));
+    fn insert_param_or_local_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
+        self.param_or_local_ty_mappings
+            .insert(symbol, Rc::clone(&ty));
     }
 
-    fn get_local_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
-        self.local_ty_mappings.get(&ident.symbol).map(Rc::clone)
+    fn get_param_or_local_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
+        self.param_or_local_ty_mappings
+            .get(&ident.symbol)
+            .map(Rc::clone)
     }
 
     fn peek_return_type(&self) -> &Ty {
@@ -63,6 +67,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             func.name.symbol.clone(),
             Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty))),
         );
+        for (param, param_ty) in &func.params {
+            self.insert_param_or_local_type(&param.symbol, Rc::clone(param_ty));
+        }
     }
     fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
         self.pop_return_type();
@@ -72,7 +79,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // TODO: typecheck StmtKind::Semi and StmtKind::Expr
         let ty: Rc<Ty> = match &stmt.kind {
             StmtKind::Let(LetStmt { ident, ty }) => {
-                self.insert_local_type(&ident.symbol, Rc::clone(ty));
+                self.insert_param_or_local_type(&ident.symbol, Rc::clone(ty));
                 Rc::clone(ty)
             }
             StmtKind::Semi(_) => Rc::new(Ty::Unit),
@@ -138,7 +145,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Ident(ident) => match self.get_local_type(ident) {
+            ExprKind::Ident(ident) => match self.get_param_or_local_type(ident) {
                 Some(ty) => ty,
                 None => {
                     self.error(format!("Could not find type of {}", ident.symbol));

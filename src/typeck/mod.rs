@@ -15,7 +15,7 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 }
 
 struct TypeChecker<'chk> {
-    // To allow shadowing, this contains func params
+    // local variables, paramters
     ident_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
     current_return_type: Option<&'chk Ty>,
     ctx: &'chk mut Ctxt,
@@ -62,12 +62,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.push_return_type(&func.ret_ty);
         // TODO: param type
         let func_ty = Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty)));
-        /*
-        self.ctx.set_fn_type(
-            func.name.symbol.clone(),
-            Rc::clone(&func_ty),
-        );
-        */
+
+        self.ctx
+            .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
         self.insert_ident_type(&func.name.symbol, func_ty);
         for (param, param_ty) in &func.params {
             self.insert_ident_type(&param.symbol, Rc::clone(param_ty));
@@ -144,13 +141,23 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Ident(ident) => match self.get_ident_type(ident) {
-                Some(ty) => ty,
-                None => {
-                    self.error(format!("Could not find type of {}", ident.symbol));
-                    Rc::new(Ty::Error)
+            ExprKind::Ident(ident) => {
+                // lookup function name at first
+                if let Some(ty) = self.ctx.lookup_fn_type(&ident.symbol) {
+                    ty
                 }
-            },
+                // then find symbols in local variables and in parameters
+                else {
+                    match self.get_ident_type(ident) {
+                        // TODO: lookup functions
+                        Some(ty) => ty,
+                        None => {
+                            self.error(format!("Could not find type of {}", ident.symbol));
+                            Rc::new(Ty::Error)
+                        }
+                    }
+                }
+            }
             ExprKind::Return(expr) => {
                 let actual_ret_ty = self.ctx.get_type(expr.id);
                 let expected_ret_ty = self.peek_return_type();

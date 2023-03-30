@@ -58,6 +58,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
+    // TODO: typcheck func call before finding declaration of it
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         self.push_return_type(&func.ret_ty);
         // TODO: param type
@@ -192,11 +193,18 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
             ExprKind::If(_cond, then, _els) => {
                 // TODO: typecheck cond and els
-                let then_ty = &self.ctx.get_type(then.id);
-                Rc::clone(then_ty)
+                let then_ty = self.ctx.get_type(then.id);
+                then_ty
             }
-            ExprKind::Index(ident, index) => {
-                todo!()
+            ExprKind::Index(array, _index) => {
+                let maybe_array_ty = self.ctx.get_type(array.id);
+                // TODO: typecheck index
+                if let Ty::Array(elem_ty, _) = &*maybe_array_ty {
+                    Rc::clone(elem_ty)
+                } else {
+                    self.error(format!("type {:?} cannot be indexed", maybe_array_ty));
+                    Rc::new(Ty::Error)
+                }
             }
         };
         self.ctx.insert_type(expr.id, ty);

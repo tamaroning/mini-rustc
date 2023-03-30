@@ -176,8 +176,8 @@ impl<'a> Codegen<'a> {
                 println!("\tpush rax");
                 Ok(())
             }
-            ExprKind::Ident(_ident) => {
-                println!("#ident");
+            ExprKind::Ident(_) | ExprKind::Index(_, _) => {
+                println!("#ident or index");
                 self.codegen_lval(expr)?;
                 println!("\tpop rax");
                 // TODO: use al, ax, eax for type whose size is < 8
@@ -194,7 +194,7 @@ impl<'a> Codegen<'a> {
                 println!("\tmov [rax], rdi");
                 // TODO: It is better not to push to stack
                 // push dummy similarly to other exprs for simplicity
-                println!("\tpush 99");
+                println!("\tpush 99 # unit");
                 Ok(())
             }
             ExprKind::Return(inner) => {
@@ -247,35 +247,47 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
                 Ok(())
             }
-            ExprKind::Index(ident, index) => {
-                todo!()
-            }
         }
     }
 
-    fn codegen_lval(&self, expr: &Expr) -> Result<(), ()> {
-        let ExprKind::Ident(ident) = &expr.kind else {
-            eprintln!("ICE: Cannot codegen {:?} as lval", expr);
-            return Err(());
-        };
-        // Try to find ident in all locals
-        if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
-            println!("#lval");
-            println!("\tmov rax, rbp");
-            println!("\tsub rax, {}", local.offset);
-            println!("\tpush rax");
-            Ok(())
-        }
-        // Try to find ident in all args
-        else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
-            println!("#lval");
-            println!("\tmov rax, rbp");
-            println!("\tsub rax, {}", arg.offset);
-            println!("\tpush rax");
-            Ok(())
-        } else {
-            eprintln!("Unknwon identifier: {}", ident.symbol);
-            Err(())
+    fn codegen_lval(&mut self, expr: &Expr) -> Result<(), ()> {
+        match &expr.kind {
+            ExprKind::Ident(ident) => {
+                // Try to find ident in all locals
+                if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
+                    println!("#lval");
+                    println!("\tmov rax, rbp");
+                    println!("\tsub rax, {}", local.offset);
+                    println!("\tpush rax");
+                    Ok(())
+                }
+                // Try to find ident in all args
+                else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
+                    println!("#lval");
+                    println!("\tmov rax, rbp");
+                    println!("\tsub rax, {}", arg.offset);
+                    println!("\tpush rax");
+                    Ok(())
+                } else {
+                    eprintln!("Unknwon identifier: {}", ident.symbol);
+                    Err(())
+                }
+            }
+            ExprKind::Index(array, index) => {
+                self.codegen_lval(array)?;
+                self.codegen_expr(index)?;
+                println!("\tpop rdi"); // index
+                println!("\tmov rax, 8");
+                println!("\tmul rdi"); // rax <- index *8
+                println!("\tpop rdi"); // rdi <- array base
+                println!("\tadd rax, rdi");
+                println!("\tpush rax");
+                Ok(())
+            }
+            _ => {
+                eprintln!("ICE: Cannot codegen {:?} as lval", expr);
+                return Err(());
+            }
         }
     }
 

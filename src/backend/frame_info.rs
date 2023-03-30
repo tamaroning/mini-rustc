@@ -59,16 +59,18 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
         }
     }
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        if let Ty::Array(..) = *let_stmt.ty {
-            todo!();
-        }
+        let size = if let Ty::Array(_elem_ty, n) = &*let_stmt.ty {
+            8 * n
+        } else {
+            8
+        };
         let local = LocalInfo {
             offset: self.current_offset,
             // assume size of type equals to 8
-            size: 8,
+            size,
         };
         self.frame_info.locals.insert(&let_stmt.ident.symbol, local);
-        self.current_offset += 8;
-        self.frame_info.size += 8;
+        self.current_offset += size;
+        self.frame_info.size += size;
     }
 }

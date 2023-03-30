@@ -62,7 +62,12 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         self.push_return_type(&func.ret_ty);
         // TODO: param type
-        let func_ty = Rc::new(Ty::Fn(vec![], Rc::clone(&func.ret_ty)));
+        let param_tys = func
+            .params
+            .iter()
+            .map(|(_ident, ty)| Rc::clone(ty))
+            .collect();
+        let func_ty = Rc::new(Ty::Fn(param_tys, Rc::clone(&func.ret_ty)));
 
         self.ctx
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
@@ -172,11 +177,34 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Call(expr, _args) => {
-                // TODO: typecheck args
+            ExprKind::Call(expr, args) => {
                 let maybe_func_ty = self.ctx.get_type(expr.id);
-                if let Ty::Fn(_param_ty, ret_ty) = &*maybe_func_ty {
-                    Rc::clone(&ret_ty)
+                if let Ty::Fn(param_ty, ret_ty) = &*maybe_func_ty {
+                    if param_ty.len() == args.len() {
+                        let mut ok = true;
+                        for (arg, param_ty) in args.iter().zip(param_ty.iter()) {
+                            let arg_ty = &self.ctx.get_type(arg.id);
+                            if arg_ty != param_ty {
+                                self.error(format!(
+                                    "Expected {:?} type argument, but found {:?} type",
+                                    param_ty, arg_ty
+                                ));
+                                ok = false;
+                            }
+                        }
+                        if ok {
+                            Rc::clone(&ret_ty)
+                        } else {
+                            Rc::new(Ty::Error)
+                        }
+                    } else {
+                        self.error(format!(
+                            "Expected {} arguments, but found {}",
+                            param_ty.len(),
+                            args.len()
+                        ));
+                        Rc::new(Ty::Error)
+                    }
                 } else {
                     self.error(format!("Expected fn type, but found {:?}", maybe_func_ty));
                     Rc::new(Ty::Error)

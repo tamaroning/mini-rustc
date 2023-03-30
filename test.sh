@@ -68,6 +68,7 @@ assert 10 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(4) + id(6) }'
 assert 8 'fn fib(n: i32) -> i32 { if n == 0 { 1 } else if n == 1 { 1 } else { fib(n-1) + fib(n-2) } } fn main() -> i32 { fib(5) }'
 # array
 assert 10 'fn main() -> i32 { let arr: [i32; 10]; arr[4] = 10; arr[4] }'
+assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] = 4; arr2[arr[3] + 1] = 6; arr2[5] }'
 # empty func body
 assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
 
@@ -87,5 +88,9 @@ compile_fail 'fn main() -> i32 { return (1+true)*2; }'
 compile_fail 'fn main() -> i32 { return true; }'
 # unexpected type of block expression
 compile_fail 'fn main() -> i32 { let a: i32; a = { 1; true }; }'
+# mismatch number of arguments
+compile_fail 'fn take_three(a: i32, b: i32, c: i32) -> () { } fn main() -> i32 { take_three(1, 2); 0 }'
+# mismatch type of argument
+compile_fail 'fn take_bool(b: bool) -> () { } fn main() -> i32 { take_bool(0); 0 }'
 
 echo OK

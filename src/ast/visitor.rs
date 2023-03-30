@@ -6,6 +6,8 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
     fn visit_func(&mut self, _func: &'ctx Func) {}
     fn visit_func_post(&mut self, _func: &'ctx Func) {}
+    fn visit_struct_item(&mut self, _struct: &'ctx StructItem) {}
+    fn visit_struct_item_post(&mut self, _struct: &'ctx StructItem) {}
     fn visit_stmt(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_stmt_post(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_let_stmt(&mut self, _let_stmt: &'ctx LetStmt) {}
@@ -28,9 +30,16 @@ pub fn go_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
 
 fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
     v.visit_crate(krate);
-    for func in &krate.items {
+    for item in &krate.items {
         {
-            walk_func(v, func);
+            match &item.kind {
+                ItemKind::Func(func) => {
+                    walk_func(v, func);
+                }
+                ItemKind::Struct(struct_item) => {
+                    walk_struct_item(v, struct_item);
+                }
+            }
         }
     }
     v.visit_crate_post(krate);
@@ -45,6 +54,17 @@ fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
         }
     }
     v.visit_func_post(func);
+}
+
+fn walk_struct_item<'ctx, V: Visitor<'ctx>>(v: &mut V, struct_item: &'ctx StructItem) {
+    v.visit_struct_item(struct_item);
+    for (ident, ty) in &struct_item.fields {
+        {
+            walk_ident(v, ident);
+            walk_type(v, ty);
+        }
+    }
+    v.visit_struct_item_post(struct_item);
 }
 
 fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {

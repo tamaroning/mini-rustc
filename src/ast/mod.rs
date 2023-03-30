@@ -7,7 +7,23 @@ pub type NodeId = u32;
 
 #[derive(Debug)]
 pub struct Crate {
-    pub items: Vec<Func>,
+    pub items: Vec<Item>,
+}
+
+#[derive(Debug)]
+pub struct Item {
+    pub kind: ItemKind,
+}
+
+#[derive(Debug)]
+pub enum ItemKind {
+    Func(Func),
+    Struct(StructItem),
+}
+
+#[derive(Debug)]
+pub struct StructItem {
+    pub fields: Vec<(Ident, Rc<Ty>)>,
 }
 
 #[derive(Debug)]

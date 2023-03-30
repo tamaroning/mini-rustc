@@ -1,6 +1,6 @@
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, Stmt, StmtKind, UnOp};
+use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, Stmt, StmtKind, UnOp};
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
@@ -52,8 +52,13 @@ impl<'a> Codegen<'a> {
     fn codegen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(".intel_syntax noprefix");
         println!(".globl main");
-        for func in &krate.items {
-            self.codegen_func(func)?;
+        for item in &krate.items {
+            match &item.kind {
+                ItemKind::Func(func) => {
+                    self.codegen_func(func)?;
+                }
+                ItemKind::Struct(_) => (),
+            }
         }
         Ok(())
     }

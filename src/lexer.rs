@@ -23,6 +23,7 @@ pub enum TokenKind {
     False,
     If,
     Else,
+    Struct,
     /// ->
     Arrow,
     /// !
@@ -243,6 +244,9 @@ impl Lexer {
             },
             "else" => Token {
                 kind: TokenKind::Else,
+            },
+            "struct" => Token {
+                kind: TokenKind::Struct,
             },
             _ => Token {
                 kind: TokenKind::Ident(s),

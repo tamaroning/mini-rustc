@@ -7,6 +7,7 @@ pub enum Ty {
     I32,
     Array(Rc<Ty>, u32),
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
+    Adt(String),
     Never,
     Error,
 }
@@ -19,6 +20,7 @@ impl Ty {
             Ty::I32 => 8,  // TODO: 4
             Ty::Array(elem_ty, n) => elem_ty.get_size() * n,
             Ty::Fn(_, _) => 8, // = pointer size
+            Ty::Adt(_) => todo!(),
             Ty::Never => 0,
             Ty::Error => panic!("ICE"),
         }

@@ -3,7 +3,7 @@ mod parse_item;
 mod parse_stmt;
 
 use self::parse_item::is_item_start;
-use crate::ast::{Crate, Func, Ident};
+use crate::ast::{Crate, Func, Ident, Item};
 use crate::lexer::{Lexer, Token, TokenKind};
 
 pub struct Parser {
@@ -65,7 +65,7 @@ impl Parser {
         Some(Crate { items })
     }
 
-    fn parse_items(&mut self) -> Option<Vec<Func>> {
+    fn parse_items(&mut self) -> Option<Vec<Item>> {
         let mut items = vec![];
 
         while is_item_start(self.peek_token().unwrap()) {

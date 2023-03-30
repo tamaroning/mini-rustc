@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{Func, Ident};
+use crate::ast::{Func, Ident, Item, ItemKind, StructItem};
 use crate::lexer::{Token, TokenKind};
 use crate::ty::Ty;
 
@@ -12,8 +12,20 @@ pub fn is_item_start(token: &Token) -> bool {
 
 impl Parser {
     /// item ::= func
-    pub fn parse_item(&mut self) -> Option<Func> {
-        self.parse_func()
+    pub fn parse_item(&mut self) -> Option<Item> {
+        let t = self.peek_token()?;
+        match &t.kind {
+            TokenKind::Fn => Some(Item {
+                kind: ItemKind::Func(self.parse_func()?),
+            }),
+            TokenKind::Struct => Some(Item {
+                kind: ItemKind::Struct(self.parse_struct_item()?),
+            }),
+            _ => {
+                eprintln!("Expected item, but found {:?}", self.peek_token());
+                None
+            }
+        }
     }
 
     /// func ::= "fn" ident "(" funcParams? ")" "->" "i32" block
@@ -74,5 +86,46 @@ impl Parser {
         }
         let ty = self.parse_type()?;
         Some((ident, Rc::new(ty)))
+    }
+
+    fn parse_struct_item(&mut self) -> Option<StructItem> {
+        if !self.skip_expected_token(TokenKind::Struct) {
+            eprintln!("Expected \"struct\", but found {:?}", self.peek_token());
+            return None;
+        }
+        if !self.skip_expected_token(TokenKind::OpenBrace) {
+            eprintln!("Expected '{{', but found {:?}", self.peek_token());
+            return None;
+        }
+        let fields = self.parse_struct_fields()?;
+        if !self.skip_expected_token(TokenKind::CloseBrace) {
+            eprintln!("Expected '}}', but found {:?}", self.peek_token());
+            return None;
+        }
+
+        Some(StructItem { fields })
+    }
+
+    fn parse_struct_fields(&mut self) -> Option<Vec<(Ident, Rc<Ty>)>> {
+        let mut fields = vec![];
+        fields.push(self.parse_struct_field()?);
+
+        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+            self.skip_token();
+            if matches!(self.peek_token()?.kind, TokenKind::Ident(_)) {
+                fields.push(self.parse_struct_field()?);
+            }
+        }
+        Some(fields)
+    }
+
+    fn parse_struct_field(&mut self) -> Option<(Ident, Rc<Ty>)> {
+        let name = self.parse_ident()?;
+        if !self.skip_expected_token(TokenKind::Colon) {
+            eprintln!("Expected ':', but found {:?}", self.peek_token()?);
+            return None;
+        }
+        let ty = self.parse_type()?;
+        Some((name, Rc::new(ty)))
     }
 }

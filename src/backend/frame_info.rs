@@ -4,6 +4,8 @@ use crate::ast;
 use crate::ast::visitor::{self};
 use crate::ty::Ty;
 
+const INIT_LOCAL_OR_PARAM_OFFSET: u32 = 16;
+
 #[derive(Debug)]
 pub struct FrameInfo<'a> {
     pub size: u32,
@@ -14,7 +16,7 @@ pub struct FrameInfo<'a> {
 impl FrameInfo<'_> {
     fn new() -> Self {
         FrameInfo {
-            size: 16,
+            size: INIT_LOCAL_OR_PARAM_OFFSET,
             locals: HashMap::new(),
             args: HashMap::new(),
         }
@@ -31,7 +33,7 @@ pub struct LocalInfo {
 impl<'ctx> FrameInfo<'ctx> {
     pub fn compute(func: &'ctx ast::Func) -> Self {
         let mut analyzer = FuncAnalyzer {
-            current_offset: 16,
+            current_offset: INIT_LOCAL_OR_PARAM_OFFSET,
             frame_info: FrameInfo::new(),
         };
         visitor::go_func(&mut analyzer, func);
@@ -47,26 +49,21 @@ struct FuncAnalyzer<'a> {
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        for (param_ident, _param_ty) in &func.params {
+        for (param_ident, param_ty) in &func.params {
+            let param_size = param_ty.get_size();
             let local = LocalInfo {
                 offset: self.current_offset,
-                // assume size of type equals to 8
-                size: 8,
+                size: param_size,
             };
             self.frame_info.args.insert(&param_ident.symbol, local);
-            self.current_offset += 8;
-            self.frame_info.size += 8;
+            self.current_offset += param_size;
+            self.frame_info.size += param_size;
         }
     }
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let size = if let Ty::Array(_elem_ty, n) = &*let_stmt.ty {
-            8 * n
-        } else {
-            8
-        };
+        let size = let_stmt.ty.get_size();
         let local = LocalInfo {
             offset: self.current_offset,
-            // assume size of type equals to 8
             size,
         };
         self.frame_info.locals.insert(&let_stmt.ident.symbol, local);

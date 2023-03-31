@@ -49,8 +49,8 @@ assert 4 'fn main() -> i32 { return -3+7; }'
 # let stmt
 assert 11 'fn main() -> i32 { return 3+8; return 4+6; }'
 assert 0 'fn main() -> i32 { let a: i32; let b: i32; return 0; }'
-assert 128 'fn main() -> i32 { let a: i32; a=120; a = a + 8; return a; }'
-assert 1 'fn main() -> i32 { let a: i32; let b: i32; a=1; b = 100; return a; }'
+assert 128 'fn main() -> i32 { let a: i32; a = 120; a = a + 8; return a; }'
+assert 1 'fn main() -> i32 { let a: i32; let b: i32; a = 1; b = 100; return a; }'
 # func call with no arg
 assert 5 'fn five() -> i32 { return 5; } fn main() -> i32 { return five(); }'
 assert 0 'fn tru() -> bool { return true; } fn main() -> i32 { tru(); return 0; }'
@@ -74,9 +74,10 @@ assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
 # multi-dimension array
 assert 10 'fn main() -> i32 { let a: [[i32; 2]; 3]; a[2][1] = 10; a[2][1] }'
 # struct
+assert 0 'struct Empty {} fn main() -> i32 { Empty {}; let e: Empty; e = Empty {}; 0 }'
 assert 0 'struct S { n: i32, b: bool, arr: [i32; 10], } fn main() -> i32 { 0 }'
 assert 0 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { P { x: 0, y: 1, z: 2 }; 0 }'
-# assert 1 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P { x: 0, y: 1, z: 2 }; p.y }'
+assert 3 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P { x: 0, y: 1, z: 2 }; p.y + p.z }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

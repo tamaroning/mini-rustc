@@ -194,15 +194,25 @@ impl<'a> Codegen<'a> {
                 println!("\tmov rax, [rax]");
             }
             ExprKind::Assign(lhs, rhs) => {
+                println!("#assign");
                 let ty = self.ctx.get_type(rhs.id);
                 if ty.is_adt() {
                     // value of rhs is on the memory
                     let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-                    for (_, field) in &adt.fields {
-                        todo!();
+                    self.codegen_expr(rhs)?;
+                    for (f, ty) in adt.fields.iter().rev() {
+                        // TODO: Case that a member is ADT
+                        if ty.is_adt() {
+                            todo!();
+                        }
+                        let offs = self.ctx.get_field_offsett(adt, f).unwrap();
+                        self.codegen_lval(lhs)?;
+                        println!("\tadd rax, {offs}"); // rax <- addr of member
+                        self.pop("rdi");
+
+                        println!("\tmov [rax], rdi");
                     }
                 } else {
-                    println!("#assign");
                     self.codegen_lval(lhs)?;
                     self.push();
                     self.codegen_expr(rhs)?;

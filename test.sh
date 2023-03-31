@@ -78,6 +78,9 @@ assert 0 'struct Empty {} fn main() -> i32 { Empty {}; let e: Empty; e = Empty {
 assert 0 'struct S { n: i32, b: bool, arr: [i32; 10], } fn main() -> i32 { 0 }'
 assert 0 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { P { x: 0, y: 1, z: 2 }; 0 }'
 assert 3 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P { x: 0, y: 1, z: 2 }; p.y + p.z }'
+# nested struct
+assert 31 'struct Pt { x: i32, y: i32 } struct Edge { p1: Pt, p2: Pt }
+fn main() -> i32 { let e: Edge; e.p1 = Pt { x: 10, y: 20, }; e.p2.x = 1; e.p2.y = 2; e.p1.x + e.p1.y + e.p2.x }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

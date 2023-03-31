@@ -61,7 +61,7 @@ pub enum BinOp {
 }
 
 fn is_space(c: char) -> bool {
-    c == ' '
+    matches!(c, ' ' | '\r' | '\n')
 }
 
 pub struct Lexer {

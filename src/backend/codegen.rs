@@ -108,14 +108,10 @@ impl<'a> Codegen<'a> {
         match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
-                // store the last result of computation to rax
-                println!("\tpop rax");
                 Ok(())
             }
             StmtKind::Expr(expr) => {
                 self.codegen_expr(expr)?;
-                // store the last result of computation to rax
-                println!("\tpop rax");
                 Ok(())
             }
             StmtKind::Let(_name) => Ok(()),
@@ -126,14 +122,14 @@ impl<'a> Codegen<'a> {
         match &expr.kind {
             ExprKind::NumLit(n) => {
                 println!("#lit");
-                println!("\tpush {}", n);
+                println!("\tmov rax, {}", n);
                 Ok(())
             }
             ExprKind::BoolLit(b) => {
                 if *b {
-                    println!("\tpush 1");
+                    println!("\tmov rax, 1");
                 } else {
-                    println!("\tpush 0");
+                    println!("\tmov rax, 0");
                 }
                 Ok(())
             }
@@ -143,12 +139,10 @@ impl<'a> Codegen<'a> {
                     UnOp::Plus => self.codegen_expr(inner_expr),
                     UnOp::Minus => {
                         // compile `-expr` as `0 - expr`
-                        println!("\tpush 0");
                         self.codegen_expr(inner_expr)?;
-                        println!("\tpop rdi");
-                        println!("\tpop rax");
+                        println!("\tmov rdi, rax");
+                        println!("\tmov rax, 0");
                         println!("\tsub rax, rdi");
-                        println!("\tpush rax");
                         Ok(())
                     }
                 }
@@ -156,9 +150,11 @@ impl<'a> Codegen<'a> {
             ExprKind::Binary(binop, lhs, rhs) => {
                 println!("#binary");
                 self.codegen_expr(lhs)?;
+                self.push();
                 self.codegen_expr(rhs)?;
-                println!("\tpop rdi");
-                println!("\tpop rax");
+                self.push();
+                self.pop("rdi");
+                self.pop("rax");
 
                 match binop {
                     BinOp::Add => {
@@ -178,33 +174,28 @@ impl<'a> Codegen<'a> {
                     }
                     _ => todo!(),
                 };
-                println!("\tpush rax");
                 Ok(())
             }
             ExprKind::Ident(_) | ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 println!("#ident or index");
                 self.codegen_lval(expr)?;
-                println!("\tpop rax");
                 // TODO: use al, ax, eax for type whose size is < 8
                 println!("\tmov rax, [rax]");
-                println!("\tpush rax");
                 Ok(())
             }
             ExprKind::Assign(lhs, rhs) => {
                 println!("#assign");
                 self.codegen_lval(lhs)?;
+                self.push();
                 self.codegen_expr(rhs)?;
-                println!("\tpop rdi");
-                println!("\tpop rax");
+                self.push();
+                self.pop("rdi");
+                self.pop("rax");
                 println!("\tmov [rax], rdi");
-                // TODO: It is better not to push to stack
-                // push dummy similarly to other exprs for simplicity
-                println!("\tpush 99 # unit");
                 Ok(())
             }
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
-                println!("\tpop rax");
                 println!("\tmov rsp, rbp");
                 println!("\tpop rbp");
                 println!("\tret");
@@ -216,26 +207,22 @@ impl<'a> Codegen<'a> {
                 }
                 for param in args {
                     self.codegen_expr(param)?;
+                    self.push();
                 }
                 for i in 0..args.len() {
-                    println!("\tpop {}", PARAM_REGISTERS[i]);
+                    self.pop(PARAM_REGISTERS[i]);
                 }
                 let name = self.retrieve_name(func)?;
                 println!("\tcall {}", name.symbol);
-                println!("\tpush rax");
                 Ok(())
             }
             ExprKind::Block(block) => {
                 self.codegen_stmts(&block.stmts)?;
-                // codegen_stmt results rax with the last result of computation in it
-                // so push it to stack
-                println!("\tpush rax");
                 Ok(())
             }
             ExprKind::If(cond, then, els) => {
                 let label_id = self.get_new_label_id();
                 self.codegen_expr(cond)?;
-                println!("\tpop rax");
                 println!("\tcmp rax, 0");
                 if els.is_some() {
                     println!("\tje .Lelse{label_id}");
@@ -254,8 +241,9 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Struct(ident, fds) => {
                 let adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
-                for fd in fds {
-                    todo!()
+                for (_, fd) in fds {
+                    // TODO: deal with order
+                    self.codegen_expr(fd)?;
                 }
                 Ok(())
             }
@@ -270,7 +258,6 @@ impl<'a> Codegen<'a> {
                     println!("#lval");
                     println!("\tmov rax, rbp");
                     println!("\tsub rax, {}", local.offset);
-                    println!("\tpush rax");
                     Ok(())
                 }
                 // Try to find ident in all args
@@ -278,7 +265,6 @@ impl<'a> Codegen<'a> {
                     println!("#lval");
                     println!("\tmov rax, rbp");
                     println!("\tsub rax, {}", arg.offset);
-                    println!("\tpush rax");
                     Ok(())
                 } else {
                     eprintln!("Unknwon identifier: {}", ident.symbol);
@@ -286,15 +272,16 @@ impl<'a> Codegen<'a> {
                 }
             }
             ExprKind::Index(array, index) => {
-                self.codegen_lval(array)?;
-                self.codegen_expr(index)?;
-                println!("\tpop rdi"); // index
                 let elem_ty_size = self.ctx.get_size(&self.ctx.get_type(expr.id));
-                println!("\tmov rax, {}", elem_ty_size);
+                self.codegen_lval(array)?;
+                self.push();
+                self.codegen_expr(index)?;
+                self.push();
+                self.pop("rdi"); // rdi <- index
+                println!("\tmov rax, {}", elem_ty_size); // rax <- size_of(size)
                 println!("\tmul rdi"); // rax <- index * size_of(elem)
-                println!("\tpop rdi"); // rdi <- array base
+                self.pop("rdi"); // rax <- base addr
                 println!("\tadd rax, rdi");
-                println!("\tpush rax");
                 Ok(())
             }
             ExprKind::Field(rec, fd) => {
@@ -305,7 +292,6 @@ impl<'a> Codegen<'a> {
                     .unwrap();
                 let offs = self.ctx.get_field_offsett(adt, &fd.symbol).unwrap();
                 println!("\tadd rax, {}", offs);
-                println!("\tpush rax");
                 Ok(())
             }
             _ => {
@@ -320,5 +306,13 @@ impl<'a> Codegen<'a> {
             ExprKind::Ident(ident) => Ok(ident),
             _ => Err(()),
         }
+    }
+
+    fn push(&self) {
+        println!("\tpush rax");
+    }
+
+    fn pop(&self, reg: &str) {
+        println!("\tpop {}", reg);
     }
 }

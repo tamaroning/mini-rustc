@@ -20,6 +20,10 @@ impl Ty {
             None
         }
     }
+
+    pub fn is_adt(&self) -> bool {
+        matches!(self, Ty::Adt(_))
+    }
 }
 
 #[derive(Debug)]

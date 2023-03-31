@@ -121,6 +121,7 @@ impl Parser {
                 self.skip_token();
                 return Some(Block { stmts });
             } else {
+                dbg!(&stmts);
                 eprintln!("Expected '}}' or statement, but found {:?}", t);
                 break;
             }

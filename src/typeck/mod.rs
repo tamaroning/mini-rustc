@@ -59,6 +59,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: typcheck func call before finding declaration of it
+    // TODO: typecheck func body
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // TODO: typecheck main func
         self.push_return_type(&func.ret_ty);

@@ -1,7 +1,7 @@
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
 use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, Stmt, StmtKind, UnOp};
-use crate::ty::Ty;
+use crate::ty::{AdtDef, Ty};
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
@@ -109,6 +109,14 @@ impl<'a> Codegen<'a> {
         match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
+
+                // In case of struct type, pop stack to clean it.
+                // FIXME: necessary?
+                let ty = self.ctx.get_type(expr.id);
+                if ty.is_adt() {
+                    let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                    self.clean_adt_on_stack(adt);
+                }
                 Ok(())
             }
             StmtKind::Expr(expr) => {
@@ -119,6 +127,10 @@ impl<'a> Codegen<'a> {
         }
     }
 
+    /// Generate code for expression.
+    /// Result is stored to al, eax, or rax. In case of al and eax, rax is zero-extended with al, or eax.
+    /// If expr is ZST, it is not uncertain that rax has some meaningful value.
+    /// If expr is ADT, all of its fields are pushed to the stack.
     fn codegen_expr(&mut self, expr: &Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::NumLit(n) => {
@@ -182,14 +194,23 @@ impl<'a> Codegen<'a> {
                 println!("\tmov rax, [rax]");
             }
             ExprKind::Assign(lhs, rhs) => {
-                println!("#assign");
-                self.codegen_lval(lhs)?;
-                self.push();
-                self.codegen_expr(rhs)?;
-                self.push();
-                self.pop("rdi");
-                self.pop("rax");
-                println!("\tmov [rax], rdi");
+                let ty = self.ctx.get_type(rhs.id);
+                if ty.is_adt() {
+                    // value of rhs is on the memory
+                    let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                    for (_, field) in &adt.fields {
+                        todo!();
+                    }
+                } else {
+                    println!("#assign");
+                    self.codegen_lval(lhs)?;
+                    self.push();
+                    self.codegen_expr(rhs)?;
+                    self.push();
+                    self.pop("rdi");
+                    self.pop("rax");
+                    println!("\tmov [rax], rdi");
+                }
             }
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
@@ -202,6 +223,8 @@ impl<'a> Codegen<'a> {
                     todo!("number of args must be < 6");
                 }
                 for param in args {
+                    // TODO: pass struct param via stack
+                    // p16. https://www.uclibc.org/docs/psABI-x86_64.pdf
                     self.codegen_expr(param)?;
                     self.push();
                 }
@@ -237,6 +260,7 @@ impl<'a> Codegen<'a> {
                 for (_, fd) in fds {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
+                    self.push();
                 }
             }
         }
@@ -320,5 +344,14 @@ impl<'a> Codegen<'a> {
 
     fn pop(&self, reg: &str) {
         println!("\tpop {}", reg);
+    }
+
+    fn clean_adt_on_stack(&self, adt: &AdtDef) {
+        let mut size = self.ctx.get_adt_size(adt);
+        // FIXME: correct?
+        let pop_rax_time = size / 8;
+        for _ in 0..pop_rax_time {
+            self.pop("rax");
+        }
     }
 }

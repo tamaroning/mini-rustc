@@ -16,7 +16,6 @@ pub fn is_expr_start(token: &Token) -> bool {
             | TokenKind::True
             | TokenKind::False
             | TokenKind::If
-            | TokenKind::Struct
     )
 }
 
@@ -187,7 +186,7 @@ impl Parser {
     ///     | fieldExpr | structExpr
     /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
-        let t = self.lexer.peek_token()?;
+        let t = &self.lexer.peek_token().unwrap();
         let mut expr = match t.kind {
             TokenKind::NumLit(n) => {
                 self.skip_token();
@@ -219,15 +218,7 @@ impl Parser {
                     id: self.get_next_id(),
                 }
             }
-            TokenKind::Ident(_) => {
-                let TokenKind::Ident(symbol) = self.skip_token()?.kind else {
-                    unreachable!();
-                };
-                Expr {
-                    kind: ExprKind::Ident(Ident { symbol }),
-                    id: self.get_next_id(),
-                }
-            }
+            TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
             TokenKind::OpenParen => {
                 self.skip_token();
                 let expr = self.parse_expr()?;
@@ -241,7 +232,6 @@ impl Parser {
                 kind: ExprKind::Block(self.parse_block()?),
                 id: self.get_next_id(),
             },
-            TokenKind::Struct => self.parse_struct_expr()?,
             _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
                 return None;
@@ -262,20 +252,32 @@ impl Parser {
         Some(expr)
     }
 
-    /// structExpr ::= "struct" ident "{" structExprFields? "}"
-    fn parse_struct_expr(&mut self) -> Option<Expr> {
-        // skip 'struct'
-        self.skip_token();
-        let ident = self.parse_ident()?;
+    /// ident | structExpr
+    fn parse_ident_or_struct_expr(&mut self) -> Option<Expr> {
+        let ident = self.parse_ident().unwrap();
+        let t = self.peek_token().unwrap();
+        if let TokenKind::OpenBrace = t.kind {
+            self.parse_struct_expr(ident)
+        } else {
+            Some(Expr {
+                kind: ExprKind::Ident(ident),
+                id: self.get_next_id(),
+            })
+        }
+    }
+
+    /// structExpr ::= ident "{" structExprFields? "}"
+    /// NOTE: first ident is already parsed
+    fn parse_struct_expr(&mut self, ident: Ident) -> Option<Expr> {
         if !self.skip_expected_token(TokenKind::OpenBrace) {
             eprintln!("Expected '{{', but found {:?}", self.peek_token());
             return None;
         }
 
         let fields = if matches!(self.peek_token().unwrap().kind, TokenKind::Ident(_)) {
-            vec![]
-        } else {
             self.parse_struct_expr_fields()?
+        } else {
+            vec![]
         };
 
         if !self.skip_expected_token(TokenKind::CloseBrace) {

@@ -13,4 +13,5 @@ cargo run <input>
 
 ## References
 - https://www.sigbus.info/compilerbook
+- https://github.com/rui314/chibicc/
 - https://github.com/Rust-GCC/gccrs

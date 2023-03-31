@@ -75,6 +75,8 @@ assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
 assert 10 'fn main() -> i32 { let a: [[i32; 2]; 3]; a[2][1] = 10; a[2][1] }'
 # struct
 assert 0 'struct S { n: i32, b: bool, arr: [i32; 10], } fn main() -> i32 { 0 }'
+assert 0 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { P { x: 0, y: 1, z: 2 }; 0 }'
+# assert 1 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P { x: 0, y: 1, z: 2 }; p.y }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

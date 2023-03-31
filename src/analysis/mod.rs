@@ -58,14 +58,19 @@ impl Ctxt {
             Ty::Adt(name) => {
                 let mut size = 0;
                 let adt = self.lookup_adt_def(name).unwrap();
-                for (_, ty) in &adt.fields {
-                    size += self.get_size(ty);
-                }
-                size
+                self.get_adt_size(adt)
             }
             Ty::Never => 0,
             Ty::Error => panic!("ICE"),
         }
+    }
+
+    pub fn get_adt_size(&self, adt: &AdtDef) -> u32 {
+        let mut size = 0;
+        for (_, ty) in &adt.fields {
+            size += self.get_size(ty);
+        }
+        size
     }
 
     pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<u32> {

@@ -244,7 +244,7 @@ impl Parser {
                 return None;
             }
         };
-        // deal with tailing `(...)` (func call), `[...]` (indexing)
+        // deal with tailing `(...)` (func call), `[...]` (indexing), .ident (field access)
         loop {
             let t = self.peek_token()?;
             match &t.kind {
@@ -252,6 +252,7 @@ impl Parser {
                     expr = self.parse_call_expr(expr)?;
                 }
                 TokenKind::OpenBracket => expr = self.parse_index_expr(expr)?,
+                TokenKind::Dot => expr = self.parse_field_expr(expr)?,
                 _ => break,
             }
         }
@@ -308,6 +309,19 @@ impl Parser {
         }
         Some(Expr {
             kind: ExprKind::Index(Box::new(array_expr), Box::new(index)),
+            id: self.get_next_id(),
+        })
+    }
+
+    /// fieldExpr ::= primary "(" callParams? ")"
+    /// NOTE: first primary is already parsed
+    fn parse_field_expr(&mut self, recv: Expr) -> Option<Expr> {
+        // skip '.'
+        self.skip_token();
+        let fd = self.parse_ident()?;
+
+        Some(Expr {
+            kind: ExprKind::Field(Box::new(recv), fd),
             id: self.get_next_id(),
         })
     }

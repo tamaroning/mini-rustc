@@ -73,6 +73,8 @@ assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] =
 assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
 # multi-dimension array
 assert 10 'fn main() -> i32 { let a: [[i32; 2]; 3]; a[2][1] = 10; a[2][1] }'
+# struct
+assert 0 'struct S { n: i32, b: bool, arr: [i32; 10], } fn main() -> i32 { 0 }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

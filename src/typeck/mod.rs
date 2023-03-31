@@ -1,6 +1,6 @@
 use crate::analysis::Ctxt;
 use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
-use crate::ty::Ty;
+use crate::ty::{AdtDef, Ty};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -80,17 +80,28 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.pop_return_type();
     }
 
+    fn visit_struct_item(&mut self, strct: &'ctx ast::StructItem) {
+        let adt = AdtDef {
+            fields: strct
+                .fields
+                .iter()
+                .map(|(s, ty)| (s.symbol.clone(), Rc::clone(ty)))
+                .collect(),
+        };
+        self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
+    }
+
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
-        // TODO: typecheck StmtKind::Semi and StmtKind::Expr
         let ty: Rc<Ty> = match &stmt.kind {
-            StmtKind::Let(LetStmt { ident, ty }) => {
-                self.insert_ident_type(&ident.symbol, Rc::clone(ty));
-                Rc::clone(ty)
-            }
-            StmtKind::Semi(_) => Rc::new(Ty::Unit),
+            StmtKind::Semi(_) | StmtKind::Let(_) => Rc::new(Ty::Unit),
             StmtKind::Expr(expr) => self.ctx.get_type(expr.id),
         };
         self.ctx.insert_type(stmt.id, ty);
+    }
+
+    fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
+        // set local variable type
+        self.insert_ident_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
     }
 
     // use post order
@@ -231,6 +242,29 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::clone(elem_ty)
                 } else {
                     self.error(format!("type {:?} cannot be indexed", maybe_array_ty));
+                    Rc::new(Ty::Error)
+                }
+            }
+            ExprKind::Field(receiver, field) => {
+                let maybe_adt = self.ctx.get_type(receiver.id);
+                if let Some(adt_name) = maybe_adt.get_adt_name() {
+                    if let Some(adt) = self.ctx.lookup_adt_def(adt_name) {
+                        let r = adt.fields.iter().find(|(f, _)| field.symbol == *f);
+                        if let Some((_, ty)) = r {
+                            Rc::clone(ty)
+                        } else {
+                            self.error(format!(
+                                "Type {} does not have field `{}`",
+                                adt_name, field.symbol
+                            ));
+                            Rc::new(Ty::Error)
+                        }
+                    } else {
+                        self.error(format!("Cannot find type {}", adt_name));
+                        Rc::new(Ty::Error)
+                    }
+                } else {
+                    self.error("field access can used only for ADT".to_string());
                     Rc::new(Ty::Error)
                 }
             }

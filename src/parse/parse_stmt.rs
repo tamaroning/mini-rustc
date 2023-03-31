@@ -64,7 +64,7 @@ impl Parser {
 
     pub fn parse_type(&mut self) -> Option<Ty> {
         let t = self.skip_token().unwrap();
-        match &t.kind {
+        match t.kind {
             // Unit type: ()
             TokenKind::OpenParen => {
                 if !self.skip_expected_token(TokenKind::CloseParen) {
@@ -97,6 +97,7 @@ impl Parser {
                 }
                 Some(Ty::Array(Rc::new(elem_ty), n))
             }
+            TokenKind::Ident(s) => Some(Ty::Adt(s)),
             _ => {
                 eprintln!("Expected type, but found {:?}", t);
                 None

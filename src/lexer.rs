@@ -33,6 +33,7 @@ pub enum TokenKind {
     Semi,
     Colon,
     Comma,
+    Dot,
     OpenParen,
     CloseParen,
     OpenBrace,
@@ -155,6 +156,10 @@ impl Lexer {
                 ',' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::Comma))
+                }
+                '.' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::Dot))
                 }
                 '(' => {
                     self.skip_input();

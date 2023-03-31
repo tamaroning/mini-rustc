@@ -64,7 +64,7 @@ impl<'a> Codegen<'a> {
     }
 
     fn codegen_func(&mut self, func: &'a Func) -> Result<(), ()> {
-        let frame = FrameInfo::compute(func);
+        let frame = FrameInfo::compute(self.ctx, func);
         if self.ctx.dump_enabled {
             dbg!(&frame);
         }
@@ -181,7 +181,7 @@ impl<'a> Codegen<'a> {
                 println!("\tpush rax");
                 Ok(())
             }
-            ExprKind::Ident(_) | ExprKind::Index(_, _) => {
+            ExprKind::Ident(_) | ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 println!("#ident or index");
                 self.codegen_lval(expr)?;
                 println!("\tpop rax");
@@ -282,11 +282,22 @@ impl<'a> Codegen<'a> {
                 self.codegen_lval(array)?;
                 self.codegen_expr(index)?;
                 println!("\tpop rdi"); // index
-                let elem_ty_size = self.ctx.get_type(expr.id).get_size();
+                let elem_ty_size = self.ctx.get_size(&self.ctx.get_type(expr.id));
                 println!("\tmov rax, {}", elem_ty_size);
                 println!("\tmul rdi"); // rax <- index * size_of(elem)
                 println!("\tpop rdi"); // rdi <- array base
                 println!("\tadd rax, rdi");
+                println!("\tpush rax");
+                Ok(())
+            }
+            ExprKind::Field(rec, fd) => {
+                self.codegen_lval(rec)?;
+                let adt = self
+                    .ctx
+                    .lookup_adt_def(self.ctx.get_type(rec.id).get_adt_name().unwrap())
+                    .unwrap();
+                let offs = self.ctx.get_field_offsett(adt, &fd.symbol).unwrap();
+                println!("\tadd rax, {}", offs);
                 println!("\tpush rax");
                 Ok(())
             }

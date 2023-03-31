@@ -130,6 +130,10 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
             walk_expr(v, array);
             walk_expr(v, index);
         }
+        ExprKind::Field(receiver, field) => {
+            walk_expr(v, receiver);
+            walk_ident(v, field);
+        }
     }
     v.visit_expr_post(expr);
 }

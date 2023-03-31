@@ -3,7 +3,7 @@ mod parse_item;
 mod parse_stmt;
 
 use self::parse_item::is_item_start;
-use crate::ast::{Crate, Func, Ident, Item};
+use crate::ast::{Crate, Ident, Item};
 use crate::lexer::{Lexer, Token, TokenKind};
 
 pub struct Parser {

@@ -13,25 +13,16 @@ pub enum Ty {
 }
 
 impl Ty {
-    pub fn get_size(&self) -> u32 {
-        match &self {
-            Ty::Unit => 8, // TODO: 0
-            Ty::Bool => 8, // TODO: 1
-            Ty::I32 => 8,  // TODO: 4
-            Ty::Array(elem_ty, n) => elem_ty.get_size() * n,
-            Ty::Fn(_, _) => 8, // = pointer size
-            Ty::Adt(_) => todo!(),
-            Ty::Never => 0,
-            Ty::Error => panic!("ICE"),
-        }
-    }
-    /*
-    pub fn get_elem_type(&self) -> Option<Rc<Ty>> {
-        if let Ty::Array(elem_ty, _) = &self {
-            Some(Rc::clone(elem_ty))
+    pub fn get_adt_name(&self) -> Option<&String> {
+        if let Ty::Adt(name) = self {
+            Some(name)
         } else {
             None
         }
     }
-    */
+}
+
+#[derive(Debug)]
+pub struct AdtDef {
+    pub fields: Vec<(String, Rc<Ty>)>,
 }

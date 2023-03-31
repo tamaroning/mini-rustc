@@ -1,4 +1,9 @@
 # mini-rustc
+Toy Rust compiler written in Rust from scratch.
+
+# Requirement
+- x86-64 CPU
+- Cargo
 
 ## Build & Run
 ```

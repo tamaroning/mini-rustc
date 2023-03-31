@@ -1,6 +1,7 @@
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
 use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, Stmt, StmtKind, UnOp};
+use crate::ty::Ty;
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
@@ -123,7 +124,6 @@ impl<'a> Codegen<'a> {
             ExprKind::NumLit(n) => {
                 println!("#lit");
                 println!("\tmov rax, {}", n);
-                Ok(())
             }
             ExprKind::BoolLit(b) => {
                 if *b {
@@ -131,23 +131,24 @@ impl<'a> Codegen<'a> {
                 } else {
                     println!("\tmov rax, 0");
                 }
-                Ok(())
             }
             ExprKind::Unary(unop, inner_expr) => {
                 println!("#unary");
                 match unop {
-                    UnOp::Plus => self.codegen_expr(inner_expr),
+                    UnOp::Plus => self.codegen_expr(inner_expr)?,
                     UnOp::Minus => {
                         // compile `-expr` as `0 - expr`
                         self.codegen_expr(inner_expr)?;
                         println!("\tmov rdi, rax");
                         println!("\tmov rax, 0");
                         println!("\tsub rax, rdi");
-                        Ok(())
                     }
                 }
             }
             ExprKind::Binary(binop, lhs, rhs) => {
+                // use rax and rdi if rhs/lhs is size of 64bit
+                let ax = "eax";
+                let di = "edi";
                 println!("#binary");
                 self.codegen_expr(lhs)?;
                 self.push();
@@ -158,30 +159,27 @@ impl<'a> Codegen<'a> {
 
                 match binop {
                     BinOp::Add => {
-                        println!("\tadd rax, rdi");
+                        println!("\tadd {}, {}", ax, di);
                     }
                     BinOp::Sub => {
-                        println!("\tsub rax, rdi");
+                        println!("\tsub {}, {}", ax, di);
                     }
                     BinOp::Mul => {
-                        // NOTE: Result of mul is stored to rax
-                        println!("\tmul rdi");
+                        // NOTE: Result is stored in rax
+                        println!("\tmul {}", di);
                     }
                     BinOp::Eq => {
-                        println!("\tcmp rax,rdi");
+                        println!("\tcmp {}, {}", ax, di);
                         println!("\tsete al");
-                        println!("\tmovzb rax, al");
+                        // zero extended to rax later
                     }
                     _ => todo!(),
                 };
-                Ok(())
             }
             ExprKind::Ident(_) | ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 println!("#ident or index");
                 self.codegen_lval(expr)?;
-                // TODO: use al, ax, eax for type whose size is < 8
                 println!("\tmov rax, [rax]");
-                Ok(())
             }
             ExprKind::Assign(lhs, rhs) => {
                 println!("#assign");
@@ -192,14 +190,12 @@ impl<'a> Codegen<'a> {
                 self.pop("rdi");
                 self.pop("rax");
                 println!("\tmov [rax], rdi");
-                Ok(())
             }
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
                 println!("\tmov rsp, rbp");
                 println!("\tpop rbp");
                 println!("\tret");
-                Ok(())
             }
             ExprKind::Call(func, args) => {
                 if args.len() > 6 {
@@ -214,11 +210,9 @@ impl<'a> Codegen<'a> {
                 }
                 let name = self.retrieve_name(func)?;
                 println!("\tcall {}", name.symbol);
-                Ok(())
             }
             ExprKind::Block(block) => {
                 self.codegen_stmts(&block.stmts)?;
-                Ok(())
             }
             ExprKind::If(cond, then, els) => {
                 let label_id = self.get_new_label_id();
@@ -237,7 +231,6 @@ impl<'a> Codegen<'a> {
                     self.codegen_expr(els)?;
                 }
                 println!(".Lend{label_id}:");
-                Ok(())
             }
             ExprKind::Struct(ident, fds) => {
                 let adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
@@ -245,9 +238,22 @@ impl<'a> Codegen<'a> {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
                 }
-                Ok(())
             }
         }
+
+        // Extract the significant bits
+        let ty = self.ctx.get_type(expr.id);
+        match &*ty {
+            Ty::Bool => {
+                println!("\tmovzx rax, al");
+            }
+            Ty::I32 => {
+                println!("\tmovsx rax, eax");
+            }
+            _ => (),
+        }
+
+        Ok(())
     }
 
     fn codegen_lval(&mut self, expr: &Expr) -> Result<(), ()> {

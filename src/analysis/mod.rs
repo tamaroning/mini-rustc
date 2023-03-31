@@ -73,6 +73,7 @@ impl Ctxt {
         size
     }
 
+    // TODO: alignment
     pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<u32> {
         let mut saw_field = false;
         let mut offs = 0;
@@ -87,6 +88,34 @@ impl Ctxt {
             Some(offs)
         } else {
             None
+        }
+    }
+
+    /// Flatten all fields of ADT. Returns fields with their offset.
+    /// e.g. `S2 { u: (), a: bool } S { a: i32, c: S2, u: () }`
+    ///     flatten_struct(s) => [ (i32, 0), ((), 4), (bool, 4) ]
+    /// TODO: alignment
+    pub fn flatten_struct(&self, adt: &AdtDef) -> Vec<(Rc<Ty>, u32)> {
+        let mut ofs_and_tys = vec![];
+        let mut ofs = 0;
+        self.collect_fields(adt, &mut ofs_and_tys, &mut ofs);
+        ofs_and_tys
+    }
+
+    fn collect_fields(
+        &self,
+        adt: &AdtDef,
+        ofs_and_tys: &mut Vec<(Rc<Ty>, u32)>,
+        current_ofs: &mut u32,
+    ) {
+        for (_, ty) in &adt.fields {
+            if let Ty::Adt(name) = &**ty {
+                let adt = self.lookup_adt_def(name).unwrap();
+                self.collect_fields(adt, ofs_and_tys, current_ofs);
+            } else {
+                (*ofs_and_tys).push((Rc::clone(ty), *current_ofs));
+                *current_ofs += self.get_size(ty);
+            }
         }
     }
 

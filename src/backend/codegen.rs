@@ -197,19 +197,13 @@ impl<'a> Codegen<'a> {
                 println!("#assign");
                 let ty = self.ctx.get_type(rhs.id);
                 if ty.is_adt() {
-                    // value of rhs is on the memory
                     let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                    let flatten_fields = self.ctx.flatten_struct(adt);
                     self.codegen_expr(rhs)?;
-                    for (f, ty) in adt.fields.iter().rev() {
-                        // TODO: Case that a member is ADT
-                        if ty.is_adt() {
-                            todo!();
-                        }
-                        let offs = self.ctx.get_field_offsett(adt, f).unwrap();
+                    for (_ty, ofs) in flatten_fields.iter().rev() {
                         self.codegen_lval(lhs)?;
-                        println!("\tadd rax, {offs}"); // rax <- addr of member
-                        self.pop("rdi");
-
+                        println!("\tadd rax, {ofs}");
+                        println!("\tpop rdi");
                         println!("\tmov [rax], rdi");
                     }
                 } else {
@@ -287,6 +281,25 @@ impl<'a> Codegen<'a> {
             _ => (),
         }
 
+        Ok(())
+    }
+
+    // expr, lvalの順にpushしておいて、それをよみこむ
+    fn codegen_assign(&mut self, ty: &Ty) -> Result<(), ()> {
+        if ty.is_adt() {
+            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+            for (fd, fd_ty) in adt.fields.iter().rev() {
+                let ofs = self.ctx.get_field_offsett(adt, fd).unwrap();
+                self.pop("rax");
+                println!("\tadd rax, {ofs}");
+                self.push();
+                self.codegen_assign(fd_ty)?;
+            }
+        } else {
+            self.pop("rax"); // rax <- addr
+            self.pop("rdi"); // rdi <- value
+            println!("\tmov [rax], rdi");
+        }
         Ok(())
     }
 

@@ -134,6 +134,13 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
             walk_expr(v, receiver);
             walk_ident(v, field);
         }
+        ExprKind::Struct(ident, fds) => {
+            walk_ident(v, ident);
+            for (ident, expr) in fds {
+                walk_ident(v, ident);
+                walk_expr(v, expr);
+            }
+        }
     }
     v.visit_expr_post(expr);
 }

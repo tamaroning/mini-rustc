@@ -268,6 +268,16 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
+            ExprKind::Struct(ident, _fds) => {
+                let adt_name = &ident.symbol;
+                if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
+                    // TODO: typecheck field
+                    Rc::new(Ty::Adt(adt_name.clone()))
+                } else {
+                    self.error(format!("Cannot find type {}", adt_name));
+                    Rc::new(Ty::Error)
+                }
+            }
         };
         self.ctx.insert_type(expr.id, ty);
     }

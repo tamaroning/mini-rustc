@@ -252,6 +252,13 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
                 Ok(())
             }
+            ExprKind::Struct(ident, fds) => {
+                let adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
+                for fd in fds {
+                    todo!()
+                }
+                Ok(())
+            }
         }
     }
 

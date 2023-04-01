@@ -15,11 +15,31 @@ Big thanks to these wonderful materials/software.
 - Cargo
 
 # Status
-- [x] primitive types
-    - `i32`, `bool`, unit(`()`), never(`!`), array(`[ty; N]`)
+- [x] types
+    - `i32`, `bool`, unit(`()`), never(`!`), array(`[ty; N]`), `str`
+    - [ ] references
+    - ADT
+        - [x] (nested) structs
+        - [ ] enums
 - [x] typechecking
 - [ ] type inference
-- [x] (nested) struct
+- items
+    - [x] structs
+    - [x] functions
+        - return type cannot be omitted
+        - struct param are not supported
+    - [ ] `extern` blocks
+    - [ ] modules
+- statements
+    - [x] let statement (but initializers are not supported)
+    - [x] expression statements
+    - [x] block
+- expressions
+    - [x] literals: integer, boolean, string
+    - [x] if-else expressions
+- misc
+    - [ ] paths
+
 
 ## Build & Run
 ```

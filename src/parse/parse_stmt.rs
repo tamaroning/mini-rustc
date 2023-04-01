@@ -60,7 +60,7 @@ impl Parser {
 
         // skip semi
         if !self.skip_expected_token(TokenKind::Semi) {
-            eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
+            eprintln!("Expected ';' for let statement, but found {:?}", self.peek_token().unwrap());
             return None;
         }
 

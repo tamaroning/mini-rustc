@@ -270,6 +270,7 @@ impl Parser {
             }
         };
         // deal with tailing `(...)` (func call), `[...]` (indexing), .ident (field access)
+        // FIXME: disambiguity: () () => FuncCall or ExprStmt ExprStmt
         loop {
             let t = self.peek_token()?;
             match &t.kind {

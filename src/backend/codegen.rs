@@ -103,7 +103,7 @@ impl<'a> Codegen<'a> {
             }
         }
         // codegen of the last stmt results the last computation result stored in rax
-        self.codegen_func_epilogue();
+        self.codegen_func_epilogue(func);
 
         self.pop_current_frame();
         Ok(())
@@ -117,13 +117,17 @@ impl<'a> Codegen<'a> {
         for (i, (_, local)) in frame.args.iter().enumerate() {
             println!("\tmov [rbp-{}], {}", local.offset, PARAM_REGISTERS[i]);
         }
-        // FIXME: should remove this
-        // When returning from functions which return (), make sure that rax stores the value 0
-        println!("\tmov rax, 0 # return unit ?");
         Ok(())
     }
 
-    fn codegen_func_epilogue(&self) {
+    fn codegen_func_epilogue(&self, func: &'a Func) {
+        // FIXME: remove this?
+        if let Some(body) = &func.body {
+            let block_ty = self.ctx.get_block_type(body);
+            if *block_ty == Ty::Unit {
+                println!("\tmov rax, 0");
+            }
+        }
         println!("\tmov rsp, rbp");
         println!("\tpop rbp");
         println!("\tret");
@@ -141,13 +145,6 @@ impl<'a> Codegen<'a> {
                     let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
                     self.clean_adt_on_stack(adt);
                 }
-
-                // FIXME: should remove this
-                // When returning from functions which return (), make sure that rax stores the value 0
-                if *ty == Ty::Unit {
-                    println!("\tmov rax, 0 # return unit ?");
-                }
-
                 Ok(())
             }
             StmtKind::Expr(expr) => {
@@ -165,7 +162,7 @@ impl<'a> Codegen<'a> {
 
     /// Generate code for expression.
     /// Result is stored to al, eax, or rax. In case of al and eax, rax is zero-extended with al, or eax.
-    /// If expr is ZST, it is not uncertain that rax has some meaningful value.
+    /// If expr is ZST, rax is not set.
     /// If expr is ADT, all of its fields are pushed to the stack.
     fn codegen_expr(&mut self, expr: &'a Expr) -> Result<(), ()> {
         match &expr.kind {
@@ -246,6 +243,11 @@ impl<'a> Codegen<'a> {
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
                 println!("\tmov rsp, rbp");
+                // TODO: remove this?
+                let inner_ty = self.ctx.get_type(inner.id);
+                if *inner_ty == Ty::Unit {
+                    println!("\tmov rax, 0");
+                }
                 println!("\tpop rbp");
                 println!("\tret");
             }
@@ -355,7 +357,7 @@ impl<'a> Codegen<'a> {
                 println!("\tmov rax, {}", elem_ty_size); // rax <- size_of(size)
                 println!("\tmul rdi"); // rax <- index * size_of(elem)
                 self.pop("rdi"); // rdi <- base_addr
-                println!("\tadd rax, rdi"); // rax <- base_addr + index * size_of(elem) 
+                println!("\tadd rax, rdi"); // rax <- base_addr + index * size_of(elem)
                 Ok(())
             }
             ExprKind::Field(recv, fd) => {

@@ -1,5 +1,5 @@
 use crate::analysis::Ctxt;
-use crate::ast::{self, BinOp, Block, Crate, ExprKind, Ident, LetStmt, StmtKind};
+use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::ty::{AdtDef, Ty};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -56,18 +56,6 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
     }
-
-    /// Get type of block
-    /// NOTE: Given block must already be visited
-    fn get_block_type(&self, block: &'ctx Block) -> Rc<Ty> {
-        if let Some(stmt) = block.stmts.last() {
-            let last_stmt_ty = &self.ctx.get_type(stmt.id);
-            Rc::clone(last_stmt_ty)
-        } else {
-            // no statement. Unit type
-            Rc::new(Ty::Unit)
-        }
-    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
@@ -95,7 +83,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     }
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
         if let Some(body) = &func.body {
-            let body_ty = self.get_block_type(body);
+            let body_ty = self.ctx.get_block_type(body);
             let expected = self.peek_return_type();
             if !body_ty.is_never() && &*body_ty != expected {
                 self.error(format!(
@@ -288,7 +276,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Block(block) => self.get_block_type(block),
+            ExprKind::Block(block) => self.ctx.get_block_type(block),
             ExprKind::If(_cond, then, _els) => {
                 // TODO: typecheck cond and els
                 self.ctx.get_type(then.id)

@@ -1,25 +1,31 @@
 use std::rc::Rc;
 
-use crate::ast::{Func, Ident, Item, ItemKind, StructItem};
+use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem};
 use crate::lexer::{self, Token, TokenKind};
 use crate::ty::Ty;
 
 use super::Parser;
 
 pub fn is_item_start(token: &Token) -> bool {
-    matches!(token.kind, TokenKind::Fn | TokenKind::Struct)
+    matches!(
+        token.kind,
+        TokenKind::Fn | TokenKind::Extern | TokenKind::Struct | TokenKind::Extern
+    )
 }
 
 impl Parser {
-    /// item ::= func
+    /// item ::= func | structItem | externBlock
     pub fn parse_item(&mut self) -> Option<Item> {
         let t = self.peek_token()?;
         match &t.kind {
             TokenKind::Fn => Some(Item {
-                kind: ItemKind::Func(self.parse_func()?),
+                kind: ItemKind::Func(self.parse_func(None)?),
             }),
             TokenKind::Struct => Some(Item {
                 kind: ItemKind::Struct(self.parse_struct_item()?),
+            }),
+            TokenKind::Extern => Some(Item {
+                kind: ItemKind::ExternBlock(self.parse_extern_block()?),
             }),
             _ => {
                 eprintln!("Expected item, but found {:?}", self.peek_token());
@@ -28,13 +34,60 @@ impl Parser {
         }
     }
 
-    /// func ::= "fn" ident "(" funcParams? ")" "->" "i32" block
-    pub fn parse_func(&mut self) -> Option<Func> {
+    /// externBlock ::= "extern" abi "{" externalItem* "}"
+    /// abi ::= "\"C\""
+    /// https://doc.rust-lang.org/reference/items/external-blocks.html
+    fn parse_extern_block(&mut self) -> Option<ExternBlock> {
+        // skip `extern`
+        self.skip_token().unwrap();
+        // parse ABI
+        let t = self.skip_token().unwrap();
+        let abi = if let TokenKind::StrLit(s) = t.kind {
+            s
+        } else {
+            eprintln!("Expected extern ABI, but found {:?}", t);
+            return None;
+        };
+        // check if ABI is "C"
+        if abi != "C" {
+            eprintln!(
+                "Found `extern {}`, but `extern \"C\"` can only be supported",
+                abi
+            );
+            return None;
+        }
+
+        if !self.skip_expected_token(TokenKind::OpenBrace) {
+            eprintln!("Expected '{{', but found {:?}", self.peek_token()?);
+            return None;
+        }
+
+        let mut funcs = vec![];
+        while self.peek_token().unwrap().kind == TokenKind::Fn {
+            funcs.push(self.parse_func(Some(abi.clone()))?);
+        }
+
+        if !self.skip_expected_token(TokenKind::CloseBrace) {
+            eprintln!(
+                "Expected '}}' or external item, but found {:?}",
+                self.peek_token()?
+            );
+            return None;
+        }
+
+        Some(ExternBlock { funcs })
+    }
+
+    /// func ::= "fn" ident "(" funcParams? ")" "->" "i32" (block | ";")
+    /// https://doc.rust-lang.org/reference/items/functions.html
+    pub fn parse_func(&mut self, ext: Option<String>) -> Option<Func> {
         if !self.skip_expected_token(TokenKind::Fn) {
+            eprintln!("Expected \"fn\", but found {:?}", self.peek_token());
             return None;
         }
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenParen) {
+            eprintln!("Expected '(', but found {:?}", self.peek_token()?);
             return None;
         }
         let t = self.peek_token()?;
@@ -44,21 +97,33 @@ impl Parser {
             self.parse_func_params()?
         };
         if !self.skip_expected_token(TokenKind::CloseParen) {
-            eprintln!("Expected '(', but found {:?}", self.peek_token()?);
+            eprintln!("Expected ')', but found {:?}", self.peek_token()?);
             return None;
         }
 
         if !self.skip_expected_token(TokenKind::Arrow) {
+            eprintln!("Expected '->', but found {:?}", self.peek_token()?);
             return None;
         }
         let ret_ty = self.parse_type()?;
-        let block = self.parse_block()?;
+
+        let t = self.peek_token().unwrap();
+        let body = if t.kind == TokenKind::OpenBrace {
+            Some(self.parse_block()?)
+        } else if t.kind == TokenKind::Semi {
+            self.skip_token().unwrap();
+            None
+        } else {
+            eprintln!("Expected function body or ';', but found {:?}", t);
+            return None;
+        };
 
         Some(Func {
             name,
             params,
             ret_ty: Rc::new(ret_ty),
-            body: block,
+            ext,
+            body,
             id: self.get_next_id(),
         })
     }

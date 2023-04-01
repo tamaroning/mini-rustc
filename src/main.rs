@@ -7,19 +7,35 @@ mod parse;
 mod ty;
 mod typeck;
 
-use std::process::exit;
+use std::{
+    fs::{self, File},
+    process::exit,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: mini-rustc <input>");
+        eprintln!("Usage: mini-rustc (<input> or <file>)");
         eprintln!("Invalid number of arguments");
         exit(1);
     }
 
     let dump_enabled = args.contains(&"--dump".to_string());
 
-    let lexer = lexer::Lexer::new(&args[1]);
+    let path_or_src = args[1].clone();
+    let src = if args[1].ends_with(".rs") {
+        let res = fs::read_to_string(path_or_src);
+        if let Ok(src) = res {
+            src
+        } else {
+            eprintln!("Could not read file {}", args[1]);
+            exit(1);
+        }
+    } else {
+        path_or_src
+    };
+
+    let lexer = lexer::Lexer::new(&src);
     let mut parser = parse::Parser::new(lexer);
     let parse_result = parser.parse_crate();
 

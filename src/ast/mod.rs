@@ -19,6 +19,12 @@ pub struct Item {
 pub enum ItemKind {
     Func(Func),
     Struct(StructItem),
+    ExternBlock(ExternBlock),
+}
+
+#[derive(Debug)]
+pub struct ExternBlock {
+    pub funcs: Vec<Func>,
 }
 
 #[derive(Debug)]
@@ -32,7 +38,9 @@ pub struct Func {
     pub name: Ident,
     pub params: Vec<(Ident, Rc<Ty>)>,
     pub ret_ty: Rc<Ty>,
-    pub body: Block,
+    /// Extern abi
+    pub ext: Option<String>,
+    pub body: Option<Block>,
     pub id: NodeId,
 }
 

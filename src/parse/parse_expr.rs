@@ -17,6 +17,7 @@ pub fn is_expr_start(token: &Token) -> bool {
             | TokenKind::True
             | TokenKind::False
             | TokenKind::If
+            | TokenKind::Unsafe
     )
 }
 
@@ -183,7 +184,8 @@ impl Parser {
 
     /// primary ::= num | true | false | stringLit
     ///     | ident | callExpr | indexExpr | ifExpr
-    ///     | returnExpr | "(" expr ")" | block
+    ///     | returnExpr | "(" expr ")"
+    ///     | unsafeBlock | block
     ///     | fieldExpr | structExpr
     /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
@@ -236,6 +238,16 @@ impl Parser {
                 }
                 expr
             }
+            // unsafe block expression
+            // TODO: Should AST node have `unsafe` info?
+            TokenKind::Unsafe => {
+                self.skip_token().unwrap();
+                Expr {
+                    kind: ExprKind::Block(self.parse_block()?),
+                    id: self.get_next_id(),
+                }
+            }
+            // block expression
             TokenKind::OpenBrace => Expr {
                 kind: ExprKind::Block(self.parse_block()?),
                 id: self.get_next_id(),

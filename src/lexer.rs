@@ -25,6 +25,8 @@ pub enum TokenKind {
     If,
     Else,
     Struct,
+    Extern,
+    Unsafe,
     /// ->
     Arrow,
     /// !
@@ -267,6 +269,12 @@ impl Lexer {
             "struct" => Token {
                 kind: TokenKind::Struct,
             },
+            "extern" => Token {
+                kind: TokenKind::Extern,
+            },
+            "unsafe" => Token {
+                kind: TokenKind::Unsafe,
+            },
             _ => Token {
                 kind: TokenKind::Ident(s),
             },
@@ -334,6 +342,19 @@ impl Lexer {
                     self.skip_input();
                     break;
                 }
+                /*
+                '\\' => {
+                    self.skip_input();
+                    let escp = match self.skip_input().unwrap() {
+                        'n' => '\n',
+                        c => {
+                            eprintln!("Escape \"\\{c}\" is not supported");
+                            return Err(());
+                        }
+                    };
+                    chars.push(escp);
+                }
+                */
                 '\n' => {
                     eprintln!("Unexpected newline in string literal");
                     return Err(());
@@ -341,7 +362,6 @@ impl Lexer {
                 _ => {
                     chars.push(**c);
                     self.skip_input();
-                    continue;
                 }
             };
         }

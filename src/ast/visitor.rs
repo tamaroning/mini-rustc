@@ -8,6 +8,8 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_func_post(&mut self, _func: &'ctx Func) {}
     fn visit_struct_item(&mut self, _struct: &'ctx StructItem) {}
     fn visit_struct_item_post(&mut self, _struct: &'ctx StructItem) {}
+    fn visit_extern_block(&mut self, _block: &'ctx ExternBlock) {}
+    fn visit_extern_block_post(&mut self, _block: &'ctx ExternBlock) {}
     fn visit_stmt(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_stmt_post(&mut self, _stmt: &'ctx Stmt) {}
     fn visit_let_stmt(&mut self, _let_stmt: &'ctx LetStmt) {}
@@ -39,6 +41,9 @@ fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
                 ItemKind::Struct(struct_item) => {
                     walk_struct_item(v, struct_item);
                 }
+                ItemKind::ExternBlock(extern_block) => {
+                    walk_extern_block(v, extern_block);
+                }
             }
         }
     }
@@ -48,9 +53,11 @@ fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
 fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     v.visit_func(func);
     walk_ident(v, &func.name);
-    for stmt in &func.body.stmts {
-        {
-            walk_stmt(v, stmt);
+    if let Some(body) = &func.body {
+        for stmt in &body.stmts {
+            {
+                walk_stmt(v, stmt);
+            }
         }
     }
     v.visit_func_post(func);
@@ -65,6 +72,14 @@ fn walk_struct_item<'ctx, V: Visitor<'ctx>>(v: &mut V, struct_item: &'ctx Struct
         }
     }
     v.visit_struct_item_post(struct_item);
+}
+
+fn walk_extern_block<'ctx, V: Visitor<'ctx>>(v: &mut V, block: &'ctx ExternBlock) {
+    v.visit_extern_block(block);
+    for func in &block.funcs {
+        walk_func(v, func);
+    }
+    v.visit_extern_block_post(block);
 }
 
 fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {

@@ -74,12 +74,18 @@ impl<'a> Codegen<'a> {
                     self.codegen_func(func)?;
                 }
                 ItemKind::Struct(_) => (),
+                ItemKind::ExternBlock(_) => (),
             }
         }
         Ok(())
     }
 
     fn codegen_func(&mut self, func: &'a Func) -> Result<(), ()> {
+        // do not generate code for the func if it does not have its body
+        if func.body.is_none() {
+            return Ok(());
+        }
+
         let frame = FrameInfo::compute(self.ctx, func);
         if self.ctx.dump_enabled {
             dbg!(&frame);
@@ -88,7 +94,11 @@ impl<'a> Codegen<'a> {
 
         println!("{}:", func.name.symbol);
         self.codegen_func_prologue()?;
-        self.codegen_stmts(&func.body.stmts)?;
+        if let Some(body) = &func.body {
+            for stmt in &body.stmts {
+                self.codegen_stmt(stmt)?;
+            }
+        }
         // codegen of the last stmt results the last computation result stored in rax
         self.codegen_func_epilogue();
 
@@ -111,13 +121,6 @@ impl<'a> Codegen<'a> {
         println!("\tmov rsp, rbp");
         println!("\tpop rbp");
         println!("\tret");
-    }
-
-    fn codegen_stmts(&mut self, stmts: &'a Vec<Stmt>) -> Result<(), ()> {
-        for stmt in stmts {
-            self.codegen_stmt(stmt)?;
-        }
-        Ok(())
     }
 
     fn codegen_stmt(&mut self, stmt: &'a Stmt) -> Result<(), ()> {
@@ -262,7 +265,9 @@ impl<'a> Codegen<'a> {
                 println!("\tcall {}", name.symbol);
             }
             ExprKind::Block(block) => {
-                self.codegen_stmts(&block.stmts)?;
+                for stmt in &block.stmts {
+                    self.codegen_stmt(stmt)?;
+                }
             }
             ExprKind::If(cond, then, els) => {
                 let label_id = self.get_new_label_id();

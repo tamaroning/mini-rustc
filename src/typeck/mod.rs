@@ -58,11 +58,11 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
-    // TODO: typcheck func call before finding declaration of it
+    // TODO: allow func call before finding declaration of the func
     // TODO: typecheck func body
+    // TODO: external func must not have its body (correct?)
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // TODO: typecheck main func
-        self.push_return_type(&func.ret_ty);
         let param_tys = func
             .params
             .iter()
@@ -73,11 +73,15 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
         self.insert_ident_type(&func.name.symbol, func_ty);
+
         for (param, param_ty) in &func.params {
             self.insert_ident_type(&param.symbol, Rc::clone(param_ty));
         }
+        // set return type
+        self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
+        // pop return type
         self.pop_return_type();
     }
 

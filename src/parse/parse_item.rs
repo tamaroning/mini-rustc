@@ -9,7 +9,7 @@ use super::Parser;
 pub fn is_item_start(token: &Token) -> bool {
     matches!(
         token.kind,
-        TokenKind::Fn | TokenKind::Extern | TokenKind::Struct | TokenKind::Extern
+        TokenKind::Fn | TokenKind::Extern | TokenKind::Struct
     )
 }
 

@@ -7,10 +7,7 @@ mod parse;
 mod ty;
 mod typeck;
 
-use std::{
-    fs::{self, File},
-    process::exit,
-};
+use std::process::exit;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -24,7 +21,7 @@ fn main() {
 
     let path_or_src = args[1].clone();
     let src = if args[1].ends_with(".rs") {
-        let res = fs::read_to_string(path_or_src);
+        let res = std::fs::read_to_string(path_or_src);
         if let Ok(src) = res {
             src
         } else {

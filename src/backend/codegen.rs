@@ -288,7 +288,7 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
             }
             ExprKind::Struct(ident, fds) => {
-                let adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
+                let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
                 for (_, fd) in fds {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
@@ -358,7 +358,7 @@ impl<'a> Codegen<'a> {
             }
             _ => {
                 eprintln!("ICE: Cannot codegen {:?} as lval", expr);
-                return Err(());
+                Err(())
             }
         }
     }

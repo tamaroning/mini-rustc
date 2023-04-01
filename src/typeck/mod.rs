@@ -210,7 +210,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                             }
                         }
                         if ok {
-                            Rc::clone(&ret_ty)
+                            Rc::clone(ret_ty)
                         } else {
                             Rc::new(Ty::Error)
                         }
@@ -238,8 +238,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
             ExprKind::If(_cond, then, _els) => {
                 // TODO: typecheck cond and els
-                let then_ty = self.ctx.get_type(then.id);
-                then_ty
+                self.ctx.get_type(then.id)
             }
             ExprKind::Index(array, _index) => {
                 let maybe_array_ty = self.ctx.get_type(array.id);

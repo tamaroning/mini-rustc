@@ -1,4 +1,4 @@
-use crate::ty::Ty;
+use crate::middle::ty::Ty;
 use std::rc::Rc;
 
 pub mod visitor;

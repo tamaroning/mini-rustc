@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem};
 use crate::lexer::{self, Token, TokenKind};
-use crate::ty::Ty;
+use crate::middle::ty::Ty;
 
 use super::Parser;
 

@@ -1,10 +1,9 @@
 #![feature(let_chains)]
-mod analysis;
+mod middle;
 mod ast;
 mod backend;
 mod lexer;
 mod parse;
-mod ty;
 mod typeck;
 
 use std::process::exit;
@@ -42,7 +41,7 @@ fn main() {
         exit(1);
     };
 
-    let mut ctx = analysis::Ctxt::new(dump_enabled);
+    let mut ctx = middle::Ctxt::new(dump_enabled);
 
     if ctx.dump_enabled {
         dbg!(&krate);

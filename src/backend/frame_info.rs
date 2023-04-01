@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::analysis::Ctxt;
+use crate::middle::Ctxt;
 use crate::ast;
 use crate::ast::visitor::{self};
 

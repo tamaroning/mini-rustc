@@ -1,6 +1,6 @@
-use crate::analysis::Ctxt;
+use crate::middle::Ctxt;
 use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
-use crate::ty::{AdtDef, Ty};
+use crate::middle::ty::{AdtDef, Ty};
 use std::collections::HashMap;
 use std::rc::Rc;
 

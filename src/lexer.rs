@@ -53,6 +53,8 @@ pub enum TokenKind {
     StrLit(String),
     /// EOF
     Eof,
+    /// Unknown character
+    Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -113,6 +115,7 @@ impl Lexer {
         // skip whitespaces
         self.skip_whitespaces();
 
+        // TODO: use `Token` type instead of `Result<Token, ()>`
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
                 'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
@@ -208,8 +211,9 @@ impl Lexer {
                 '\"' => self.parse_string_lit(),
                 // Unknown token
                 _ => {
+                    self.skip_input();
                     eprintln!("Unknwon token starting with: {:?}", c);
-                    Err(())
+                    Ok(Token::new(TokenKind::Unknown))
                 }
             }
         } else {

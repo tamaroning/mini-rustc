@@ -11,35 +11,9 @@ Big thanks to these wonderful materials/software.
 
 # Requirement
 
-- x86-64 CPU
 - Cargo
-
-# Status
-
-- [x] types
-  - `i32`, `bool`, unit(`()`), never(`!`), array(`[ty; N]`), `str`
-  - [ ] references
-  - ADT
-    - [x] (nested) structs
-    - [ ] enums
-- [x] typechecking
-- [ ] type inference
-- items
-  - [x] structs
-  - [x] functions
-    - return type cannot be omitted
-    - struct param are not supported
-  - [x] `extern` blocks
-  - [ ] modules
-- statements
-  - [x] let statement (but initializers are not supported)
-  - [x] expression statements
-  - [x] block
-- expressions
-  - [x] literals: integer, boolean, string
-  - [x] if-else expressions
-- misc
-  - [ ] paths
+- toolchains for x86-64 processor
+  - necessary to generate executables
 
 ## Build & Run
 
@@ -85,6 +59,35 @@ $ gcc tmp.s -o a.out
 $ ./a.out
 Hello world!
 ```
+
+# Status
+
+- [x] types
+  - `i32`, `bool`, unit(`()`), never(`!`), array(`[ty; N]`), `str`
+  - [ ] references
+  - ADT
+    - [x] (nested) structs
+    - [ ] enums
+- [x] typechecking
+- [ ] type inference
+- items
+  - [x] structs
+  - [x] functions
+    - return type cannot be omitted
+    - struct params and returning structs are not supported
+  - [x] `extern` blocks
+  - [ ] modules
+- statements
+  - [x] let statement
+    - `mut` and initializers are not supported
+  - [x] expression statements
+  - [x] block
+- expressions
+  - [x] literals: integer, boolean, string
+  - [x] if-else expressions
+- misc
+  - [ ] paths
+  - [ ] pattern matching
 
 ## References
 

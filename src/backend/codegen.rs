@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
-use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, Stmt, StmtKind, UnOp};
+use crate::ast::{
+    BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, LetStmt, Stmt, StmtKind, UnOp,
+};
 use crate::ty::{AdtDef, Ty};
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
@@ -152,7 +154,12 @@ impl<'a> Codegen<'a> {
                 self.codegen_expr(expr)?;
                 Ok(())
             }
-            StmtKind::Let(_name) => Ok(()),
+            StmtKind::Let(LetStmt { ident, ty, init }) => {
+                if let Some(init) = init {
+                    self.codegen_assign_local_var(ident, ty, init)?;
+                }
+                Ok(())
+            }
         }
     }
 
@@ -227,31 +234,11 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Ident(_) | ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 println!("#ident or index");
-                self.codegen_lval(expr)?;
+                self.codegen_addr(expr)?;
                 println!("\tmov rax, [rax]");
             }
             ExprKind::Assign(lhs, rhs) => {
-                println!("#assign");
-                let ty = self.ctx.get_type(rhs.id);
-                if ty.is_adt() {
-                    let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-                    let flatten_fields = self.ctx.flatten_struct(adt);
-                    self.codegen_expr(rhs)?;
-                    for (_ty, ofs) in flatten_fields.iter().rev() {
-                        self.codegen_lval(lhs)?;
-                        println!("\tadd rax, {ofs}");
-                        println!("\tpop rdi");
-                        println!("\tmov [rax], rdi");
-                    }
-                } else {
-                    self.codegen_lval(lhs)?;
-                    self.push();
-                    self.codegen_expr(rhs)?;
-                    self.push();
-                    self.pop("rdi");
-                    self.pop("rax");
-                    println!("\tmov [rax], rdi");
-                }
+                self.codegen_assign(lhs, rhs)?;
             }
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
@@ -329,30 +316,35 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    fn codegen_lval(&mut self, expr: &'a Expr) -> Result<(), ()> {
+    fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
+        // Try to find ident in all locals
+        if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
+            println!("#lval");
+            println!("\tmov rax, rbp");
+            println!("\tsub rax, {}", local.offset);
+            Ok(())
+        }
+        // Try to find ident in all args
+        else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
+            println!("#lval");
+            println!("\tmov rax, rbp");
+            println!("\tsub rax, {}", arg.offset);
+            Ok(())
+        } else {
+            eprintln!("Unknwon identifier: {}", ident.symbol);
+            Err(())
+        }
+    }
+
+    fn codegen_addr(&mut self, expr: &'a Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::Ident(ident) => {
-                // Try to find ident in all locals
-                if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
-                    println!("#lval");
-                    println!("\tmov rax, rbp");
-                    println!("\tsub rax, {}", local.offset);
-                    Ok(())
-                }
-                // Try to find ident in all args
-                else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
-                    println!("#lval");
-                    println!("\tmov rax, rbp");
-                    println!("\tsub rax, {}", arg.offset);
-                    Ok(())
-                } else {
-                    eprintln!("Unknwon identifier: {}", ident.symbol);
-                    Err(())
-                }
+                self.codegen_addr_local_var(ident)?;
+                Ok(())
             }
             ExprKind::Index(array, index) => {
                 let elem_ty_size = self.ctx.get_size(&self.ctx.get_type(expr.id));
-                self.codegen_lval(array)?;
+                self.codegen_addr(array)?;
                 self.push();
                 self.codegen_expr(index)?;
                 self.push();
@@ -363,11 +355,11 @@ impl<'a> Codegen<'a> {
                 println!("\tadd rax, rdi");
                 Ok(())
             }
-            ExprKind::Field(rec, fd) => {
-                self.codegen_lval(rec)?;
+            ExprKind::Field(recv, fd) => {
+                self.codegen_addr(recv)?;
                 let adt = self
                     .ctx
-                    .lookup_adt_def(self.ctx.get_type(rec.id).get_adt_name().unwrap())
+                    .lookup_adt_def(self.ctx.get_type(recv.id).get_adt_name().unwrap())
                     .unwrap();
                 let offs = self.ctx.get_field_offsett(adt, &fd.symbol).unwrap();
                 println!("\tadd rax, {}", offs);
@@ -378,6 +370,61 @@ impl<'a> Codegen<'a> {
                 Err(())
             }
         }
+    }
+
+    // FIXME: sync with `codegen_assign`
+    fn codegen_assign_local_var(
+        &mut self,
+        name: &'a Ident,
+        ty: &Ty,
+        expr: &'a Expr,
+    ) -> Result<(), ()> {
+        if ty.is_adt() {
+            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+            let flatten_fields = self.ctx.flatten_struct(adt);
+            self.codegen_expr(expr)?;
+            for (_ty, ofs) in flatten_fields.iter().rev() {
+                self.codegen_addr_local_var(name)?;
+                println!("\tadd rax, {ofs}");
+                println!("\tpop rdi");
+                println!("\tmov [rax], rdi");
+            }
+        } else {
+            self.codegen_addr_local_var(name)?;
+            self.push();
+            self.codegen_expr(expr)?;
+            self.push();
+            self.pop("rdi");
+            self.pop("rax");
+            println!("\tmov [rax], rdi");
+        }
+        Ok(())
+    }
+
+    // FIXME: sync with `codegen_assign_local_var`
+    fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
+        println!("#assign");
+        let ty = self.ctx.get_type(rhs.id);
+        if ty.is_adt() {
+            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+            let flatten_fields = self.ctx.flatten_struct(adt);
+            self.codegen_expr(rhs)?;
+            for (_ty, ofs) in flatten_fields.iter().rev() {
+                self.codegen_addr(lhs)?;
+                println!("\tadd rax, {ofs}");
+                println!("\tpop rdi");
+                println!("\tmov [rax], rdi");
+            }
+        } else {
+            self.codegen_addr(lhs)?;
+            self.push();
+            self.codegen_expr(rhs)?;
+            self.push();
+            self.pop("rdi");
+            self.pop("rax");
+            println!("\tmov [rax], rdi");
+        }
+        Ok(())
     }
 
     fn retrieve_name<'b>(&'b self, expr: &'b Expr) -> Result<&Ident, ()> {

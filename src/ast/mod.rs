@@ -63,6 +63,7 @@ pub enum StmtKind {
 pub struct LetStmt {
     pub ident: Ident,
     pub ty: Rc<Ty>,
+    pub init: Option<Expr>,
 }
 
 #[derive(Debug)]

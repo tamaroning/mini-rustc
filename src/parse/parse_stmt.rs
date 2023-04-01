@@ -37,6 +37,7 @@ impl Parser {
         }
     }
 
+    /// https://doc.rust-lang.org/reference/statements.html#let-statements
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
         assert!(self.skip_expected_token(TokenKind::Let));
         let ident = self.parse_ident()?;
@@ -47,15 +48,27 @@ impl Parser {
         }
         // parse type
         let ty = self.parse_type()?;
+
+        // parse ("=" expr)?
+        let t = self.peek_token().unwrap();
+        let init = if t.kind == TokenKind::Eq {
+            self.skip_token().unwrap();
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+
         // skip semi
         if !self.skip_expected_token(TokenKind::Semi) {
             eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
             return None;
         }
+
         Some(Stmt {
             kind: StmtKind::Let(LetStmt {
                 ident,
                 ty: Rc::new(ty),
+                init,
             }),
             id: self.get_next_id(),
         })

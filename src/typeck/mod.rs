@@ -114,6 +114,19 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.insert_ident_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
     }
 
+    fn visit_let_stmt_post(&mut self, let_stmt: &'ctx LetStmt) {
+        // checks if type of initalizer matches with the annotated type
+        if let Some(init) = &let_stmt.init {
+            let init_ty = self.ctx.get_type(init.id);
+            if let_stmt.ty != init_ty {
+                self.error(format!(
+                    "Expected `{:?}` type, but found `{:?}`",
+                    let_stmt.ty, init_ty
+                ));
+            }
+        }
+    }
+
     // use post order
     // TODO: deal with never type
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {

@@ -54,6 +54,9 @@ assert 11 'fn main() -> i32 { return 3+8; return 4+6; }'
 assert 0 'fn main() -> i32 { let a: i32; let b: i32; return 0; }'
 assert 128 'fn main() -> i32 { let a: i32; a = 120; a = a + 8; return a; }'
 assert 1 'fn main() -> i32 { let a: i32; let b: i32; a = 1; b = 100; return a; }'
+# let with initalizer
+assert 0 'fn main() -> i32 { let a: i32 = 0; a }'
+assert 204 'fn main() -> i32 { let b: i32 = 10; let c: i32 = 20; 4 + c * b }'
 # func call with no arg
 assert 5 'fn five() -> i32 { return 5; } fn main() -> i32 { return five(); }'
 assert 0 'fn tru() -> bool { return true; } fn main() -> i32 { tru(); return 0; }'

@@ -37,7 +37,15 @@ or
 $ cargo run <source>
 ```
 
-# Compile Hello world!
+## Test
+
+Run the following command:
+
+```rust
+$ ./test.sh
+```
+
+## Compile Hello world!
 
 `examples/hello.rs` contains:
 
@@ -60,14 +68,6 @@ $ cargo run examples/hello.rs > tmp.s
 $ gcc tmp.s -o a.out
 $ ./a.out
 Hello world!
-```
-
-# Test
-
-Run the following command:
-
-```rust
-$ ./test.sh
 ```
 
 # Status

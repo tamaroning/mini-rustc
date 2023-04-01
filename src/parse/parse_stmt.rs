@@ -2,7 +2,6 @@ use super::parse_expr::is_expr_start;
 use super::Parser;
 use crate::ast::{Block, LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
-use crate::ty::Ty;
 use std::rc::Rc;
 
 pub fn is_stmt_start(t: &Token) -> bool {
@@ -60,49 +59,6 @@ impl Parser {
             }),
             id: self.get_next_id(),
         })
-    }
-
-    pub fn parse_type(&mut self) -> Option<Ty> {
-        let t = self.skip_token().unwrap();
-        match t.kind {
-            // Unit type: ()
-            TokenKind::OpenParen => {
-                if !self.skip_expected_token(TokenKind::CloseParen) {
-                    eprintln!("Expected ')', but found {:?}", self.peek_token().unwrap());
-                    None
-                } else {
-                    Some(Ty::Unit)
-                }
-            }
-            // Never type: !
-            TokenKind::Bang => Some(Ty::Never),
-            // i32
-            TokenKind::I32 => Some(Ty::I32),
-            // bool
-            TokenKind::Bool => Some(Ty::Bool),
-            // [type; n]
-            TokenKind::OpenBracket => {
-                let elem_ty = self.parse_type()?;
-                if !self.skip_expected_token(TokenKind::Semi) {
-                    eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
-                    return None;
-                }
-                let t = self.skip_token()?;
-                let TokenKind::NumLit(n) = t.kind else {
-                    return None;
-                };
-                if !self.skip_expected_token(TokenKind::CloseBracket) {
-                    eprintln!("Expected ']', but found {:?}", self.peek_token().unwrap());
-                    return None;
-                }
-                Some(Ty::Array(Rc::new(elem_ty), n))
-            }
-            TokenKind::Ident(s) => Some(Ty::Adt(s)),
-            _ => {
-                eprintln!("Expected type, but found {:?}", t);
-                None
-            }
-        }
     }
 
     /// block ::= "{" stmt* "}"

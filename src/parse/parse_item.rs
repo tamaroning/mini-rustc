@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::ast::{Func, Ident, Item, ItemKind, StructItem};
-use crate::lexer::{Token, TokenKind};
+use crate::lexer::{self, Token, TokenKind};
 use crate::ty::Ty;
 
 use super::Parser;
@@ -134,5 +134,62 @@ impl Parser {
         }
         let ty = self.parse_type()?;
         Some((name, Rc::new(ty)))
+    }
+
+    pub fn parse_type(&mut self) -> Option<Ty> {
+        let t = self.skip_token().unwrap();
+        match t.kind {
+            // Unit type: ()
+            TokenKind::OpenParen => {
+                if !self.skip_expected_token(TokenKind::CloseParen) {
+                    eprintln!("Expected ')', but found {:?}", self.peek_token().unwrap());
+                    None
+                } else {
+                    Some(Ty::Unit)
+                }
+            }
+            // Never type: !
+            TokenKind::Bang => Some(Ty::Never),
+            // i32
+            TokenKind::I32 => Some(Ty::I32),
+            // str
+            TokenKind::Str => Some(Ty::Str),
+            // bool
+            TokenKind::Bool => Some(Ty::Bool),
+            // [type; n]
+            TokenKind::OpenBracket => {
+                let elem_ty = self.parse_type()?;
+                if !self.skip_expected_token(TokenKind::Semi) {
+                    eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
+                    return None;
+                }
+                let t = self.skip_token()?;
+                let TokenKind::NumLit(n) = t.kind else {
+                    return None;
+                };
+                if !self.skip_expected_token(TokenKind::CloseBracket) {
+                    eprintln!("Expected ']', but found {:?}", self.peek_token().unwrap());
+                    return None;
+                }
+                Some(Ty::Array(Rc::new(elem_ty), n))
+            }
+            TokenKind::Ident(s) => Some(Ty::Adt(s)),
+            TokenKind::BinOp(lexer::BinOp::And) => {
+                let t = self.peek_token().unwrap();
+                let region = if let TokenKind::Lifetime(_) = t.kind {
+                    let TokenKind::Lifetime(r) = self.skip_token().unwrap().kind else { unreachable!() };
+                    r
+                } else {
+                    // FIXME: infer?
+                    "static".to_string()
+                };
+                let referent = self.parse_type()?;
+                Some(Ty::Ref(region, Rc::new(referent)))
+            }
+            _ => {
+                eprintln!("Expected type, but found {:?}", t);
+                None
+            }
+        }
     }
 }

@@ -15,6 +15,7 @@ impl Token {
 pub enum TokenKind {
     // keywords
     I32,
+    Str,
     Let,
     Return,
     Fn,
@@ -43,8 +44,11 @@ pub enum TokenKind {
     BinOp(BinOp),
     /// Identifier
     Ident(String),
+    Lifetime(String),
     /// Number
     NumLit(u32),
+    /// String literal
+    StrLit(String),
     /// EOF
     Eof,
 }
@@ -58,6 +62,7 @@ pub enum BinOp {
     Ne,
     Gt,
     Lt,
+    And,
 }
 
 fn is_space(c: char) -> bool {
@@ -109,6 +114,7 @@ impl Lexer {
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
                 'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
+                '\'' => self.parse_lifetime(),
                 '0'..='9' => Ok(self.parse_number_lit()),
                 '=' => {
                     self.skip_input();
@@ -144,6 +150,10 @@ impl Lexer {
                 '<' => {
                     self.skip_input();
                     Ok(Token::new(TokenKind::BinOp(BinOp::Lt)))
+                }
+                '&' => {
+                    self.skip_input();
+                    Ok(Token::new(TokenKind::BinOp(BinOp::And)))
                 }
                 ';' => {
                     self.skip_input();
@@ -193,6 +203,7 @@ impl Lexer {
                     self.skip_input();
                     Ok(Token::new(TokenKind::BinOp(BinOp::Star)))
                 }
+                '\"' => self.parse_string_lit(),
                 // Unknown token
                 _ => {
                     eprintln!("Unknwon token starting with: {:?}", c);
@@ -225,6 +236,9 @@ impl Lexer {
         match s.as_str() {
             "i32" => Token {
                 kind: TokenKind::I32,
+            },
+            "str" => Token {
+                kind: TokenKind::Str,
             },
             "bool" => Token {
                 kind: TokenKind::Bool,
@@ -259,6 +273,33 @@ impl Lexer {
         }
     }
 
+    fn parse_lifetime(&mut self) -> Result<Token, ()> {
+        // skip '\''
+        self.skip_input();
+        let mut chars = vec![];
+        while let Some(c) = &self.peek_input() {
+            match c {
+                'A'..='Z' | 'a'..='z' | '_' | '0'..='9' => {
+                    chars.push(**c);
+                    self.skip_input();
+                }
+                _ => break,
+            };
+        }
+        if chars.is_empty() {
+            eprintln!(
+                "Expected lifetime identifier, but found {:?}",
+                self.peek_input()
+            );
+            Err(())
+        } else {
+            let s: String = chars.into_iter().collect();
+            Ok(Token {
+                kind: TokenKind::Lifetime(s),
+            })
+        }
+    }
+
     fn parse_number_lit(&mut self) -> Token {
         let mut chars = vec![];
         while let Some(c) = &self.peek_input() {
@@ -280,6 +321,35 @@ impl Lexer {
         Token {
             kind: TokenKind::NumLit(n),
         }
+    }
+
+    fn parse_string_lit(&mut self) -> Result<Token, ()> {
+        // skip '"'
+        self.skip_input();
+
+        let mut chars = vec![];
+        while let Some(c) = &self.peek_input() {
+            match c {
+                '"' => {
+                    self.skip_input();
+                    break;
+                }
+                '\n' => {
+                    eprintln!("Unexpected newline in string literal");
+                    return Err(());
+                }
+                _ => {
+                    chars.push(**c);
+                    self.skip_input();
+                    continue;
+                }
+            };
+        }
+
+        let s: String = chars.into_iter().collect();
+        Ok(Token {
+            kind: TokenKind::StrLit(s),
+        })
     }
 
     pub fn peek_token(&mut self) -> Option<&Token> {
@@ -341,7 +411,7 @@ fn test_tokenize() {
 }
 
 #[test]
-fn test_parser_func() {
+fn test_lexer() {
     let mut lexer = Lexer::new("123 + 456 ");
     assert_eq!(
         lexer.skip_token(),

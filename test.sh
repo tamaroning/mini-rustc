@@ -2,7 +2,7 @@
 RUSTC="./target/debug/mini-rustc"
 TMP="./tmp.s"
 EXE="./tmp"
-CC="cc"
+CC="gcc"
 
 assert() {
   expected="$1"
@@ -11,6 +11,7 @@ assert() {
   rm $TMP $EXE
   $RUSTC "$input" >$TMP
   $CC -o $EXE $TMP
+  chmod +x $EXE
   $EXE
   actual="$?"
 
@@ -35,6 +36,8 @@ compile_fail() {
 }
 
 cargo build
+
+QT="'"
 
 # arithmetic
 assert 42 'fn main() -> i32 { return 42; }'
@@ -81,6 +84,11 @@ assert 3 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P
 # nested struct
 assert 31 'struct Pt { x: i32, y: i32 } struct Edge { p1: Pt, p2: Pt }
 fn main() -> i32 { let e: Edge; e.p1 = Pt { x: 10, y: 20, }; e.p2.x = 1; e.p2.y = 2; e.p1.x + e.p1.y + e.p2.x }'
+# ref type
+assert 0 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
+# string literal
+assert 0 'fn main() -> i32 { "Hello"; "World"; 0 }'
+assert 0 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'

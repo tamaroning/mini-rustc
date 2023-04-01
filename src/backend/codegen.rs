@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::frame_info::FrameInfo;
 use crate::analysis::Ctxt;
 use crate::ast::{BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, Stmt, StmtKind, UnOp};
@@ -7,13 +9,15 @@ const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
     let mut codegen = Codegen::new(ctx);
-    codegen.codegen_crate(krate)?;
+    codegen.go(krate)?;
     Ok(())
 }
 
 struct Codegen<'a> {
     ctx: &'a Ctxt,
     current_frame: Option<FrameInfo<'a>>,
+    // "some_lit" => .LCN
+    str_label_mappings: HashMap<&'a String, String>,
     next_label_id: u32,
 }
 
@@ -22,6 +26,7 @@ impl<'a> Codegen<'a> {
         Codegen {
             ctx,
             current_frame: None,
+            str_label_mappings: HashMap::new(),
             next_label_id: 0,
         }
     }
@@ -50,9 +55,19 @@ impl<'a> Codegen<'a> {
         self.current_frame = None;
     }
 
-    fn codegen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
+    fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(".intel_syntax noprefix");
         println!(".globl main");
+        self.codegen_crate(krate)?;
+        for (str, label) in self.str_label_mappings.iter() {
+            println!("{label}:");
+            println!("\t.ascii \"{str}\"");
+            println!("\t.zero 1");
+        }
+        Ok(())
+    }
+
+    fn codegen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
         for item in &krate.items {
             match &item.kind {
                 ItemKind::Func(func) => {
@@ -98,14 +113,14 @@ impl<'a> Codegen<'a> {
         println!("\tret");
     }
 
-    fn codegen_stmts(&mut self, stmts: &Vec<Stmt>) -> Result<(), ()> {
+    fn codegen_stmts(&mut self, stmts: &'a Vec<Stmt>) -> Result<(), ()> {
         for stmt in stmts {
             self.codegen_stmt(stmt)?;
         }
         Ok(())
     }
 
-    fn codegen_stmt(&mut self, stmt: &Stmt) -> Result<(), ()> {
+    fn codegen_stmt(&mut self, stmt: &'a Stmt) -> Result<(), ()> {
         match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
@@ -131,7 +146,7 @@ impl<'a> Codegen<'a> {
     /// Result is stored to al, eax, or rax. In case of al and eax, rax is zero-extended with al, or eax.
     /// If expr is ZST, it is not uncertain that rax has some meaningful value.
     /// If expr is ADT, all of its fields are pushed to the stack.
-    fn codegen_expr(&mut self, expr: &Expr) -> Result<(), ()> {
+    fn codegen_expr(&mut self, expr: &'a Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::NumLit(n) => {
                 println!("#lit");
@@ -142,6 +157,14 @@ impl<'a> Codegen<'a> {
                     println!("\tmov rax, 1");
                 } else {
                     println!("\tmov rax, 0");
+                }
+            }
+            ExprKind::StrLit(s) => {
+                let label = format!(".LC{}", self.get_new_label_id());
+                println!("\tmov rax, OFFSET FLAT:{label} # static str");
+                // register the constant label
+                if self.str_label_mappings.get(s).is_none() {
+                    self.str_label_mappings.insert(s, label);
                 }
             }
             ExprKind::Unary(unop, inner_expr) => {
@@ -284,26 +307,7 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    // expr, lvalの順にpushしておいて、それをよみこむ
-    fn codegen_assign(&mut self, ty: &Ty) -> Result<(), ()> {
-        if ty.is_adt() {
-            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-            for (fd, fd_ty) in adt.fields.iter().rev() {
-                let ofs = self.ctx.get_field_offsett(adt, fd).unwrap();
-                self.pop("rax");
-                println!("\tadd rax, {ofs}");
-                self.push();
-                self.codegen_assign(fd_ty)?;
-            }
-        } else {
-            self.pop("rax"); // rax <- addr
-            self.pop("rdi"); // rdi <- value
-            println!("\tmov [rax], rdi");
-        }
-        Ok(())
-    }
-
-    fn codegen_lval(&mut self, expr: &Expr) -> Result<(), ()> {
+    fn codegen_lval(&mut self, expr: &'a Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::Ident(ident) => {
                 // Try to find ident in all locals
@@ -370,7 +374,7 @@ impl<'a> Codegen<'a> {
     }
 
     fn clean_adt_on_stack(&self, adt: &AdtDef) {
-        let mut size = self.ctx.get_adt_size(adt);
+        let size = self.ctx.get_adt_size(adt);
         // FIXME: correct?
         let pop_rax_time = size / 8;
         for _ in 0..pop_rax_time {

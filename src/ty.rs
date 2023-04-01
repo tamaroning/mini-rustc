@@ -5,12 +5,16 @@ pub enum Ty {
     Unit,
     Bool,
     I32,
+    Str,
     Array(Rc<Ty>, u32),
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
     Adt(String),
+    Ref(Region, Rc<Ty>),
     Never,
     Error,
 }
+
+pub type Region = String;
 
 impl Ty {
     pub fn get_adt_name(&self) -> Option<&String> {

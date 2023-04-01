@@ -150,6 +150,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
             ExprKind::NumLit(_) => Rc::new(Ty::I32),
             ExprKind::BoolLit(_) => Rc::new(Ty::Bool),
+            ExprKind::StrLit(_) => Rc::new(Ty::Ref("static".to_string(), Rc::new(Ty::Str))),
             ExprKind::Unary(_op, inner) => {
                 let inner_ty = &self.ctx.get_type(inner.id);
                 if **inner_ty == Ty::I32 {

@@ -53,13 +53,14 @@ impl Ctxt {
             Ty::Unit => 8, // TODO: 0
             Ty::Bool => 8, // TODO: 1
             Ty::I32 => 8,  // TODO: 4
+            Ty::Str => panic!("ICE"),
             Ty::Array(elem_ty, n) => self.get_size(elem_ty) * n,
             Ty::Fn(_, _) => 8, // = pointer size
             Ty::Adt(name) => {
-                let mut size = 0;
                 let adt = self.lookup_adt_def(name).unwrap();
                 self.get_adt_size(adt)
             }
+            Ty::Ref(_, _) => 8,
             Ty::Never => 0,
             Ty::Error => panic!("ICE"),
         }

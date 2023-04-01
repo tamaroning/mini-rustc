@@ -8,6 +8,7 @@ pub fn is_expr_start(token: &Token) -> bool {
     matches!(
         token.kind,
         TokenKind::NumLit(_)
+            | TokenKind::StrLit(_)
             | TokenKind::Ident(_)
             | TokenKind::OpenParen
             | TokenKind::OpenBrace
@@ -180,7 +181,7 @@ impl Parser {
         })
     }
 
-    /// primary ::= num | true | false
+    /// primary ::= num | true | false | stringLit
     ///     | ident | callExpr | indexExpr | ifExpr
     ///     | returnExpr | "(" expr ")" | block
     ///     | fieldExpr | structExpr
@@ -206,6 +207,13 @@ impl Parser {
                 self.skip_token();
                 Expr {
                     kind: ExprKind::BoolLit(false),
+                    id: self.get_next_id(),
+                }
+            }
+            TokenKind::StrLit(_) => {
+                let TokenKind::StrLit(s) = self.skip_token().unwrap().kind else { unreachable!() };
+                Expr {
+                    kind: ExprKind::StrLit(s),
                     id: self.get_next_id(),
                 }
             }

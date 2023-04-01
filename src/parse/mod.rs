@@ -56,10 +56,9 @@ impl Parser {
 
     /// crate ::= item*
     pub fn parse_crate(&mut self) -> Option<Crate> {
-        let Some(items) = self.parse_items() else {
-            return None;
-        };
+        let items = self.parse_items()?;
         if !self.at_eof() {
+            eprintln!("Expected item but found {:?}", self.peek_token());
             return None;
         }
         Some(Crate { items })

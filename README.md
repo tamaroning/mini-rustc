@@ -29,7 +29,7 @@ Big thanks to these wonderful materials/software.
   - [x] functions
     - return type cannot be omitted
     - struct param are not supported
-  - [ ] `extern` blocks
+  - [x] `extern` blocks
   - [ ] modules
 - statements
   - [x] let statement (but initializers are not supported)
@@ -46,7 +46,7 @@ Big thanks to these wonderful materials/software.
 Building
 
 ```sh
-cargo build
+$ cargo build
 ```
 
 Run
@@ -58,10 +58,10 @@ $ cargo run <file>
 or
 
 ```sh
-$cargo run '<source>'
+$ cargo run '<source>'
 ```
 
-## Compile Hello-world!
+## Compile Hello world!
 
 `examples/hello.rs` contains:
 

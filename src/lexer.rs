@@ -211,8 +211,8 @@ impl Lexer {
                 '\"' => self.parse_string_lit(),
                 // Unknown token
                 _ => {
-                    self.skip_input();
                     eprintln!("Unknwon token starting with: {:?}", c);
+                    self.skip_input();
                     Ok(Token::new(TokenKind::Unknown))
                 }
             }

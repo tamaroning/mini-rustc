@@ -9,21 +9,23 @@ If you find a bug, feel free to open an issue to report it!
 mini-rustc has been much inspired by [GCC Rust](https://github.com/Rust-GCC/gccrs) and [Rui Ueyama's compiler book](https://www.sigbus.info/compilerbook).
 Big thanks to these wonderful materials/software.
 
-# Requirement
+## Requirement
 
 - Cargo
 - toolchains for x86-64 processor
   - necessary to generate executables
 
-## Build & Run
+# Build & Run
 
-Building
+To build mini-rustc, run the following command:
 
 ```sh
+$ git clone <this repo>
+$ cd mini-rustc
 $ cargo build
 ```
 
-Run
+To compile Rust code, run the following command:
 
 ```sh
 $ cargo run <file>
@@ -32,10 +34,10 @@ $ cargo run <file>
 or
 
 ```sh
-$ cargo run '<source>'
+$ cargo run <source>
 ```
 
-## Compile Hello world!
+# Compile Hello world!
 
 `examples/hello.rs` contains:
 
@@ -60,6 +62,14 @@ $ ./a.out
 Hello world!
 ```
 
+# Test
+
+Run the following command:
+
+```rust
+$ ./test.sh
+```
+
 # Status
 
 - [x] types
@@ -81,10 +91,13 @@ Hello world!
   - [x] let statement
     - `mut` and initializers are not supported
   - [x] expression statements
-  - [x] block
+  - [x] return
 - expressions
+  - [x] arithmetic operators `+`, `-`, `*`
+  - [x] comparison operators `==`
   - [x] literals: integer, boolean, string
   - [x] if-else expressions
+  - [x] block expressions
 - misc
   - [ ] paths
   - [ ] pattern matching

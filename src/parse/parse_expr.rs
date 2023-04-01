@@ -230,13 +230,25 @@ impl Parser {
             }
             TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
             TokenKind::OpenParen => {
-                self.skip_token();
-                let expr = self.parse_expr()?;
-                if !self.skip_expected_token(TokenKind::CloseParen) {
-                    eprintln!("Expected ')', but found {:?}", self.peek_token());
-                    return None;
+                // skip '('
+                self.skip_token().unwrap();
+                let t = self.peek_token().unwrap();
+                if t.kind == TokenKind::CloseParen {
+                    // skip '('
+                    self.skip_token().unwrap();
+                    Expr {
+                        kind: ExprKind::Unit,
+                        id: self.get_next_id(),
+                    }
+                } else {
+                    let expr = self.parse_expr()?;
+                    // skip ')'
+                    if !self.skip_expected_token(TokenKind::CloseParen) {
+                        eprintln!("Expected ')', but found {:?}", self.peek_token());
+                        return None;
+                    }
+                    expr
                 }
-                expr
             }
             // unsafe block expression
             // TODO: Should AST node have `unsafe` info?

@@ -1,5 +1,5 @@
 use crate::analysis::Ctxt;
-use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
+use crate::ast::{self, BinOp, Block, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::ty::{AdtDef, Ty};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -56,14 +56,24 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
     }
+
+    /// Get type of block
+    /// NOTE: Given block must already be visited
+    fn get_block_type(&self, block: &'ctx Block) -> Rc<Ty> {
+        if let Some(stmt) = block.stmts.last() {
+            let last_stmt_ty = &self.ctx.get_type(stmt.id);
+            Rc::clone(last_stmt_ty)
+        } else {
+            // no statement. Unit type
+            Rc::new(Ty::Unit)
+        }
+    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: allow func call before finding declaration of the func
     // TODO: what if typechecker does not find a body of non-external func?
     // TODO: external func must not have its body (correct?)
-    // TODO: typecheck func body
-    // TODO: handle never type properly
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // TODO: typecheck main func
         let param_tys = func
@@ -83,7 +93,17 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // set return type
         self.push_return_type(&func.ret_ty);
     }
-    fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
+    fn visit_func_post(&mut self, func: &'ctx ast::Func) {
+        if let Some(body) = &func.body {
+            let body_ty = self.get_block_type(body);
+            let expected = self.peek_return_type();
+            if !body_ty.is_never() && &*body_ty != expected {
+                self.error(format!(
+                    "Expected type {:?} for func body, but found {:?}",
+                    expected, body_ty
+                ));
+            }
+        }
         // pop return type
         self.pop_return_type();
     }
@@ -101,7 +121,26 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
 
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
         let ty: Rc<Ty> = match &stmt.kind {
-            StmtKind::Semi(_) | StmtKind::Let(_) => Rc::new(Ty::Unit),
+            StmtKind::Semi(expr) => {
+                let expr_ty = self.ctx.get_type(expr.id);
+                if expr_ty.is_never() {
+                    Rc::new(Ty::Never)
+                } else {
+                    Rc::new(Ty::Unit)
+                }
+            }
+            StmtKind::Let(LetStmt { init, .. }) => {
+                if let Some(init) = init {
+                    let init_ty = self.ctx.get_type(init.id);
+                    if init_ty.is_never() {
+                        Rc::new(Ty::Never)
+                    } else {
+                        Rc::new(Ty::Unit)
+                    }
+                } else {
+                    Rc::new(Ty::Unit)
+                }
+            }
             StmtKind::Expr(expr) => self.ctx.get_type(expr.id),
         };
         self.ctx.insert_type(stmt.id, ty);
@@ -118,7 +157,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // checks if type of initalizer matches with the annotated type
         if let Some(init) = &let_stmt.init {
             let init_ty = self.ctx.get_type(init.id);
-            if let_stmt.ty != init_ty {
+            if !init_ty.is_never() && let_stmt.ty != init_ty {
                 self.error(format!(
                     "Expected `{:?}` type, but found `{:?}`",
                     let_stmt.ty, init_ty
@@ -128,19 +167,23 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     }
 
     // use post order
-    // TODO: deal with never type
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
         let ty: Rc<Ty> = match &expr.kind {
+            ExprKind::NumLit(_) => Rc::new(Ty::I32),
+            ExprKind::BoolLit(_) => Rc::new(Ty::Bool),
+            ExprKind::StrLit(_) => Rc::new(Ty::Ref("static".to_string(), Rc::new(Ty::Str))),
+            ExprKind::Unit => Rc::new(Ty::Unit),
             ExprKind::Assign(l, r) => {
                 let lhs_ty = &self.ctx.get_type(l.id);
                 let rhs_ty = &self.ctx.get_type(r.id);
-                if **lhs_ty == **rhs_ty {
+                if rhs_ty.is_never() || **lhs_ty == **rhs_ty {
                     Rc::new(Ty::Unit)
                 } else {
                     self.error(format!("Cannot assign {:?} to {:?}", rhs_ty, lhs_ty));
                     Rc::new(Ty::Error)
                 }
             }
+            // TODO: deal with never type
             ExprKind::Binary(op, l, r) => {
                 let lhs_ty = &self.ctx.get_type(l.id);
                 let rhs_ty = &self.ctx.get_type(r.id);
@@ -171,9 +214,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     }
                 }
             }
-            ExprKind::NumLit(_) => Rc::new(Ty::I32),
-            ExprKind::BoolLit(_) => Rc::new(Ty::Bool),
-            ExprKind::StrLit(_) => Rc::new(Ty::Ref("static".to_string(), Rc::new(Ty::Str))),
+            // TODO: deal with never type
             ExprKind::Unary(_op, inner) => {
                 let inner_ty = &self.ctx.get_type(inner.id);
                 if **inner_ty == Ty::I32 {
@@ -213,6 +254,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
+            // TODO: deal with never type params
             ExprKind::Call(expr, args) => {
                 let maybe_func_ty = self.ctx.get_type(expr.id);
                 if let Ty::Fn(param_ty, ret_ty) = &*maybe_func_ty {
@@ -246,15 +288,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Block(block) => {
-                if let Some(stmt) = block.stmts.last() {
-                    let last_stmt_ty = &self.ctx.get_type(stmt.id);
-                    Rc::clone(last_stmt_ty)
-                } else {
-                    // no statement. Unit type
-                    Rc::new(Ty::Unit)
-                }
-            }
+            ExprKind::Block(block) => self.get_block_type(block),
             ExprKind::If(_cond, then, _els) => {
                 // TODO: typecheck cond and els
                 self.ctx.get_type(then.id)

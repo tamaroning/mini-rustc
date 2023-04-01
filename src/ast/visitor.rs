@@ -100,7 +100,7 @@ fn walk_let_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, let_stmt: &'ctx LetStmt) {
     if let Some(init) = init {
         walk_expr(v, init);
     }
-    v.visit_let_stmt(let_stmt);
+    v.visit_let_stmt_post(let_stmt);
 }
 
 fn walk_ident<'ctx, V: Visitor<'ctx>>(v: &mut V, ident: &'ctx Ident) {
@@ -114,7 +114,7 @@ fn walk_type<'ctx, V: Visitor<'ctx>>(v: &mut V, ty: &'ctx Ty) {
 fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
     v.visit_expr(expr);
     match &expr.kind {
-        ExprKind::NumLit(_) | ExprKind::BoolLit(_) | ExprKind::StrLit(_) => (),
+        ExprKind::NumLit(_) | ExprKind::BoolLit(_) | ExprKind::StrLit(_) | ExprKind::Unit => (),
         ExprKind::Binary(_, l, r) | ExprKind::Assign(l, r) => {
             walk_expr(v, l);
             walk_expr(v, r);

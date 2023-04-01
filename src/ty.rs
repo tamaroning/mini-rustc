@@ -28,6 +28,10 @@ impl Ty {
     pub fn is_adt(&self) -> bool {
         matches!(self, Ty::Adt(_))
     }
+
+    pub fn is_never(&self) -> bool {
+        matches!(self, Ty::Never)
+    }
 }
 
 #[derive(Debug)]

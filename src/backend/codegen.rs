@@ -188,6 +188,9 @@ impl<'a> Codegen<'a> {
                     self.str_label_mappings.insert(s, label);
                 }
             }
+            ExprKind::Unit => {
+                println!("\tmov rax, 0");
+            }
             ExprKind::Unary(unop, inner_expr) => {
                 println!("#unary");
                 match unop {
@@ -351,8 +354,8 @@ impl<'a> Codegen<'a> {
                 self.pop("rdi"); // rdi <- index
                 println!("\tmov rax, {}", elem_ty_size); // rax <- size_of(size)
                 println!("\tmul rdi"); // rax <- index * size_of(elem)
-                self.pop("rdi"); // rax <- base addr
-                println!("\tadd rax, rdi");
+                self.pop("rdi"); // rdi <- base_addr
+                println!("\tadd rax, rdi"); // rax <- base_addr + index * size_of(elem) 
                 Ok(())
             }
             ExprKind::Field(recv, fd) => {

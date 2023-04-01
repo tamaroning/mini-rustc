@@ -84,6 +84,7 @@ pub enum ExprKind {
     NumLit(u32),
     BoolLit(bool),
     StrLit(String),
+    Unit,
     Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),

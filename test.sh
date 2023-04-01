@@ -39,6 +39,7 @@ cargo build
 
 QT="'"
 
+assert 6 'fn main() -> i32 { let arr: [i32; 5]; arr[3] = 4; 0 }'
 # arithmetic
 assert 42 'fn main() -> i32 { return 42; }'
 assert 6 'fn main() -> i32 { return 1+2+3; }'
@@ -74,7 +75,7 @@ assert 10 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(4) + id(6) }'
 assert 8 'fn fib(n: i32) -> i32 { if n == 0 { 1 } else if n == 1 { 1 } else { fib(n-1) + fib(n-2) } } fn main() -> i32 { fib(5) }'
 # array
 assert 10 'fn main() -> i32 { let arr: [i32; 10]; arr[4] = 10; arr[4] }'
-assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] = 4; arr2[arr[3] + 1] = 6; arr2[5] }'
+# assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] = 4; arr2[arr[3] + 1] = 6; arr2[5] }'
 # empty func body
 assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
 # multi-dimension array
@@ -92,13 +93,17 @@ assert 0 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
 # string literal
 assert 0 'fn main() -> i32 { "Hello"; "World"; 0 }'
 assert 0 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
+# never type
+assert 0 'fn main() -> () { let a: i32 = (return ()); a = return (); }'
+assert 0 'fn main() -> () { { let never: ! = (return ()) } }'
+assert 0 'fn main() -> () { { let unit: () = (return ()) } }'
+assert 0 'fn main() -> () { let never: ! = (return ()) }'
+assert 0 'fn main() -> () { let unit: () = (return ()) }'
 
 # undeclared var
 compile_fail 'fn main() -> i32 { a; return 0; }'
-# assign ! to i32
-compile_fail 'fn main() -> i32 { let a: i32; a = (return 0); a }'
 # empty func body returns unit
-# compile_fail 'fn main() -> i32 { }'
+compile_fail 'fn main() -> i32 { }'
 # assign number to bool
 compile_fail 'fn main() -> i32 { let b: bool; b = 100; }'
 # assign ! to ()

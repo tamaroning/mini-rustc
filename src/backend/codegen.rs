@@ -114,6 +114,9 @@ impl<'a> Codegen<'a> {
         for (i, (_, local)) in frame.args.iter().enumerate() {
             println!("\tmov [rbp-{}], {}", local.offset, PARAM_REGISTERS[i]);
         }
+        // FIXME: should remove this
+        // When returning from functions which return (), make sure that rax stores the value 0
+        println!("\tmov rax, 0 # return unit ?");
         Ok(())
     }
 
@@ -135,6 +138,13 @@ impl<'a> Codegen<'a> {
                     let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
                     self.clean_adt_on_stack(adt);
                 }
+
+                // FIXME: should remove this
+                // When returning from functions which return (), make sure that rax stores the value 0
+                if *ty == Ty::Unit {
+                    println!("\tmov rax, 0 # return unit ?");
+                }
+
                 Ok(())
             }
             StmtKind::Expr(expr) => {
@@ -307,6 +317,12 @@ impl<'a> Codegen<'a> {
                 println!("\tmovsx rax, eax");
             }
             _ => (),
+        }
+
+        // FIXME: should remove this
+        // When returning from functions which return (), make sure that rax stores the value 0
+        if *ty == Ty::Unit {
+            println!("\tmov rax, 0 # return unit ?");
         }
 
         Ok(())

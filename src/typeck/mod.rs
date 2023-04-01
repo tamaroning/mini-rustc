@@ -15,19 +15,20 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 }
 
 struct TypeChecker<'chk> {
-    // local variables, paramters
+    ctx: &'chk mut Ctxt,
+    // TODO: use stacks respresenting the current scope
+    /// local variables, paramters to type mappings
     ident_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
     current_return_type: Option<&'chk Ty>,
-    ctx: &'chk mut Ctxt,
     errors: Vec<String>,
 }
 
 impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
+            ctx,
             ident_ty_mappings: HashMap::new(),
             current_return_type: None,
-            ctx,
             errors: vec![],
         }
     }
@@ -59,8 +60,10 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: allow func call before finding declaration of the func
-    // TODO: typecheck func body
+    // TODO: what if typechecker does not find a body of non-external func?
     // TODO: external func must not have its body (correct?)
+    // TODO: typecheck func body
+    // TODO: handle never type properly
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // TODO: typecheck main func
         let param_tys = func
@@ -104,12 +107,15 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx.insert_type(stmt.id, ty);
     }
 
+    // TODO: handling local variables properly
+    // TODO: shadowing
     fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
         // set local variable type
         self.insert_ident_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
     }
 
     // use post order
+    // TODO: deal with never type
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
         let ty: Rc<Ty> = match &expr.kind {
             ExprKind::Assign(l, r) => {
@@ -276,7 +282,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             ExprKind::Struct(ident, _fds) => {
                 let adt_name = &ident.symbol;
                 if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
-                    // TODO: typecheck field
+                    // TODO: typecheck fields
                     Rc::new(Ty::Adt(adt_name.clone()))
                 } else {
                     self.error(format!("Cannot find type {}", adt_name));

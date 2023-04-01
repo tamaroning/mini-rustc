@@ -5,10 +5,10 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Ctxt {
-    // move to typing context?
+    // TODO: move to tyctxt?
     /// Result of typecheck
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
-    // move to typing context?
+    // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
     adt_defs: HashMap<String, AdtDef>,
     pub dump_enabled: bool,
@@ -48,6 +48,8 @@ impl Ctxt {
         self.adt_defs.insert(name, adt);
     }
 
+    // FIXME: infinite loop in case of recursive struct
+    // e.g. `struct S { s: S }`
     pub fn get_size(&self, ty: &Ty) -> u32 {
         match ty {
             Ty::Unit => 8, // TODO: 0
@@ -66,6 +68,7 @@ impl Ctxt {
         }
     }
 
+    // FIXME: infinite loop
     pub fn get_adt_size(&self, adt: &AdtDef) -> u32 {
         let mut size = 0;
         for (_, ty) in &adt.fields {
@@ -74,6 +77,8 @@ impl Ctxt {
         size
     }
 
+    /// Gets offset of the given field.
+    /// Returns None if the field does not exists on the ADT.
     // TODO: alignment
     pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<u32> {
         let mut saw_field = false;
@@ -119,27 +124,4 @@ impl Ctxt {
             }
         }
     }
-
-    /*
-    pub fn type_info(&self, ty: &Ty) -> TyInfo {
-        let size = match ty {
-            Ty::I32 => 4,
-            Ty::Bool => 1,
-            Ty::Never => 0,
-            Ty::Unit => 0,
-            Ty::Error => unreachable!(),
-        };
-        TyInfo { size }
-    }
-
-    pub fn is_zst(&self, ty: &Ty) -> bool {
-        self.type_info(ty).size == 0
-    }
-    */
 }
-
-/*
-pub struct TyInfo {
-    pub size: u32,
-}
-*/

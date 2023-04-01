@@ -16,6 +16,7 @@ pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
 struct Codegen<'a> {
     ctx: &'a Ctxt,
     current_frame: Option<FrameInfo<'a>>,
+    // String literal to label mappings
     // "some_lit" => .LCN
     str_label_mappings: HashMap<&'a String, String>,
     next_label_id: u32,

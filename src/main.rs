@@ -17,6 +17,7 @@ fn main() {
         exit(1);
     }
 
+    // TODO: refine handling command line args
     let dump_enabled = args.contains(&"--dump".to_string());
 
     let path_or_src = args[1].clone();
@@ -60,7 +61,7 @@ fn main() {
 
     let codegen_result = backend::compile(&ctx, &krate);
     let Ok(()) = codegen_result else {
-        eprintln!("Failed to generate assembly");
+        eprintln!("ICE: Failed to generate assembly");
         exit(1);
     };
 }

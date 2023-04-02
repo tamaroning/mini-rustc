@@ -4,6 +4,7 @@ mod backend;
 mod lexer;
 mod middle;
 mod parse;
+mod span;
 mod typeck;
 
 fn main() {
@@ -30,7 +31,7 @@ fn main() {
         path_or_src
     };
 
-    let lexer = lexer::Lexer::new(&src);
+    let lexer = lexer::Lexer::new(src);
     let mut parser = parse::Parser::new(lexer);
     let parse_result = parser.parse_crate();
 

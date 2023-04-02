@@ -13,7 +13,7 @@ pub struct Ctxt {
     // To deal with this, add the following fields to Ctxt
     //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
     //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
-    
+
     // TODO: move to tyctxt?
     /// Result of typecheck
     ty_mappings: HashMap<NodeId, Rc<Ty>>,

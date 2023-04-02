@@ -251,6 +251,8 @@ impl Parser {
                     id: self.get_next_id(),
                 }
             }
+            // FIXME: ambiguity: parser cannot decide ident or struct expr.
+            // e.g. `if s { } else {}`
             TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
             TokenKind::OpenParen => {
                 let mut span = self.peek_token().span.clone();
@@ -345,7 +347,7 @@ impl Parser {
         let mut span = self.peek_token().span.clone();
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{', but found {:?}", self.peek_token());
+            eprintln!("Expected '{{ for struct expr', but found {:?}", self.peek_token());
             return None;
         }
 
@@ -357,7 +359,7 @@ impl Parser {
 
         span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::CloseBrace) {
-            eprintln!("Expected '}}', but found {:?}", self.peek_token());
+            eprintln!("Expected '}}' for struct expr, but found {:?}", self.peek_token());
             return None;
         }
         Some(Expr {

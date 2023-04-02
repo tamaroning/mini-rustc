@@ -56,7 +56,7 @@ impl Parser {
         }
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{', but found {:?}", self.peek_token());
+            eprintln!("Expected '{{' for extern block, but found {:?}", self.peek_token());
             return None;
         }
 
@@ -158,7 +158,7 @@ impl Parser {
         }
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{', but found {:?}", self.peek_token());
+            eprintln!("Expected '{{' for struct definiton, but found {:?}", self.peek_token());
             return None;
         }
 
@@ -168,7 +168,7 @@ impl Parser {
             vec![]
         };
         if !self.skip_expected_token(TokenKind::CloseBrace) {
-            eprintln!("Expected '}}', but found {:?}", self.peek_token());
+            eprintln!("Expected '}}' for struct definition, but found {:?}", self.peek_token());
             return None;
         }
 

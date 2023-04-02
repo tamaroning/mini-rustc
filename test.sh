@@ -3,7 +3,7 @@ cd `dirname $0`
 
 success_or_stop() {
   if [ "$1" = "0" ]; then
-    echo OK
+    :
   else
     echo "Test failed"
     exit 1

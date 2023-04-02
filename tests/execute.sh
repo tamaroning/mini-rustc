@@ -5,6 +5,11 @@ TMP="./tmp.s"
 EXE="./tmp"
 CC="gcc"
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+GRAY='\033[0;30m'
+NC='\033[0m' # No Color
+
 assert() {
     expected="$1"
     input="$2"
@@ -17,9 +22,9 @@ assert() {
     actual="$?"
 
     if [ "$actual" = "$expected" ]; then
-        echo "$input => $actual"
+        echo -e "[${GREEN}OK${NC}] $input ${GRAY}=> $actual${NC}"
     else
-        echo "$input => $expected expected, but got $actual"
+        echo -e "[${RED}ERROR${NC}] $input ${GRAY}=> $expected expected, but got $actual${NC}"
         exit 1
     fi
 }

@@ -5,14 +5,19 @@ TMP="./tmp.s"
 EXE="./tmp"
 CC="gcc"
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+GRAY='\033[0;30m'
+NC='\033[0m' # No Color
+
 compile_fail() {
   input="$1"
   $RUSTC "$input" >&/dev/null
   code="$?"
   if [ "$code" = 1 ]; then
-    echo "$input => OK"
+    echo -e "[${GREEN}OK${NC}] $input"
   else
-    echo "$input => Unexpectedly exit with code $code"
+    echo -e "[${RED}ERROR${NC}] $input ${GRAY}=> Unexpectedly exit with code $code${NC}"
     exit 1
   fi
 }

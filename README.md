@@ -102,6 +102,20 @@ Hello world!
   - [ ] paths
   - [ ] pattern matching
 
+## Problem of ambiguous grammars
+
+I have developed the parser refering to Rust Reference, but mini-rustc cannot parse several grammars correctly.
+I will investigate rustc or other compilers to fix it.
+
+examples:
+
+```rust
+// How do we decide condition is ident or struct expr?
+fn main() -> i32 { if some_ident { 3 } else { 4 } }
+// How do we decide this expr is a function call or two expr stmts?
+fn main() -> i32 { () () }
+```
+
 ## References
 
 - https://github.com/Rust-GCC/gccrs

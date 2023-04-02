@@ -144,7 +144,6 @@ impl Lexer {
                     if c == Some('/') {
                         loop {
                             let c = self.peek_input();
-                            dbg!(c);
                             if matches!(c, Some('\n') | None) {
                                 self.skip_input();
                                 break;

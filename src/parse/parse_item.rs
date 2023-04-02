@@ -26,7 +26,10 @@ impl Parser {
                 kind: ItemKind::ExternBlock(self.parse_extern_block()?),
             }),
             _ => {
-                eprintln!("Expected item, but found `{}`", self.peek_token().span.to_snippet());
+                eprintln!(
+                    "Expected item, but found `{}`",
+                    self.peek_token().span.to_snippet()
+                );
                 None
             }
         }
@@ -56,7 +59,10 @@ impl Parser {
         }
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{' for extern block, but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '{{' for extern block, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
 
@@ -80,12 +86,18 @@ impl Parser {
     /// https://doc.rust-lang.org/reference/items/functions.html
     pub fn parse_func(&mut self, ext: Option<String>) -> Option<Func> {
         if !self.skip_expected_token(TokenKind::Fn) {
-            eprintln!("Expected \"fn\", but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected \"fn\", but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenParen) {
-            eprintln!("Expected '(', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '(', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let t = self.peek_token();
@@ -95,12 +107,18 @@ impl Parser {
             self.parse_func_params()?
         };
         if !self.skip_expected_token(TokenKind::CloseParen) {
-            eprintln!("Expected ')', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ')', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
 
         if !self.skip_expected_token(TokenKind::Arrow) {
-            eprintln!("Expected '->', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '->', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let ret_ty = self.parse_type()?;
@@ -112,7 +130,10 @@ impl Parser {
             self.skip_token();
             None
         } else {
-            eprintln!("Expected function body or ';', but found `{}`", t.span.to_snippet());
+            eprintln!(
+                "Expected function body or ';', but found `{}`",
+                t.span.to_snippet()
+            );
             return None;
         };
 
@@ -144,7 +165,10 @@ impl Parser {
     fn parse_func_param(&mut self) -> Option<(Ident, Rc<Ty>)> {
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ':', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let ty = self.parse_type()?;
@@ -153,12 +177,18 @@ impl Parser {
 
     fn parse_struct_item(&mut self) -> Option<StructItem> {
         if !self.skip_expected_token(TokenKind::Struct) {
-            eprintln!("Expected \"struct\", but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected \"struct\", but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{' for struct definiton, but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '{{' for struct definiton, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
 
@@ -168,7 +198,10 @@ impl Parser {
             vec![]
         };
         if !self.skip_expected_token(TokenKind::CloseBrace) {
-            eprintln!("Expected '}}' for struct definition, but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '}}' for struct definition, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
 
@@ -192,7 +225,10 @@ impl Parser {
     fn parse_struct_field(&mut self) -> Option<(Ident, Rc<Ty>)> {
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ':', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let ty = self.parse_type()?;
@@ -205,7 +241,10 @@ impl Parser {
             // Unit type: ()
             TokenKind::OpenParen => {
                 if !self.skip_expected_token(TokenKind::CloseParen) {
-                    eprintln!("Expected ')', but found `{}`", self.peek_token().span.to_snippet());
+                    eprintln!(
+                        "Expected ')', but found `{}`",
+                        self.peek_token().span.to_snippet()
+                    );
                     None
                 } else {
                     Some(Ty::Unit)
@@ -223,7 +262,10 @@ impl Parser {
             TokenKind::OpenBracket => {
                 let elem_ty = self.parse_type()?;
                 if !self.skip_expected_token(TokenKind::Semi) {
-                    eprintln!("Expected ';', but found `{}`", self.peek_token().span.to_snippet());
+                    eprintln!(
+                        "Expected ';', but found `{}`",
+                        self.peek_token().span.to_snippet()
+                    );
                     return None;
                 }
                 let t = self.skip_token();
@@ -231,7 +273,10 @@ impl Parser {
                     return None;
                 };
                 if !self.skip_expected_token(TokenKind::CloseBracket) {
-                    eprintln!("Expected ']', but found `{}`", self.peek_token().span.to_snippet());
+                    eprintln!(
+                        "Expected ']', but found `{}`",
+                        self.peek_token().span.to_snippet()
+                    );
                     return None;
                 }
                 Some(Ty::Array(Rc::new(elem_ty), n))

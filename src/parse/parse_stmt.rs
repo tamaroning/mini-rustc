@@ -37,7 +37,10 @@ impl Parser {
                 }
             }
             _ => {
-                eprintln!("Expected expr, but found `{}`", self.peek_token().span.to_snippet());
+                eprintln!(
+                    "Expected expr, but found `{}`",
+                    self.peek_token().span.to_snippet()
+                );
                 None
             }
         }
@@ -51,7 +54,10 @@ impl Parser {
         let ident = self.parse_ident()?;
         // skip colon
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ':', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         // parse type
@@ -92,7 +98,10 @@ impl Parser {
         let mut span = self.peek_token().span.clone();
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{' but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '{{' but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let mut stmts = vec![];
@@ -107,7 +116,10 @@ impl Parser {
                 span = span.concat(&self.skip_token().span);
                 return Some(Block { stmts, span });
             } else {
-                eprintln!("Expected '}}' or statement, but found `{}`", t.span.to_snippet());
+                eprintln!(
+                    "Expected '}}' or statement, but found `{}`",
+                    t.span.to_snippet()
+                );
                 break;
             }
         }

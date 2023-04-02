@@ -138,10 +138,19 @@ impl Lexer {
                 '0'..='9' => self.parse_number_lit(),
                 // skip comments
                 '/' => {
-                    let c= self.skip_input();
+                    // skip first '/'
+                    self.skip_input().unwrap();
+                    let c = self.skip_input();
                     if c == Some('/') {
-                        while !matches!(self.skip_input(), Some('\n') | None) {
-                            self.skip_input();
+                        loop {
+                            let c = self.peek_input();
+                            dbg!(c);
+                            if matches!(c, Some('\n') | None) {
+                                self.skip_input();
+                                break;
+                            } else {
+                                self.skip_input();
+                            }
                         }
                         return self.tokenize();
                     } else {

@@ -25,8 +25,13 @@ compile() {
 }
 
 QT="'"
+NL=$'\n'
 
 echo "===== Compile Tests ====="
+# comments
+compile "fn main() -> () { // comment${NL}}"
+compile "//${NL}fn main() -> () { }"
+compile "fn main() -> () { //${NL}}"
 # ref type
 compile 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
 # string literal

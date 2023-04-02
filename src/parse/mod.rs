@@ -58,7 +58,10 @@ impl Parser {
     pub fn parse_crate(&mut self) -> Option<Crate> {
         let items = self.parse_items()?;
         if !self.at_eof() {
-            eprintln!("Expected crate item but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected crate item but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         Some(Crate { items })

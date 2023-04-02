@@ -29,7 +29,10 @@ impl Parser {
     fn parse_if_expr(&mut self) -> Option<Expr> {
         let mut span = self.peek_token().span.clone();
         if !self.skip_expected_token(TokenKind::If) {
-            eprintln!("Expected \"if\", but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected \"if\", but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let cond = self.parse_expr()?;
@@ -273,7 +276,10 @@ impl Parser {
                     span = span.concat(&self.peek_token().span);
                     // skip ')'
                     if !self.skip_expected_token(TokenKind::CloseParen) {
-                        eprintln!("Expected ')', but found `{}`", self.peek_token().span.to_snippet());
+                        eprintln!(
+                            "Expected ')', but found `{}`",
+                            self.peek_token().span.to_snippet()
+                        );
                         return None;
                     }
                     // just expand span
@@ -306,7 +312,10 @@ impl Parser {
                 }
             }
             _ => {
-                eprintln!("Expected num or (expr), but found `{}`", t.span.to_snippet());
+                eprintln!(
+                    "Expected num or (expr), but found `{}`",
+                    t.span.to_snippet()
+                );
                 return None;
             }
         };
@@ -347,7 +356,10 @@ impl Parser {
         let mut span = self.peek_token().span.clone();
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{ for struct expr', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '{{ for struct expr', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
 
@@ -359,7 +371,10 @@ impl Parser {
 
         span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::CloseBrace) {
-            eprintln!("Expected '}}' for struct expr, but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '}}' for struct expr, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         Some(Expr {
@@ -387,7 +402,10 @@ impl Parser {
     fn parse_struct_expr_field(&mut self) -> Option<(Ident, Box<Expr>)> {
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ':', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let expr = self.parse_expr()?;
@@ -409,7 +427,10 @@ impl Parser {
 
         span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::CloseParen) {
-            eprintln!("Expected ')', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ')', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         Some(Expr {
@@ -441,7 +462,10 @@ impl Parser {
 
         // skip '['
         if !self.skip_expected_token(TokenKind::OpenBracket) {
-            eprintln!("Expected '[', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected '[', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         let index = self.parse_expr()?;
@@ -449,7 +473,10 @@ impl Parser {
         span = span.concat(&self.peek_token().span);
         // skip ']'
         if !self.skip_expected_token(TokenKind::CloseBracket) {
-            eprintln!("Expected ']', but found `{}`", self.peek_token().span.to_snippet());
+            eprintln!(
+                "Expected ']', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
             return None;
         }
         Some(Expr {

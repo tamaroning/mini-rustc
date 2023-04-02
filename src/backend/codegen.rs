@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use super::frame_info::FrameInfo;
-use crate::middle::Ctxt;
 use crate::ast::{
     BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, LetStmt, Stmt, StmtKind, UnOp,
 };
 use crate::middle::ty::{AdtDef, Ty};
+use crate::middle::Ctxt;
+use std::collections::HashMap;
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 

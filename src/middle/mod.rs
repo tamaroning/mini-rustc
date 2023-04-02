@@ -1,6 +1,6 @@
 pub mod ty;
 
-use crate::ast::{NodeId, self};
+use crate::ast::{self, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
 use std::collections::HashMap;
 use std::rc::Rc;

@@ -1,10 +1,8 @@
-use std::rc::Rc;
-
+use super::Parser;
 use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem};
 use crate::lexer::{self, Token, TokenKind};
 use crate::middle::ty::Ty;
-
-use super::Parser;
+use std::rc::Rc;
 
 pub fn is_item_start(token: &Token) -> bool {
     matches!(

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::middle::Ctxt;
 use crate::ast;
 use crate::ast::visitor::{self};
+use crate::middle::Ctxt;
 
 const INIT_LOCAL_OR_PARAM_OFFSET: u32 = 8;
 

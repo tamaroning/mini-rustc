@@ -1,8 +1,6 @@
 use super::Parser;
-use crate::{
-    ast::{self, Expr, ExprKind, Ident, UnOp},
-    lexer::{self, Token, TokenKind},
-};
+use crate::ast::{self, Expr, ExprKind, Ident, UnOp};
+use crate::lexer::{self, Token, TokenKind};
 
 pub fn is_expr_start(token: &Token) -> bool {
     matches!(

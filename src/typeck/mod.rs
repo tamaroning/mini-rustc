@@ -1,6 +1,6 @@
-use crate::middle::Ctxt;
 use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::middle::ty::{AdtDef, Ty};
+use crate::middle::Ctxt;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -18,7 +18,7 @@ struct TypeChecker<'chk> {
     ctx: &'chk mut Ctxt,
     // TODO: use stacks respresenting the current scope
     /// local variables, paramters to type mappings
-    ident_ty_mappings: HashMap<&'chk String, Rc<Ty>>,
+    scopes: Vec<HashMap<&'chk String, Rc<Ty>>>,
     current_return_type: Option<&'chk Ty>,
     errors: Vec<String>,
 }
@@ -27,7 +27,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             ctx,
-            ident_ty_mappings: HashMap::new(),
+            scopes: vec![],
             current_return_type: None,
             errors: vec![],
         }
@@ -37,12 +37,21 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_ident_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
-        self.ident_ty_mappings.insert(symbol, Rc::clone(&ty));
+    fn insert_symbol_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .insert(symbol, Rc::clone(&ty));
     }
 
-    fn get_ident_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
-        self.ident_ty_mappings.get(&ident.symbol).map(Rc::clone)
+    fn get_symbol_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
+        for scope in self.scopes.iter().rev() {
+            let ty = scope.get(&ident.symbol).map(Rc::clone);
+            if ty.is_some() {
+                return ty;
+            }
+        }
+        None
     }
 
     fn peek_return_type(&self) -> &Ty {
@@ -56,9 +65,25 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
     }
+
+    fn push_symbol_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn pop_symbol_scope(&mut self) {
+        self.scopes.pop();
+    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
+    fn visit_crate(&mut self, _krate: &'ctx Crate) {
+        self.push_symbol_scope();
+    }
+
+    fn visit_crate_post(&mut self, _krate: &'ctx Crate) {
+        self.pop_symbol_scope();
+    }
+
     // TODO: allow func call before finding declaration of the func
     // TODO: what if typechecker does not find a body of non-external func?
     // TODO: external func must not have its body (correct?)
@@ -73,12 +98,14 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
 
         self.ctx
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
-        self.insert_ident_type(&func.name.symbol, func_ty);
+        self.insert_symbol_type(&func.name.symbol, func_ty);
 
+        // push scope
+        self.push_symbol_scope();
         for (param, param_ty) in &func.params {
-            self.insert_ident_type(&param.symbol, Rc::clone(param_ty));
+            self.insert_symbol_type(&param.symbol, Rc::clone(param_ty));
         }
-        // set return type
+        // push return type
         self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
@@ -92,6 +119,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 ));
             }
         }
+        // pop scope
+        self.pop_symbol_scope();
         // pop return type
         self.pop_return_type();
     }
@@ -105,6 +134,14 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 .collect(),
         };
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
+    }
+
+    fn visit_block(&mut self, _block: &'ctx ast::Block) {
+        self.push_symbol_scope();
+    }
+
+    fn visit_block_post(&mut self, _block: &'ctx ast::Block) {
+        self.pop_symbol_scope();
     }
 
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
@@ -138,7 +175,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: shadowing
     fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
         // set local variable type
-        self.insert_ident_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
+        self.insert_symbol_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
     }
 
     fn visit_let_stmt_post(&mut self, let_stmt: &'ctx LetStmt) {
@@ -219,7 +256,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 }
                 // then find symbols in local variables and in parameters
                 else {
-                    match self.get_ident_type(ident) {
+                    match self.get_symbol_type(ident) {
                         // TODO: lookup functions
                         Some(ty) => ty,
                         None => {

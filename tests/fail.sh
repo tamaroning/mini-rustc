@@ -10,7 +10,7 @@ compile_fail() {
   $RUSTC "$input" >&/dev/null
   code="$?"
   if [ "$code" = 1 ]; then
-    echo "$input => Failed to compile"
+    echo "$input => OK"
   else
     echo "$input => Unexpectedly exit with code $code"
     exit 1
@@ -40,3 +40,5 @@ compile_fail 'fn take_three(a: i32, b: i32, c: i32) -> () { } fn main() -> i32 {
 compile_fail 'fn take_bool(b: bool) -> () { } fn main() -> i32 { take_bool(0); 0 }'
 # type of let statement
 compile_fail 'fn main() -> i32 { { let unit: () = (); } }'
+# scope
+compile_fail 'fn main() -> () { { let a: () = (); } a }'

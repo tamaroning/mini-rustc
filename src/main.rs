@@ -1,19 +1,17 @@
 #![feature(let_chains)]
-mod middle;
 mod ast;
 mod backend;
 mod lexer;
+mod middle;
 mod parse;
 mod typeck;
-
-use std::process::exit;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         eprintln!("Usage: mini-rustc (<input> or <file>)");
         eprintln!("Invalid number of arguments");
-        exit(1);
+        std::process::exit(1);
     }
 
     // TODO: refine handling command line args
@@ -26,7 +24,7 @@ fn main() {
             src
         } else {
             eprintln!("Could not read file {}", args[1]);
-            exit(1);
+            std::process::exit(1);
         }
     } else {
         path_or_src
@@ -38,7 +36,7 @@ fn main() {
 
     let Some(krate) = parse_result else {
         eprintln!("Failed to parse source code");
-        exit(1);
+        std::process::exit(1);
     };
 
     let mut ctx = middle::Ctxt::new(dump_enabled);
@@ -55,12 +53,12 @@ fn main() {
             }
         }
         eprintln!("Failed to typecheck crate");
-        exit(1);
+        std::process::exit(1);
     };
 
     let codegen_result = backend::compile(&ctx, &krate);
     let Ok(()) = codegen_result else {
         eprintln!("ICE: Failed to generate assembly");
-        exit(1);
+        std::process::exit(1);
     };
 }

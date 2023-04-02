@@ -13,7 +13,6 @@ impl Span {
         Span { lo, hi, src }
     }
     pub fn to_snippet(&self) -> &str {
-        dbg!(self);
         assert!(self.lo <= self.hi);
         assert!(self.hi <= self.src.len());
         let src = &*self.src;
@@ -23,8 +22,8 @@ impl Span {
 
     pub fn concat(&self, span: &Span) -> Span {
         Span {
-            lo: min(self.lo, self.lo),
-            hi: max(self.lo, self.lo),
+            lo: min(self.lo, span.lo),
+            hi: max(self.hi, span.hi),
             src: Rc::clone(&self.src),
         }
     }
@@ -36,8 +35,10 @@ impl Span {
     pub fn hi(&self) -> usize {
         self.hi
     }
-
+    
+    /*
     pub fn src(&self) -> Rc<String> {
         Rc::clone(&self.src)
     }
+    */
 }

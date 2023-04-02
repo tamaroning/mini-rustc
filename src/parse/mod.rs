@@ -76,7 +76,10 @@ impl Parser {
     fn parse_ident(&mut self) -> Option<Ident> {
         let t = self.skip_token();
         if let TokenKind::Ident(symbol) = t.kind {
-            Some(Ident { symbol })
+            Some(Ident {
+                symbol,
+                span: t.span,
+            })
         } else {
             eprintln!("Expected ident, but found {:?}", t);
             None

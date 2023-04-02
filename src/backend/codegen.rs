@@ -133,6 +133,7 @@ impl<'a> Codegen<'a> {
     }
 
     fn codegen_stmt(&mut self, stmt: &'a Stmt) -> Result<(), ()> {
+        println!("# Starts stmt `{}`", stmt.span.to_snippet());
         match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.codegen_expr(expr)?;
@@ -144,19 +145,18 @@ impl<'a> Codegen<'a> {
                     let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
                     self.clean_adt_on_stack(adt);
                 }
-                Ok(())
             }
             StmtKind::Expr(expr) => {
                 self.codegen_expr(expr)?;
-                Ok(())
             }
             StmtKind::Let(LetStmt { ident, ty, init }) => {
                 if let Some(init) = init {
                     self.codegen_assign_local_var(ident, ty, init)?;
                 }
-                Ok(())
             }
         }
+        println!("# Finished stmt `{}`", stmt.span.to_snippet());
+        Ok(())
     }
 
     /// Generate code for expression.
@@ -164,9 +164,9 @@ impl<'a> Codegen<'a> {
     /// If expr is ZST, rax is not set.
     /// If expr is ADT, all of its fields are pushed to the stack.
     fn codegen_expr(&mut self, expr: &'a Expr) -> Result<(), ()> {
+        println!("# Starts expr `{}`", expr.span.to_snippet());
         match &expr.kind {
             ExprKind::NumLit(n) => {
-                println!("#lit");
                 println!("\tmov rax, {}", n);
             }
             ExprKind::BoolLit(b) => {
@@ -188,7 +188,6 @@ impl<'a> Codegen<'a> {
                 println!("\tmov rax, 0");
             }
             ExprKind::Unary(unop, inner_expr) => {
-                println!("#unary");
                 match unop {
                     UnOp::Plus => self.codegen_expr(inner_expr)?,
                     UnOp::Minus => {
@@ -204,7 +203,6 @@ impl<'a> Codegen<'a> {
                 // use rax and rdi if rhs/lhs is size of 64bit
                 let ax = "eax";
                 let di = "edi";
-                println!("#binary");
                 self.codegen_expr(lhs)?;
                 self.push();
                 self.codegen_expr(rhs)?;
@@ -311,26 +309,19 @@ impl<'a> Codegen<'a> {
             _ => (),
         }
 
-        // FIXME: should remove this
-        // When returning from functions which return (), make sure that rax stores the value 0
-        if *ty == Ty::Unit {
-            println!("\tmov rax, 0 # return unit ?");
-        }
-
+        println!("# Finishes expr `{}`", expr.span.to_snippet());
         Ok(())
     }
 
     fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
         // Try to find ident in all locals
         if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
-            println!("#lval");
             println!("\tmov rax, rbp");
             println!("\tsub rax, {}", local.offset);
             Ok(())
         }
         // Try to find ident in all args
         else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
-            println!("#lval");
             println!("\tmov rax, rbp");
             println!("\tsub rax, {}", arg.offset);
             Ok(())
@@ -407,7 +398,6 @@ impl<'a> Codegen<'a> {
 
     // FIXME: sync with `codegen_assign_local_var`
     fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
-        println!("#assign");
         let ty = self.ctx.get_type(rhs.id);
         if ty.is_adt() {
             let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();

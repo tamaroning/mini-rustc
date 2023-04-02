@@ -27,21 +27,37 @@ impl Parser {
 
     /// ifExpr ::= "if" expr  block ("else" (block | ifExpr))?
     fn parse_if_expr(&mut self) -> Option<Expr> {
+        let mut span = self.peek_token().span.clone();
         if !self.skip_expected_token(TokenKind::If) {
             eprintln!("Expected \"if\", but found {:?}", self.peek_token());
             return None;
         }
         let cond = self.parse_expr()?;
+
+        // parse then block
         let then_block = self.parse_block()?;
+        span = span.concat(&then_block.span);
+
+        let then = Expr {
+            span: then_block.span.clone(),
+            kind: ExprKind::Block(then_block),
+            id: self.get_next_id(),
+        };
         let t = self.peek_token();
         let els = if t.kind == TokenKind::Else {
             self.skip_token();
             let t = self.peek_token();
             if t.kind == TokenKind::If {
-                Some(self.parse_if_expr()?)
+                let elif = self.parse_if_expr()?;
+                span = span.concat(&elif.span);
+                Some(elif)
             } else {
+                // parse else block
+                let els_block = self.parse_block()?;
+                span = span.concat(&els_block.span);
                 Some(Expr {
-                    kind: ExprKind::Block(self.parse_block()?),
+                    span: els_block.span.clone(),
+                    kind: ExprKind::Block(els_block),
                     id: self.get_next_id(),
                 })
             }
@@ -50,15 +66,9 @@ impl Parser {
         };
 
         Some(Expr {
-            kind: ExprKind::If(
-                Box::new(cond),
-                Box::new(Expr {
-                    kind: ExprKind::Block(then_block),
-                    id: self.get_next_id(),
-                }),
-                els.map(Box::new),
-            ),
+            kind: ExprKind::If(Box::new(cond), Box::new(then), els.map(Box::new)),
             id: self.get_next_id(),
+            span,
         })
     }
 
@@ -72,6 +82,7 @@ impl Parser {
         self.skip_token();
         let rhs = self.parse_assign()?;
         Some(Expr {
+            span: lhs.span.concat(&rhs.span),
             kind: ExprKind::Assign(Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
@@ -93,6 +104,7 @@ impl Parser {
         let rhs = self.parse_binary_equality()?;
 
         Some(Expr {
+            span: lhs.span.concat(&rhs.span),
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
@@ -114,12 +126,13 @@ impl Parser {
         let rhs = self.parse_binary_relational()?;
 
         Some(Expr {
+            span: lhs.span.concat(&rhs.span),
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
     }
 
-    /// add ::= mul ("+"|"-") add
+    /// add ::= mul (("+"|"-") add)?
     fn parse_binary_add(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_mul()?;
         let t = self.lexer.peek_token();
@@ -135,12 +148,13 @@ impl Parser {
         let rhs = self.parse_binary_add()?;
 
         Some(Expr {
+            span: lhs.span.concat(&rhs.span),
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
     }
 
-    /// mul ::= unary "*" mul
+    /// mul ::= unary ("*" mul)?
     fn parse_binary_mul(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_unary()?;
         let t = self.lexer.peek_token();
@@ -155,13 +169,15 @@ impl Parser {
         let rhs = self.parse_binary_mul()?;
 
         Some(Expr {
+            span: lhs.span.concat(&rhs.span),
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
     }
 
-    /// unary ::= ("+"|"-") primary
+    /// unary ::= ("+"|"-")? primary
     fn parse_binary_unary(&mut self) -> Option<Expr> {
+        let span = self.peek_token().span.clone();
         let t = self.lexer.peek_token();
         let unup = match &t.kind {
             TokenKind::BinOp(lexer::BinOp::Plus) => UnOp::Plus,
@@ -172,9 +188,11 @@ impl Parser {
         };
         // skip unary op token
         self.skip_token();
-
+        // parse primary
         let primary = self.parse_binary_primary()?;
+
         Some(Expr {
+            span: span.concat(&primary.span),
             kind: ExprKind::Unary(unup, Box::new(primary)),
             id: self.get_next_id(),
         })
@@ -190,78 +208,101 @@ impl Parser {
         let t = &self.lexer.peek_token();
         let mut expr = match t.kind {
             TokenKind::NumLit(n) => {
-                self.skip_token();
+                let span = self.skip_token().span;
                 Expr {
                     kind: ExprKind::NumLit(n),
                     id: self.get_next_id(),
+                    span,
                 }
             }
             TokenKind::True => {
-                self.skip_token();
+                let span = self.skip_token().span;
                 Expr {
                     kind: ExprKind::BoolLit(true),
                     id: self.get_next_id(),
+                    span,
                 }
             }
             TokenKind::False => {
-                self.skip_token();
+                let span = self.skip_token().span;
                 Expr {
                     kind: ExprKind::BoolLit(false),
                     id: self.get_next_id(),
+                    span,
                 }
             }
             TokenKind::StrLit(_) => {
-                let TokenKind::StrLit(s) = self.skip_token().kind else { unreachable!() };
+                let t = self.skip_token();
+                let TokenKind::StrLit(s) = t.kind else { unreachable!() };
                 Expr {
                     kind: ExprKind::StrLit(s),
                     id: self.get_next_id(),
+                    span: t.span,
                 }
             }
             TokenKind::If => self.parse_if_expr()?,
             TokenKind::Return => {
-                self.skip_token();
+                // TODO: parse `return;`
+                let span = self.skip_token().span;
                 let e = self.parse_expr()?;
                 Expr {
+                    span: span.concat(&e.span),
                     kind: ExprKind::Return(Box::new(e)),
                     id: self.get_next_id(),
                 }
             }
             TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
             TokenKind::OpenParen => {
+                let mut span = self.peek_token().span.clone();
                 // skip '('
                 self.skip_token();
                 let t = self.peek_token();
                 if t.kind == TokenKind::CloseParen {
-                    // skip '('
-                    self.skip_token();
+                    // skip ')'
+                    let t = self.skip_token();
+                    span = span.concat(&t.span);
                     Expr {
                         kind: ExprKind::Unit,
                         id: self.get_next_id(),
+                        span,
                     }
                 } else {
                     let expr = self.parse_expr()?;
+                    span = span.concat(&self.peek_token().span);
                     // skip ')'
                     if !self.skip_expected_token(TokenKind::CloseParen) {
                         eprintln!("Expected ')', but found {:?}", self.peek_token());
                         return None;
                     }
-                    expr
+                    // just expand span
+                    Expr {
+                        kind: expr.kind,
+                        span,
+                        id: expr.id,
+                    }
                 }
             }
             // unsafe block expression
             // TODO: Should AST node have `unsafe` info?
             TokenKind::Unsafe => {
-                self.skip_token();
+                // skip "unsafe"
+                let unsafe_span = self.skip_token().span;
+                let block = self.parse_block()?;
                 Expr {
-                    kind: ExprKind::Block(self.parse_block()?),
+                    span: unsafe_span.concat(&block.span),
+                    kind: ExprKind::Block(block),
                     id: self.get_next_id(),
                 }
             }
             // block expression
-            TokenKind::OpenBrace => Expr {
-                kind: ExprKind::Block(self.parse_block()?),
-                id: self.get_next_id(),
-            },
+            TokenKind::OpenBrace => {
+                let block = self.parse_block()?;
+                Expr {
+                    span: block.span.clone(),
+                    kind: ExprKind::Block(block),
+                    id: self.get_next_id(),
+                }
+            }
             _ => {
                 eprintln!("Expected num or (expr), but found {:?}", t);
                 return None;
@@ -291,6 +332,7 @@ impl Parser {
             self.parse_struct_expr(ident)
         } else {
             Some(Expr {
+                span: ident.span.clone(),
                 kind: ExprKind::Ident(ident),
                 id: self.get_next_id(),
             })
@@ -300,6 +342,8 @@ impl Parser {
     /// structExpr ::= ident "{" structExprFields? "}"
     /// NOTE: first ident is already parsed
     fn parse_struct_expr(&mut self, ident: Ident) -> Option<Expr> {
+        let mut span = self.peek_token().span.clone();
+
         if !self.skip_expected_token(TokenKind::OpenBrace) {
             eprintln!("Expected '{{', but found {:?}", self.peek_token());
             return None;
@@ -311,6 +355,7 @@ impl Parser {
             vec![]
         };
 
+        span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::CloseBrace) {
             eprintln!("Expected '}}', but found {:?}", self.peek_token());
             return None;
@@ -318,6 +363,7 @@ impl Parser {
         Some(Expr {
             kind: ExprKind::Struct(ident, fields),
             id: self.get_next_id(),
+            span,
         })
     }
 
@@ -349,6 +395,8 @@ impl Parser {
     /// callExpr ::= primary "(" callParams? ")"
     /// NOTE: first primary is already parsed
     fn parse_call_expr(&mut self, fn_expr: Expr) -> Option<Expr> {
+        let mut span = fn_expr.span.clone();
+
         // skip '('
         self.skip_token();
         let args = if self.peek_token().kind == TokenKind::CloseParen {
@@ -357,6 +405,7 @@ impl Parser {
             self.parse_call_params()?
         };
 
+        span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::CloseParen) {
             eprintln!("Expected ')', but found {:?}", self.peek_token());
             return None;
@@ -364,6 +413,7 @@ impl Parser {
         Some(Expr {
             kind: ExprKind::Call(Box::new(fn_expr), args),
             id: self.get_next_id(),
+            span,
         })
     }
 
@@ -385,6 +435,8 @@ impl Parser {
     /// indexExpr ::= priamry "[" expr "]"
     /// NOTE: first primary is already parsed
     fn parse_index_expr(&mut self, array_expr: Expr) -> Option<Expr> {
+        let mut span = array_expr.span.clone();
+
         // skip '['
         if !self.skip_expected_token(TokenKind::OpenBracket) {
             eprintln!("Expected '[', but found {:?}", self.peek_token());
@@ -392,6 +444,7 @@ impl Parser {
         }
         let index = self.parse_expr()?;
 
+        span = span.concat(&self.peek_token().span);
         // skip ']'
         if !self.skip_expected_token(TokenKind::CloseBracket) {
             eprintln!("Expected ']', but found {:?}", self.peek_token());
@@ -400,19 +453,24 @@ impl Parser {
         Some(Expr {
             kind: ExprKind::Index(Box::new(array_expr), Box::new(index)),
             id: self.get_next_id(),
+            span,
         })
     }
 
     /// fieldExpr ::= primary "(" callParams? ")"
     /// NOTE: first primary is already parsed
     fn parse_field_expr(&mut self, recv: Expr) -> Option<Expr> {
+        let mut span = recv.span.clone();
+
         // skip '.'
         self.skip_token();
         let fd = self.parse_ident()?;
 
+        span = span.concat(&fd.span);
         Some(Expr {
             kind: ExprKind::Field(Box::new(recv), fd),
             id: self.get_next_id(),
+            span,
         })
     }
 }

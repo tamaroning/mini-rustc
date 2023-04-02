@@ -1,4 +1,4 @@
-use crate::middle::ty::Ty;
+use crate::{middle::ty::Ty, span::Span};
 use std::rc::Rc;
 
 pub mod visitor;
@@ -48,6 +48,7 @@ pub struct Func {
 pub struct Stmt {
     pub kind: StmtKind,
     pub id: NodeId,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -69,12 +70,14 @@ pub struct LetStmt {
 #[derive(Debug)]
 pub struct Ident {
     pub symbol: String,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct Expr {
     pub kind: ExprKind,
     pub id: NodeId,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -100,6 +103,7 @@ pub enum ExprKind {
 #[derive(Debug)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
+    pub span: Span,
 }
 
 #[derive(Debug)]

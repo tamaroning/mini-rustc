@@ -25,32 +25,32 @@ impl Parser {
         id
     }
 
-    fn peek_token(&mut self) -> Option<&Token> {
+    fn peek_token(&mut self) -> &Token {
         self.lexer.peek_token()
     }
 
-    fn skip_token(&mut self) -> Option<Token> {
+    fn skip_token(&mut self) -> Token {
         self.lexer.skip_token()
     }
 
     /// Skip token only when bumping into the expected token.
     fn skip_expected_token(&mut self, kind: TokenKind) -> bool {
-        match self.lexer.peek_token() {
-            Some(t) if t.kind == kind => {
-                self.lexer.skip_token();
-                true
-            }
-            _ => false,
+        let t = self.peek_token();
+        if t.kind == kind {
+            self.lexer.skip_token();
+            true
+        } else {
+            false
         }
     }
 
     fn at_eof(&mut self) -> bool {
         matches!(
             self.peek_token(),
-            Some(&Token {
+            &Token {
                 kind: TokenKind::Eof,
                 ..
-            })
+            }
         )
     }
 
@@ -67,14 +67,14 @@ impl Parser {
     fn parse_items(&mut self) -> Option<Vec<Item>> {
         let mut items = vec![];
 
-        while is_item_start(self.peek_token().unwrap()) {
+        while is_item_start(self.peek_token()) {
             items.push(self.parse_item()?);
         }
         Some(items)
     }
 
     fn parse_ident(&mut self) -> Option<Ident> {
-        let t = self.skip_token()?;
+        let t = self.skip_token();
         if let TokenKind::Ident(symbol) = t.kind {
             Some(Ident { symbol })
         } else {

@@ -75,7 +75,7 @@ fn is_space(c: char) -> bool {
 
 pub struct Lexer {
     char_stream: Peekable<IntoIter<char>>,
-    buffered_tokens: VecDeque<Result<Token, ()>>,
+    buffered_tokens: VecDeque<Token>,
 }
 
 impl Lexer {
@@ -115,110 +115,109 @@ impl Lexer {
         // skip whitespaces
         self.skip_whitespaces();
 
-        // TODO: use `Token` type instead of `Result<Token, ()>`
         let tokenize_res = if let Some(c) = self.peek_input() {
             match c {
-                'A'..='Z' | 'a'..='z' | '_' => Ok(self.parse_keyword_or_ident()),
+                'A'..='Z' | 'a'..='z' | '_' => self.parse_keyword_or_ident(),
                 '\'' => self.parse_lifetime(),
-                '0'..='9' => Ok(self.parse_number_lit()),
+                '0'..='9' => self.parse_number_lit(),
                 '=' => {
                     self.skip_input();
                     if self.peek_input() == Some(&'=') {
                         self.skip_input();
-                        Ok(Token::new(TokenKind::BinOp(BinOp::Eq)))
+                        Token::new(TokenKind::BinOp(BinOp::Eq))
                     } else {
-                        Ok(Token::new(TokenKind::Eq))
+                        Token::new(TokenKind::Eq)
                     }
                 }
                 '!' => {
                     self.skip_input();
                     if self.peek_input() == Some(&'=') {
                         self.skip_input();
-                        Ok(Token::new(TokenKind::BinOp(BinOp::Ne)))
+                        Token::new(TokenKind::BinOp(BinOp::Ne))
                     } else {
-                        Ok(Token::new(TokenKind::Bang))
+                        Token::new(TokenKind::Bang)
                     }
                 }
                 '-' => {
                     self.skip_input();
                     if self.peek_input() == Some(&'>') {
                         self.skip_input();
-                        Ok(Token::new(TokenKind::Arrow))
+                        Token::new(TokenKind::Arrow)
                     } else {
-                        Ok(Token::new(TokenKind::BinOp(BinOp::Minus)))
+                        Token::new(TokenKind::BinOp(BinOp::Minus))
                     }
                 }
                 '>' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::Gt)))
+                    Token::new(TokenKind::BinOp(BinOp::Gt))
                 }
                 '<' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::Lt)))
+                    Token::new(TokenKind::BinOp(BinOp::Lt))
                 }
                 '&' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::And)))
+                    Token::new(TokenKind::BinOp(BinOp::And))
                 }
                 ';' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Semi))
+                    Token::new(TokenKind::Semi)
                 }
                 ':' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Colon))
+                    Token::new(TokenKind::Colon)
                 }
                 ',' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Comma))
+                    Token::new(TokenKind::Comma)
                 }
                 '.' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Dot))
+                    Token::new(TokenKind::Dot)
                 }
                 '(' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::OpenParen))
+                    Token::new(TokenKind::OpenParen)
                 }
                 ')' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::CloseParen))
+                    Token::new(TokenKind::CloseParen)
                 }
                 '{' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::OpenBrace))
+                    Token::new(TokenKind::OpenBrace)
                 }
                 '}' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::CloseBrace))
+                    Token::new(TokenKind::CloseBrace)
                 }
                 '[' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::OpenBracket))
+                    Token::new(TokenKind::OpenBracket)
                 }
                 ']' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::CloseBracket))
+                    Token::new(TokenKind::CloseBracket)
                 }
                 '+' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::Plus)))
+                    Token::new(TokenKind::BinOp(BinOp::Plus))
                 }
                 '*' => {
                     self.skip_input();
-                    Ok(Token::new(TokenKind::BinOp(BinOp::Star)))
+                    Token::new(TokenKind::BinOp(BinOp::Star))
                 }
                 '\"' => self.parse_string_lit(),
                 // Unknown token
                 _ => {
                     eprintln!("Unknwon token starting with: {:?}", c);
                     self.skip_input();
-                    Ok(Token::new(TokenKind::Unknown))
+                    Token::new(TokenKind::Unknown)
                 }
             }
         } else {
             // EOF
-            Ok(Token::new(TokenKind::Eof))
+            Token::new(TokenKind::Eof)
         };
 
         // skip whitespaces
@@ -285,7 +284,7 @@ impl Lexer {
         }
     }
 
-    fn parse_lifetime(&mut self) -> Result<Token, ()> {
+    fn parse_lifetime(&mut self) -> Token {
         // skip '\''
         self.skip_input();
         let mut chars = vec![];
@@ -303,12 +302,12 @@ impl Lexer {
                 "Expected lifetime identifier, but found {:?}",
                 self.peek_input()
             );
-            Err(())
+            Token::new(TokenKind::Unknown)
         } else {
             let s: String = chars.into_iter().collect();
-            Ok(Token {
+            Token {
                 kind: TokenKind::Lifetime(s),
-            })
+            }
         }
     }
 
@@ -335,7 +334,7 @@ impl Lexer {
         }
     }
 
-    fn parse_string_lit(&mut self) -> Result<Token, ()> {
+    fn parse_string_lit(&mut self) -> Token {
         // skip '"'
         self.skip_input();
 
@@ -347,6 +346,7 @@ impl Lexer {
                     break;
                 }
                 /*
+                TODO: escape
                 '\\' => {
                     self.skip_input();
                     let escp = match self.skip_input().unwrap() {
@@ -361,7 +361,7 @@ impl Lexer {
                 */
                 '\n' => {
                     eprintln!("Unexpected newline in string literal");
-                    return Err(());
+                    return Token::new(TokenKind::Unknown);
                 }
                 _ => {
                     chars.push(**c);
@@ -371,32 +371,26 @@ impl Lexer {
         }
 
         let s: String = chars.into_iter().collect();
-        Ok(Token {
+        Token {
             kind: TokenKind::StrLit(s),
-        })
+        }
     }
 
-    pub fn peek_token(&mut self) -> Option<&Token> {
+    pub fn peek_token(&mut self) -> &Token {
         // do tokenize if the current token is not buffered
         if self.buffered_tokens.is_empty() {
             self.tokenize();
         }
-        match &self.buffered_tokens[0] {
-            Ok(t) => Some(t),
-            Err(()) => None,
-        }
+        &self.buffered_tokens[0]
     }
 
     /// Skip the current token. Keep returning EOF after lexer reached EOF
-    pub fn skip_token(&mut self) -> Option<Token> {
+    pub fn skip_token(&mut self) -> Token {
         // make sure that the current token is buffered
         if self.buffered_tokens.is_empty() {
             self.tokenize();
         }
-        match self.buffered_tokens.pop_front() {
-            Some(Ok(t)) => Some(t),
-            _ => None,
-        }
+        self.buffered_tokens.pop_front().unwrap()
     }
 }
 
@@ -421,16 +415,16 @@ fn test_tokenize() {
     let mut lexer = Lexer::new("123");
     assert_eq!(
         lexer.peek_token(),
-        Some(&Token {
+        &Token {
             kind: TokenKind::NumLit(123)
-        })
+        }
     );
     let mut lexer = Lexer::new("987_654_321");
     assert_eq!(
         lexer.peek_token(),
-        Some(&Token {
+        &Token {
             kind: TokenKind::NumLit(987654321)
-        })
+        }
     );
 }
 
@@ -439,39 +433,39 @@ fn test_lexer() {
     let mut lexer = Lexer::new("123 + 456 ");
     assert_eq!(
         lexer.skip_token(),
-        Some(Token {
+        Token {
             kind: TokenKind::NumLit(123)
-        })
+        }
     );
     assert_eq!(
         lexer.skip_token(),
-        Some(Token {
+        Token {
             kind: TokenKind::BinOp(BinOp::Plus)
-        })
+        }
     );
     assert_eq!(
         lexer.peek_token(),
-        Some(&Token {
+        &Token {
             kind: TokenKind::NumLit(456)
-        })
+        }
     );
     let _ = lexer.skip_token();
     assert_eq!(
         lexer.skip_token(),
-        Some(Token {
+        Token {
             kind: TokenKind::Eof
-        })
+        }
     );
     assert_eq!(
         lexer.skip_token(),
-        Some(Token {
+        Token {
             kind: TokenKind::Eof
-        })
+        }
     );
     assert_eq!(
         lexer.skip_token(),
-        Some(Token {
+        Token {
             kind: TokenKind::Eof
-        })
+        }
     );
 }

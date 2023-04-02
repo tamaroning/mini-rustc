@@ -10,13 +10,13 @@ pub fn is_stmt_start(t: &Token) -> bool {
 
 impl Parser {
     pub fn parse_stmt(&mut self) -> Option<Stmt> {
-        let t = self.peek_token().unwrap();
+        let t = self.peek_token();
 
         match &t.kind {
             TokenKind::Let => self.parse_let_stmt(),
             _ if is_expr_start(t) => {
                 let expr = self.parse_expr()?;
-                let t = self.peek_token()?;
+                let t = self.peek_token();
                 if t.kind == TokenKind::Semi {
                     self.skip_token();
                     Some(Stmt {
@@ -31,7 +31,7 @@ impl Parser {
                 }
             }
             _ => {
-                eprintln!("Expected expr, but found {:?}", self.peek_token().unwrap());
+                eprintln!("Expected expr, but found {:?}", self.peek_token());
                 None
             }
         }
@@ -43,16 +43,16 @@ impl Parser {
         let ident = self.parse_ident()?;
         // skip colon
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found {:?}", self.peek_token().unwrap());
+            eprintln!("Expected ':', but found {:?}", self.peek_token());
             return None;
         }
         // parse type
         let ty = self.parse_type()?;
 
         // parse ("=" expr)?
-        let t = self.peek_token().unwrap();
+        let t = self.peek_token();
         let init = if t.kind == TokenKind::Eq {
-            self.skip_token().unwrap();
+            self.skip_token();
             Some(self.parse_expr()?)
         } else {
             None
@@ -62,7 +62,7 @@ impl Parser {
         if !self.skip_expected_token(TokenKind::Semi) {
             eprintln!(
                 "Expected ';' for let statement, but found {:?}",
-                self.peek_token().unwrap()
+                self.peek_token()
             );
             return None;
         }
@@ -80,12 +80,12 @@ impl Parser {
     /// block ::= "{" stmt* "}"
     pub fn parse_block(&mut self) -> Option<Block> {
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{' but found {:?}", self.peek_token()?);
+            eprintln!("Expected '{{' but found {:?}", self.peek_token());
             return None;
         }
         let mut stmts = vec![];
         loop {
-            let t = self.peek_token()?;
+            let t = self.peek_token();
             if is_stmt_start(t) {
                 let stmt = self.parse_stmt()?;
                 stmts.push(stmt);

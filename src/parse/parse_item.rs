@@ -14,7 +14,7 @@ pub fn is_item_start(token: &Token) -> bool {
 impl Parser {
     /// item ::= func | structItem | externBlock
     pub fn parse_item(&mut self) -> Option<Item> {
-        let t = self.peek_token()?;
+        let t = self.peek_token();
         match &t.kind {
             TokenKind::Fn => Some(Item {
                 kind: ItemKind::Func(self.parse_func(None)?),
@@ -37,9 +37,9 @@ impl Parser {
     /// https://doc.rust-lang.org/reference/items/external-blocks.html
     fn parse_extern_block(&mut self) -> Option<ExternBlock> {
         // skip `extern`
-        self.skip_token().unwrap();
+        self.skip_token();
         // parse ABI
-        let t = self.skip_token().unwrap();
+        let t = self.skip_token();
         let abi = if let TokenKind::StrLit(s) = t.kind {
             s
         } else {
@@ -56,19 +56,19 @@ impl Parser {
         }
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{', but found {:?}", self.peek_token()?);
+            eprintln!("Expected '{{', but found {:?}", self.peek_token());
             return None;
         }
 
         let mut funcs = vec![];
-        while self.peek_token().unwrap().kind == TokenKind::Fn {
+        while self.peek_token().kind == TokenKind::Fn {
             funcs.push(self.parse_func(Some(abi.clone()))?);
         }
 
         if !self.skip_expected_token(TokenKind::CloseBrace) {
             eprintln!(
                 "Expected '}}' or external item, but found {:?}",
-                self.peek_token()?
+                self.peek_token()
             );
             return None;
         }
@@ -85,31 +85,31 @@ impl Parser {
         }
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::OpenParen) {
-            eprintln!("Expected '(', but found {:?}", self.peek_token()?);
+            eprintln!("Expected '(', but found {:?}", self.peek_token());
             return None;
         }
-        let t = self.peek_token()?;
+        let t = self.peek_token();
         let params = if t.kind == TokenKind::CloseParen {
             vec![]
         } else {
             self.parse_func_params()?
         };
         if !self.skip_expected_token(TokenKind::CloseParen) {
-            eprintln!("Expected ')', but found {:?}", self.peek_token()?);
+            eprintln!("Expected ')', but found {:?}", self.peek_token());
             return None;
         }
 
         if !self.skip_expected_token(TokenKind::Arrow) {
-            eprintln!("Expected '->', but found {:?}", self.peek_token()?);
+            eprintln!("Expected '->', but found {:?}", self.peek_token());
             return None;
         }
         let ret_ty = self.parse_type()?;
 
-        let t = self.peek_token().unwrap();
+        let t = self.peek_token();
         let body = if t.kind == TokenKind::OpenBrace {
             Some(self.parse_block()?)
         } else if t.kind == TokenKind::Semi {
-            self.skip_token().unwrap();
+            self.skip_token();
             None
         } else {
             eprintln!("Expected function body or ';', but found {:?}", t);
@@ -132,9 +132,9 @@ impl Parser {
         let mut params = vec![];
         params.push(self.parse_func_param()?);
 
-        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+        while matches!(self.peek_token().kind, TokenKind::Comma) {
             self.skip_token();
-            if matches!(self.peek_token()?.kind, TokenKind::Ident(_)) {
+            if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
                 params.push(self.parse_func_param()?);
             }
         }
@@ -162,7 +162,7 @@ impl Parser {
             return None;
         }
 
-        let fields = if matches!(self.peek_token().unwrap().kind, TokenKind::Ident(_)) {
+        let fields = if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
             self.parse_struct_fields()?
         } else {
             vec![]
@@ -179,9 +179,9 @@ impl Parser {
         let mut fields = vec![];
         fields.push(self.parse_struct_field()?);
 
-        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+        while matches!(self.peek_token().kind, TokenKind::Comma) {
             self.skip_token();
-            if matches!(self.peek_token()?.kind, TokenKind::Ident(_)) {
+            if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
                 fields.push(self.parse_struct_field()?);
             }
         }
@@ -200,12 +200,12 @@ impl Parser {
     }
 
     pub fn parse_type(&mut self) -> Option<Ty> {
-        let t = self.skip_token().unwrap();
+        let t = self.skip_token();
         match t.kind {
             // Unit type: ()
             TokenKind::OpenParen => {
                 if !self.skip_expected_token(TokenKind::CloseParen) {
-                    eprintln!("Expected ')', but found {:?}", self.peek_token().unwrap());
+                    eprintln!("Expected ')', but found {:?}", self.peek_token());
                     None
                 } else {
                     Some(Ty::Unit)
@@ -223,24 +223,24 @@ impl Parser {
             TokenKind::OpenBracket => {
                 let elem_ty = self.parse_type()?;
                 if !self.skip_expected_token(TokenKind::Semi) {
-                    eprintln!("Expected ';', but found {:?}", self.peek_token().unwrap());
+                    eprintln!("Expected ';', but found {:?}", self.peek_token());
                     return None;
                 }
-                let t = self.skip_token()?;
+                let t = self.skip_token();
                 let TokenKind::NumLit(n) = t.kind else {
                     return None;
                 };
                 if !self.skip_expected_token(TokenKind::CloseBracket) {
-                    eprintln!("Expected ']', but found {:?}", self.peek_token().unwrap());
+                    eprintln!("Expected ']', but found {:?}", self.peek_token());
                     return None;
                 }
                 Some(Ty::Array(Rc::new(elem_ty), n))
             }
             TokenKind::Ident(s) => Some(Ty::Adt(s)),
             TokenKind::BinOp(lexer::BinOp::And) => {
-                let t = self.peek_token().unwrap();
+                let t = self.peek_token();
                 let region = if let TokenKind::Lifetime(_) = t.kind {
-                    let TokenKind::Lifetime(r) = self.skip_token().unwrap().kind else { unreachable!() };
+                    let TokenKind::Lifetime(r) = self.skip_token().kind else { unreachable!() };
                     r
                 } else {
                     // FIXME: infer?

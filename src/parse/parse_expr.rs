@@ -33,10 +33,10 @@ impl Parser {
         }
         let cond = self.parse_expr()?;
         let then_block = self.parse_block()?;
-        let t = self.peek_token()?;
+        let t = self.peek_token();
         let els = if t.kind == TokenKind::Else {
             self.skip_token();
-            let t = self.peek_token()?;
+            let t = self.peek_token();
             if t.kind == TokenKind::If {
                 Some(self.parse_if_expr()?)
             } else {
@@ -65,7 +65,7 @@ impl Parser {
     /// assign ::= equality ("=" assign)?
     fn parse_assign(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_equality()?;
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         if t.kind != TokenKind::Eq {
             return Some(lhs);
         }
@@ -80,7 +80,7 @@ impl Parser {
     /// equality ::= relational (("=="|"!=") equality)?
     fn parse_binary_equality(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_relational()?;
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         let binop = match t.kind {
             TokenKind::BinOp(lexer::BinOp::Eq) => ast::BinOp::Eq,
             TokenKind::BinOp(lexer::BinOp::Ne) => ast::BinOp::Ne,
@@ -101,7 +101,7 @@ impl Parser {
     /// relational ::= add (("=="|"!=") relational)?
     fn parse_binary_relational(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_add()?;
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         let binop = match t.kind {
             TokenKind::BinOp(lexer::BinOp::Lt) => ast::BinOp::Lt,
             TokenKind::BinOp(lexer::BinOp::Gt) => ast::BinOp::Gt,
@@ -122,7 +122,7 @@ impl Parser {
     /// add ::= mul ("+"|"-") add
     fn parse_binary_add(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_mul()?;
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         let binop = match t.kind {
             TokenKind::BinOp(lexer::BinOp::Plus) => ast::BinOp::Add,
             TokenKind::BinOp(lexer::BinOp::Minus) => ast::BinOp::Sub,
@@ -143,7 +143,7 @@ impl Parser {
     /// mul ::= unary "*" mul
     fn parse_binary_mul(&mut self) -> Option<Expr> {
         let lhs = self.parse_binary_unary()?;
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         let binop = match t.kind {
             TokenKind::BinOp(lexer::BinOp::Star) => ast::BinOp::Mul,
             _ => {
@@ -162,7 +162,7 @@ impl Parser {
 
     /// unary ::= ("+"|"-") primary
     fn parse_binary_unary(&mut self) -> Option<Expr> {
-        let t = self.lexer.peek_token()?;
+        let t = self.lexer.peek_token();
         let unup = match &t.kind {
             TokenKind::BinOp(lexer::BinOp::Plus) => UnOp::Plus,
             TokenKind::BinOp(lexer::BinOp::Minus) => UnOp::Minus,
@@ -187,7 +187,7 @@ impl Parser {
     ///     | fieldExpr | structExpr
     /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
-        let t = &self.lexer.peek_token().unwrap();
+        let t = &self.lexer.peek_token();
         let mut expr = match t.kind {
             TokenKind::NumLit(n) => {
                 self.skip_token();
@@ -211,7 +211,7 @@ impl Parser {
                 }
             }
             TokenKind::StrLit(_) => {
-                let TokenKind::StrLit(s) = self.skip_token().unwrap().kind else { unreachable!() };
+                let TokenKind::StrLit(s) = self.skip_token().kind else { unreachable!() };
                 Expr {
                     kind: ExprKind::StrLit(s),
                     id: self.get_next_id(),
@@ -229,11 +229,11 @@ impl Parser {
             TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
             TokenKind::OpenParen => {
                 // skip '('
-                self.skip_token().unwrap();
-                let t = self.peek_token().unwrap();
+                self.skip_token();
+                let t = self.peek_token();
                 if t.kind == TokenKind::CloseParen {
                     // skip '('
-                    self.skip_token().unwrap();
+                    self.skip_token();
                     Expr {
                         kind: ExprKind::Unit,
                         id: self.get_next_id(),
@@ -251,7 +251,7 @@ impl Parser {
             // unsafe block expression
             // TODO: Should AST node have `unsafe` info?
             TokenKind::Unsafe => {
-                self.skip_token().unwrap();
+                self.skip_token();
                 Expr {
                     kind: ExprKind::Block(self.parse_block()?),
                     id: self.get_next_id(),
@@ -270,7 +270,7 @@ impl Parser {
         // deal with tailing `(...)` (func call), `[...]` (indexing), .ident (field access)
         // FIXME: disambiguity: () () => FuncCall or ExprStmt ExprStmt
         loop {
-            let t = self.peek_token()?;
+            let t = self.peek_token();
             match &t.kind {
                 TokenKind::OpenParen => {
                     expr = self.parse_call_expr(expr)?;
@@ -286,7 +286,7 @@ impl Parser {
     /// ident | structExpr
     fn parse_ident_or_struct_expr(&mut self) -> Option<Expr> {
         let ident = self.parse_ident().unwrap();
-        let t = self.peek_token().unwrap();
+        let t = self.peek_token();
         if let TokenKind::OpenBrace = t.kind {
             self.parse_struct_expr(ident)
         } else {
@@ -305,7 +305,7 @@ impl Parser {
             return None;
         }
 
-        let fields = if matches!(self.peek_token().unwrap().kind, TokenKind::Ident(_)) {
+        let fields = if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
             self.parse_struct_expr_fields()?
         } else {
             vec![]
@@ -326,9 +326,9 @@ impl Parser {
         let mut fds = vec![];
         fds.push(self.parse_struct_expr_field()?);
 
-        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+        while matches!(self.peek_token().kind, TokenKind::Comma) {
             self.skip_token();
-            if matches!(self.peek_token().unwrap().kind, TokenKind::Ident(_)) {
+            if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
                 fds.push(self.parse_struct_expr_field()?);
             }
         }
@@ -351,7 +351,7 @@ impl Parser {
     fn parse_call_expr(&mut self, fn_expr: Expr) -> Option<Expr> {
         // skip '('
         self.skip_token();
-        let args = if self.peek_token()?.kind == TokenKind::CloseParen {
+        let args = if self.peek_token().kind == TokenKind::CloseParen {
             vec![]
         } else {
             self.parse_call_params()?
@@ -373,9 +373,9 @@ impl Parser {
         let mut args = vec![];
         args.push(self.parse_expr()?);
 
-        while matches!(self.peek_token()?.kind, TokenKind::Comma) {
+        while matches!(self.peek_token().kind, TokenKind::Comma) {
             self.skip_token();
-            if is_expr_start(self.peek_token()?) {
+            if is_expr_start(self.peek_token()) {
                 args.push(self.parse_expr()?);
             }
         }

@@ -37,7 +37,7 @@ impl Parser {
                 }
             }
             _ => {
-                eprintln!("Expected expr, but found {:?}", self.peek_token());
+                eprintln!("Expected expr, but found `{}`", self.peek_token().span.to_snippet());
                 None
             }
         }
@@ -51,7 +51,7 @@ impl Parser {
         let ident = self.parse_ident()?;
         // skip colon
         if !self.skip_expected_token(TokenKind::Colon) {
-            eprintln!("Expected ':', but found {:?}", self.peek_token());
+            eprintln!("Expected ':', but found `{}`", self.peek_token().span.to_snippet());
             return None;
         }
         // parse type
@@ -70,8 +70,8 @@ impl Parser {
         span = span.concat(&self.peek_token().span);
         if !self.skip_expected_token(TokenKind::Semi) {
             eprintln!(
-                "Expected ';' for let statement, but found {:?}",
-                self.peek_token()
+                "Expected ';' for let statement, but found `{}`",
+                self.peek_token().span.to_snippet()
             );
             return None;
         }
@@ -92,7 +92,7 @@ impl Parser {
         let mut span = self.peek_token().span.clone();
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
-            eprintln!("Expected '{{' but found {:?}", self.peek_token());
+            eprintln!("Expected '{{' but found `{}`", self.peek_token().span.to_snippet());
             return None;
         }
         let mut stmts = vec![];
@@ -107,8 +107,7 @@ impl Parser {
                 span = span.concat(&self.skip_token().span);
                 return Some(Block { stmts, span });
             } else {
-                dbg!(&stmts);
-                eprintln!("Expected '}}' or statement, but found {:?}", t);
+                eprintln!("Expected '}}' or statement, but found `{}`", t.span.to_snippet());
                 break;
             }
         }

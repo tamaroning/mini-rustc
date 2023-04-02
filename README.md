@@ -101,6 +101,7 @@ Hello world!
 - misc
   - [ ] paths
   - [ ] pattern matching
+  - [x] comments `//`
 
 ## Problem of ambiguous grammars
 

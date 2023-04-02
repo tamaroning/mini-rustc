@@ -136,6 +136,18 @@ impl Lexer {
                 'A'..='Z' | 'a'..='z' | '_' => self.parse_keyword_or_ident(),
                 '\'' => self.parse_lifetime(),
                 '0'..='9' => self.parse_number_lit(),
+                // skip comments
+                '/' => {
+                    let c= self.skip_input();
+                    if c == Some('/') {
+                        while !matches!(self.skip_input(), Some('\n') | None) {
+                            self.skip_input();
+                        }
+                        return self.tokenize();
+                    } else {
+                        self.new_token(TokenKind::Unknown)
+                    }
+                }
                 '=' => {
                     self.skip_input();
                     if self.peek_input() == Some(&'=') {

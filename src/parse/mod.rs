@@ -58,7 +58,7 @@ impl Parser {
     pub fn parse_crate(&mut self) -> Option<Crate> {
         let items = self.parse_items()?;
         if !self.at_eof() {
-            eprintln!("Expected item but found {:?}", self.peek_token());
+            eprintln!("Expected crate item but found `{}`", self.peek_token().span.to_snippet());
             return None;
         }
         Some(Crate { items })
@@ -81,7 +81,7 @@ impl Parser {
                 span: t.span,
             })
         } else {
-            eprintln!("Expected ident, but found {:?}", t);
+            eprintln!("Expected ident, but found `{}`", t.span.to_snippet());
             None
         }
     }

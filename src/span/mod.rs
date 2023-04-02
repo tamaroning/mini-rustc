@@ -12,12 +12,23 @@ impl Span {
     pub fn new(lo: usize, hi: usize, src: Rc<String>) -> Self {
         Span { lo, hi, src }
     }
-    pub fn to_snippet(&self) -> &str {
+
+    pub fn to_snippet(&self) -> String {
         assert!(self.lo <= self.hi);
         assert!(self.hi <= self.src.len());
         let src = &*self.src;
         let s = &src[self.lo()..self.hi()];
-        s
+        // compress whitespaces
+        // FIXME: dirty
+        s.replace("\n", " ")
+            .replace("\r", "")
+            .replace("\t", "")
+            .replace("  ", " ")
+            .replace("  ", " ")
+            .replace("  ", " ")
+            .replace("  ", " ")
+            .replace("  ", " ")
+            .replace("  ", " ")
     }
 
     pub fn concat(&self, span: &Span) -> Span {
@@ -35,7 +46,7 @@ impl Span {
     pub fn hi(&self) -> usize {
         self.hi
     }
-    
+
     /*
     pub fn src(&self) -> Rc<String> {
         Rc::clone(&self.src)

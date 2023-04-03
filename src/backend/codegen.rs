@@ -14,6 +14,9 @@ pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
     Ok(())
 }
 
+// TODO:
+// add func to NameBinding mappings
+// add NameBinding to LocalInfo mappings
 struct Codegen<'a> {
     ctx: &'a Ctxt,
     current_frame: Option<FrameInfo<'a>>,

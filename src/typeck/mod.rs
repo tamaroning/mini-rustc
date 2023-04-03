@@ -20,7 +20,7 @@ struct TypeChecker<'chk> {
     ribs: Vec<Rc<Rib>>,
     // TODO: use stacks respresenting the current scope
     /// local variables, paramters to type mappings
-    scopes: Vec<HashMap<&'chk String, Rc<Ty>>>,
+    name_ty_mappings: HashMap<NameBinding, Rc<Ty>>,
     current_return_type: Option<&'chk Ty>,
     errors: Vec<String>,
 }
@@ -30,7 +30,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         TypeChecker {
             ctx,
             ribs: vec![],
-            scopes: vec![],
+            name_ty_mappings: HashMap::new(),
             current_return_type: None,
             errors: vec![],
         }
@@ -40,21 +40,12 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_symbol_type(&mut self, symbol: &'chk String, ty: Rc<Ty>) {
-        self.scopes
-            .last_mut()
-            .unwrap()
-            .insert(symbol, Rc::clone(&ty));
+    fn insert_name_type(&mut self, name: NameBinding, ty: Rc<Ty>) {
+        self.name_ty_mappings.insert(name, Rc::clone(&ty));
     }
 
-    fn get_symbol_type(&mut self, ident: &Ident) -> Option<Rc<Ty>> {
-        for scope in self.scopes.iter().rev() {
-            let ty = scope.get(&ident.symbol).map(Rc::clone);
-            if ty.is_some() {
-                return ty;
-            }
-        }
-        None
+    fn get_name_type(&mut self, name: &NameBinding) -> Option<Rc<Ty>> {
+        self.name_ty_mappings.get(&name).map(Rc::clone)
     }
 
     fn peek_return_type(&self) -> &Ty {
@@ -67,14 +58,6 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
-    }
-
-    fn push_symbol_scope(&mut self) {
-        self.scopes.push(HashMap::new());
-    }
-
-    fn pop_symbol_scope(&mut self) {
-        self.scopes.pop();
     }
 
     fn push_rib(&mut self, rib: Rc<Rib>) {
@@ -91,13 +74,9 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
-    fn visit_crate(&mut self, _krate: &'ctx Crate) {
-        self.push_symbol_scope();
-    }
+    fn visit_crate(&mut self, _krate: &'ctx Crate) {}
 
-    fn visit_crate_post(&mut self, _krate: &'ctx Crate) {
-        self.pop_symbol_scope();
-    }
+    fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
 
     // TODO: allow func call before finding declaration of the func
     // TODO: what if typechecker does not find a body of non-external func?
@@ -113,16 +92,13 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
 
         self.ctx
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
-        self.insert_symbol_type(&func.name.symbol, func_ty);
 
         // push rib
         self.push_rib(self.ctx.resolver.get_rib(func.id));
         // push scope
-        self.push_symbol_scope();
         for (param, param_ty) in &func.params {
-            // TODO: resolver: use rib
-            self.insert_symbol_type(&param.symbol, Rc::clone(param_ty));
-            self.ctx.insert_type(param.id, Rc::clone(param_ty));
+            let name_binding = self.resolve_ident(&param).unwrap();
+            self.insert_name_type(name_binding, Rc::clone(&param_ty));
         }
         // push return type
         self.push_return_type(&func.ret_ty);
@@ -140,8 +116,6 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         }
         // pop rib
         self.pop_rib();
-        // pop scope
-        self.pop_symbol_scope();
         // pop return type
         self.pop_return_type();
     }
@@ -160,15 +134,11 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     fn visit_block(&mut self, block: &'ctx ast::Block) {
         // push rib
         self.push_rib(self.ctx.resolver.get_rib(block.id));
-        // push scope
-        self.push_symbol_scope();
     }
 
     fn visit_block_post(&mut self, _block: &'ctx ast::Block) {
         // pop rib
         self.pop_rib();
-        // pop scope
-        self.pop_symbol_scope();
     }
 
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
@@ -202,8 +172,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: shadowing
     fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
         // set local variable type
-        // TODO: resolver: use rib
-        self.insert_symbol_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
+        let name_binding = self.resolve_ident(&let_stmt.ident).unwrap();
+        // set type of local variable
+        self.insert_name_type(name_binding, Rc::clone(&let_stmt.ty));
+        // set type of statement
         self.ctx
             .insert_type(let_stmt.ident.id, Rc::clone(&let_stmt.ty));
     }
@@ -286,13 +258,19 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 }
                 // then find symbols in local variables and in parameters
                 else {
-                    match self.get_symbol_type(ident) {
-                        // TODO: lookup functions
-                        Some(ty) => ty,
-                        None => {
-                            self.error(format!("Could not find type of {}", ident.symbol));
+                    if let Some(name_binding) = self.resolve_ident(&ident) {
+                        if let Some(ty) = self.get_name_type(&name_binding) {
+                            ty
+                        } else {
+                            self.error(format!(
+                                "Cannot use varaible `{}` before declaration",
+                                ident.symbol
+                            ));
                             Rc::new(Ty::Error)
                         }
+                    } else {
+                        self.error(format!("Could not resolve ident `{}`", ident.symbol));
+                        Rc::new(Ty::Error)
                     }
                 }
             }

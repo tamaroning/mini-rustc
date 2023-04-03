@@ -35,7 +35,7 @@ impl Resolver {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct NameBinding {
     defined_ident_node_id: NodeId,
 }

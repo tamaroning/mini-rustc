@@ -45,7 +45,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     }
 
     fn get_name_type(&mut self, name: &NameBinding) -> Option<Rc<Ty>> {
-        self.name_ty_mappings.get(&name).map(Rc::clone)
+        self.name_ty_mappings.get(name).map(Rc::clone)
     }
 
     fn peek_return_type(&self) -> &Ty {
@@ -97,8 +97,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.push_rib(self.ctx.resolver.get_rib(func.id));
         // push scope
         for (param, param_ty) in &func.params {
-            let name_binding = self.resolve_ident(&param).unwrap();
-            self.insert_name_type(name_binding, Rc::clone(&param_ty));
+            let name_binding = self.resolve_ident(param).unwrap();
+            self.insert_name_type(name_binding, Rc::clone(param_ty));
         }
         // push return type
         self.push_return_type(&func.ret_ty);
@@ -257,23 +257,22 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     ty
                 }
                 // then find symbols in local variables and in parameters
-                else {
-                    if let Some(name_binding) = self.resolve_ident(&ident) {
-                        if let Some(ty) = self.get_name_type(&name_binding) {
-                            ty
-                        } else {
-                            self.error(format!(
-                                "Cannot use varaible `{}` before declaration",
-                                ident.symbol
-                            ));
-                            Rc::new(Ty::Error)
-                        }
+                else if let Some(name_binding) = self.resolve_ident(ident) {
+                    if let Some(ty) = self.get_name_type(&name_binding) {
+                        ty
                     } else {
-                        self.error(format!("Could not resolve ident `{}`", ident.symbol));
+                        self.error(format!(
+                            "Cannot use varaible `{}` before declaration",
+                            ident.symbol
+                        ));
                         Rc::new(Ty::Error)
                     }
+                } else {
+                    self.error(format!("Could not resolve ident `{}`", ident.symbol));
+                    Rc::new(Ty::Error)
                 }
             }
+
             ExprKind::Return(expr) => {
                 let actual_ret_ty = self.ctx.get_type(expr.id);
                 let expected_ret_ty = self.peek_return_type();

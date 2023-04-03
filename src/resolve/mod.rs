@@ -25,7 +25,7 @@ impl Resolver {
     }
 
     // TODO: self is not needed
-    pub fn resolve_ident(&self, ident: &Ident, ribs: &Vec<Rc<Rib>>) -> Option<NameBinding> {
+    pub fn resolve_ident(&self, ident: &Ident, ribs: &[Rc<Rib>]) -> Option<NameBinding> {
         for r in ribs.iter().rev() {
             if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
                 return Some(NameBinding::new(*defined_ident_node_id));

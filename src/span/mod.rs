@@ -20,10 +20,8 @@ impl Span {
         let s = &src[self.lo()..self.hi()];
         // compress whitespaces
         // FIXME: dirty
-        s.replace("\n", " ")
-            .replace("\r", "")
-            .replace("\t", "")
-            .replace("  ", " ")
+        s.replace('\n', " ")
+            .replace(['\r', '\t'], "")
             .replace("  ", " ")
             .replace("  ", " ")
             .replace("  ", " ")

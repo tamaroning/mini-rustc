@@ -65,7 +65,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
     //   (high addr)
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         for (param_ident, param_ty) in &func.params {
-            let param_size = self.ctx.get_size(&param_ty);
+            let param_size = self.ctx.get_size(param_ty);
             self.current_offset += param_size;
             self.frame_info.size += param_size;
             let local = LocalInfo {

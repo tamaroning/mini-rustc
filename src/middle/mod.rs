@@ -20,7 +20,6 @@ pub struct Ctxt {
     // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
     adt_defs: HashMap<String, AdtDef>,
-    fn_binding_mappings: HashMap<String, NameBinding>,
     pub dump_enabled: bool,
 }
 
@@ -31,7 +30,6 @@ impl Ctxt {
             ty_mappings: HashMap::new(),
             fn_types: HashMap::new(),
             adt_defs: HashMap::new(),
-            fn_binding_mappings: HashMap::new(),
             dump_enabled,
         }
     }

@@ -54,11 +54,7 @@ fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     v.visit_func(func);
     walk_ident(v, &func.name);
     if let Some(body) = &func.body {
-        for stmt in &body.stmts {
-            {
-                walk_stmt(v, stmt);
-            }
-        }
+        walk_block(v, body)
     }
     v.visit_func_post(func);
 }

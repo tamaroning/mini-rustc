@@ -82,6 +82,7 @@ impl Parser {
             Some(Ident {
                 symbol,
                 span: t.span,
+                id: self.get_next_id(),
             })
         } else {
             eprintln!("Expected ident, but found `{}`", t.span.to_snippet());

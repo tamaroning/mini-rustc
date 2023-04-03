@@ -1,6 +1,7 @@
 use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
+use crate::resolve::Rib;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -16,6 +17,7 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 
 struct TypeChecker<'chk> {
     ctx: &'chk mut Ctxt,
+    current_ribs: Vec<&'chk mut Rib>,
     // TODO: use stacks respresenting the current scope
     /// local variables, paramters to type mappings
     scopes: Vec<HashMap<&'chk String, Rc<Ty>>>,
@@ -27,6 +29,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             ctx,
+            current_ribs: vec![],
             scopes: vec![],
             current_return_type: None,
             errors: vec![],
@@ -103,7 +106,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // push scope
         self.push_symbol_scope();
         for (param, param_ty) in &func.params {
+            // TODO: resolver: use rib
             self.insert_symbol_type(&param.symbol, Rc::clone(param_ty));
+            self.ctx.insert_type(param.id, Rc::clone(param_ty));
         }
         // push return type
         self.push_return_type(&func.ret_ty);
@@ -175,7 +180,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: shadowing
     fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
         // set local variable type
+        // TODO: resolver: use rib
         self.insert_symbol_type(&let_stmt.ident.symbol, Rc::clone(&let_stmt.ty));
+        self.ctx
+            .insert_type(let_stmt.ident.id, Rc::clone(&let_stmt.ty));
     }
 
     fn visit_let_stmt_post(&mut self, let_stmt: &'ctx LetStmt) {

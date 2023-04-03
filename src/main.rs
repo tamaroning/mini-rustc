@@ -4,6 +4,7 @@ mod backend;
 mod lexer;
 mod middle;
 mod parse;
+mod resolve;
 mod span;
 mod typeck;
 
@@ -44,6 +45,12 @@ fn main() {
 
     if ctx.dump_enabled {
         dbg!(&krate);
+    }
+
+    resolve::resolve(&mut ctx, &krate);
+
+    if ctx.dump_enabled {
+        dbg!(&ctx);
     }
 
     let typeck_result = typeck::typeck(&mut ctx, &krate);

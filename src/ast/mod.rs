@@ -67,10 +67,11 @@ pub struct LetStmt {
     pub init: Option<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ident {
     pub symbol: String,
     pub span: Span,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]
@@ -104,6 +105,7 @@ pub enum ExprKind {
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

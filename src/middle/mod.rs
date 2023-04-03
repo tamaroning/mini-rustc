@@ -2,6 +2,7 @@ pub mod ty;
 
 use crate::ast::{self, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
+use crate::resolve::Rib;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -13,9 +14,9 @@ pub struct Ctxt {
     // To deal with this, add the following fields to Ctxt
     //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
     //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
-
-    // TODO: move to tyctxt?
-    /// Result of typecheck
+    /// BlockOrFunc to rib mappings, which is set by resovler
+    ribs: HashMap<NodeId, Rib>,
+    /// ExprOrStmt to type mappings, which is set by typechecker
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
@@ -26,12 +27,25 @@ pub struct Ctxt {
 impl Ctxt {
     pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
+            ribs: HashMap::new(),
             ty_mappings: HashMap::new(),
             fn_types: HashMap::new(),
             adt_defs: HashMap::new(),
             dump_enabled,
         }
     }
+
+    // Resolution Stage
+
+    pub fn insert_rib(&mut self, node_id: NodeId, rib: Rib) {
+        self.ribs.insert(node_id, rib);
+    }
+
+    pub fn get_rib(&mut self, node_id: NodeId) -> &mut Rib {
+        self.ribs.get_mut(&node_id).unwrap()
+    }
+
+    // Typecheck Stage
 
     pub fn insert_type(&mut self, node_id: NodeId, ty: Rc<Ty>) {
         self.ty_mappings.insert(node_id, ty);
@@ -67,6 +81,8 @@ impl Ctxt {
     pub fn set_adt_def(&mut self, name: String, adt: AdtDef) {
         self.adt_defs.insert(name, adt);
     }
+
+    // Codegen stage
 
     // FIXME: infinite loop in case of recursive struct
     // e.g. `struct S { s: S }`

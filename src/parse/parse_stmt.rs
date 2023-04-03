@@ -114,7 +114,11 @@ impl Parser {
             } else if t.kind == TokenKind::CloseBrace {
                 // skip '}'
                 span = span.concat(&self.skip_token().span);
-                return Some(Block { stmts, span });
+                return Some(Block {
+                    stmts,
+                    span,
+                    id: self.get_next_id(),
+                });
             } else {
                 eprintln!(
                     "Expected '}}' or statement, but found `{}`",

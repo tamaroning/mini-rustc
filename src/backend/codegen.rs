@@ -181,7 +181,7 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::StrLit(s) => {
                 let label = format!(".LC{}", self.get_new_label_id());
-                println!("\tmov rax, OFFSET FLAT:{label} # static str");
+                println!("\tmov eax, OFFSET FLAT:{label} # static str");
                 // register the constant label
                 if self.str_label_mappings.get(s).is_none() {
                     self.str_label_mappings.insert(s, label);
@@ -265,6 +265,8 @@ impl<'a> Codegen<'a> {
                     self.pop(PARAM_REGISTERS[i]);
                 }
                 let name = self.retrieve_name(func)?;
+                // FIXME: To support va_args, set 0 to rax
+                println!("\tmov eax, 0");
                 println!("\tcall {}", name.symbol);
             }
             ExprKind::Block(block) => {

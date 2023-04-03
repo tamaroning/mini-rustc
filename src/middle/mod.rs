@@ -93,7 +93,7 @@ impl<'ctx> Ctxt {
                 let adt = self.lookup_adt_def(name).unwrap();
                 self.get_adt_size(adt)
             }
-            Ty::Ref(_, _) => 8,
+            Ty::Ref(_, _) => 8, // TODO: 4
             Ty::Never => 0,
             Ty::Error => panic!("ICE"),
         }

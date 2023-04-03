@@ -4,12 +4,14 @@ use crate::middle::Ctxt;
 use crate::resolve::NameBinding;
 use std::collections::HashMap;
 
-const LOCAL_OR_PARAM_START_OFFSET: u32 = 8;
+// RSP (and RBP??) must align by 16 bytes
+const LOCAL_OR_PARAM_START_OFFSET: u32 = 0;
 
 /// Struct representing a single stack frame
 /// FIXME: shadowing, scope. See Ctxt
 #[derive(Debug)]
 pub struct FrameInfo {
+    // TODO: frame size should align by 16 bytes because rsp must do so.
     pub size: u32,
     // local variables and parameters to LocalInfo mappings
     pub locals: HashMap<NameBinding, LocalInfo>,

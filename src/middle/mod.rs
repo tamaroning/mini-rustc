@@ -2,7 +2,7 @@ pub mod ty;
 
 use crate::ast::{self, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::Rib;
+use crate::resolve::Resolver;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -14,9 +14,8 @@ pub struct Ctxt {
     // To deal with this, add the following fields to Ctxt
     //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
     //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
-    /// BlockOrFunc to rib mappings, which is set by resovler
-    ribs: HashMap<NodeId, Rib>,
     /// ExprOrStmt to type mappings, which is set by typechecker
+    pub resolver: Resolver,
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
@@ -27,7 +26,7 @@ pub struct Ctxt {
 impl Ctxt {
     pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
-            ribs: HashMap::new(),
+            resolver: Resolver::new(),
             ty_mappings: HashMap::new(),
             fn_types: HashMap::new(),
             adt_defs: HashMap::new(),
@@ -36,14 +35,6 @@ impl Ctxt {
     }
 
     // Resolution Stage
-
-    pub fn insert_rib(&mut self, node_id: NodeId, rib: Rib) {
-        self.ribs.insert(node_id, rib);
-    }
-
-    pub fn get_rib(&mut self, node_id: NodeId) -> &mut Rib {
-        self.ribs.get_mut(&node_id).unwrap()
-    }
 
     // Typecheck Stage
 

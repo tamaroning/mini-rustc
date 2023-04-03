@@ -1,23 +1,44 @@
-use std::collections::HashMap;
-
 use crate::ast::{self, Crate, Ident, NodeId, StmtKind};
 use crate::middle::Ctxt;
+use std::collections::HashMap;
+use std::rc::Rc;
 
-pub fn resolve(ctx: &mut Ctxt, krate: &Crate) {
-    let mut resolver = Resolver::new(ctx);
-    ast::visitor::go(&mut resolver, krate);
+#[derive(Debug)]
+pub struct Resolver {
+    /// BlockOrFunc to rib mappings, which is set by resovler
+    ribs: HashMap<NodeId, Rc<Rib>>,
 }
 
-struct Resolver<'ctx> {
-    ctx: &'ctx mut Ctxt,
-    // stack of (rib, )
+impl Resolver {
+    pub fn new() -> Self {
+        Resolver {
+            ribs: HashMap::new(),
+        }
+    }
+
+    pub fn insert_rib(&mut self, node_id: NodeId, rib: Rc<Rib>) {
+        self.ribs.insert(node_id, rib);
+    }
+
+    pub fn get_rib(&self, node_id: NodeId) -> Rc<Rib> {
+        Rc::clone(self.ribs.get(&node_id).unwrap())
+    }
+}
+
+pub fn resolve(ctx: &mut Ctxt, krate: &Crate) {
+    let mut analyzer = RibAnlyzer::new(ctx);
+    ast::visitor::go(&mut analyzer, krate);
+}
+
+struct RibAnlyzer<'ctx> {
+    pub ctx: &'ctx mut Ctxt,
     name_ribs: Vec<Rib>,
     next_rib_id: u32,
 }
 
-impl<'ctx> Resolver<'ctx> {
+impl<'ctx> RibAnlyzer<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
-        Resolver {
+        RibAnlyzer {
             ctx,
             name_ribs: vec![],
             next_rib_id: 0,
@@ -35,7 +56,7 @@ impl<'ctx> Resolver<'ctx> {
     }
 }
 
-impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver<'ctx> {
+impl<'ctx> ast::visitor::Visitor<'ctx> for RibAnlyzer<'ctx> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         let mut r = self.new_rib();
         for (param, _) in &func.params {
@@ -46,7 +67,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver<'ctx> {
 
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
         let r = self.name_ribs.pop().unwrap();
-        self.ctx.insert_rib(func.id, r);
+        self.ctx.resolver.insert_rib(func.id, Rc::new(r));
     }
 
     fn visit_block(&mut self, _block: &'ctx ast::Block) {
@@ -56,7 +77,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver<'ctx> {
 
     fn visit_block_post(&mut self, block: &'ctx ast::Block) {
         let r = self.name_ribs.pop().unwrap();
-        self.ctx.insert_rib(block.id, r)
+        self.ctx.resolver.insert_rib(block.id, Rc::new(r))
     }
 
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {

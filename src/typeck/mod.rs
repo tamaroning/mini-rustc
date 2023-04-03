@@ -17,7 +17,7 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 
 struct TypeChecker<'chk> {
     ctx: &'chk mut Ctxt,
-    current_ribs: Vec<&'chk mut Rib>,
+    ribs: Vec<Rc<Rib>>,
     // TODO: use stacks respresenting the current scope
     /// local variables, paramters to type mappings
     scopes: Vec<HashMap<&'chk String, Rc<Ty>>>,
@@ -29,7 +29,7 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             ctx,
-            current_ribs: vec![],
+            ribs: vec![],
             scopes: vec![],
             current_return_type: None,
             errors: vec![],
@@ -76,6 +76,14 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_symbol_scope(&mut self) {
         self.scopes.pop();
     }
+
+    fn push_rib(&mut self, rib: Rc<Rib>) {
+        self.ribs.push(rib);
+    }
+
+    fn pop_rib(&mut self) {
+        self.ribs.pop();
+    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
@@ -103,6 +111,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
         self.insert_symbol_type(&func.name.symbol, func_ty);
 
+        // push rib
+        self.push_rib(self.ctx.resolver.get_rib(func.id));
         // push scope
         self.push_symbol_scope();
         for (param, param_ty) in &func.params {
@@ -124,6 +134,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 ));
             }
         }
+        // pop rib
+        self.pop_rib();
         // pop scope
         self.pop_symbol_scope();
         // pop return type
@@ -141,11 +153,17 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
     }
 
-    fn visit_block(&mut self, _block: &'ctx ast::Block) {
+    fn visit_block(&mut self, block: &'ctx ast::Block) {
+        // push rib
+        self.push_rib(self.ctx.resolver.get_rib(block.id));
+        // push scope
         self.push_symbol_scope();
     }
 
     fn visit_block_post(&mut self, _block: &'ctx ast::Block) {
+        // pop rib
+        self.pop_rib();
+        // pop scope
         self.pop_symbol_scope();
     }
 

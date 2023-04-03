@@ -1,37 +1,63 @@
-use crate::ast::{self, Crate, Ident, NodeId, StmtKind};
-use crate::middle::Ctxt;
+use crate::ast::{self, Ident, NodeId, StmtKind};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Resolver {
     /// BlockOrFunc to rib mappings, which is set by resovler
-    ribs: HashMap<NodeId, Rc<Rib>>,
+    ribs: HashMap<NodeId, Rib>,
+    // ident node to ribs mappings
+    ident_to_ribs: HashMap<NodeId, Vec<Rib>>,
+
+    name_ribs: Vec<Rib>,
+    next_rib_id: u32,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         Resolver {
             ribs: HashMap::new(),
+            ident_to_ribs: HashMap::new(),
+            name_ribs: vec![],
+            next_rib_id: 0,
         }
     }
 
-    pub fn insert_rib(&mut self, node_id: NodeId, rib: Rc<Rib>) {
-        self.ribs.insert(node_id, rib);
+    pub fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
+        self.ribs.insert(block_or_func_node_id, rib);
     }
 
-    pub fn get_rib(&self, node_id: NodeId) -> Rc<Rib> {
-        Rc::clone(self.ribs.get(&node_id).unwrap())
+    /// Resolve ident
+    pub fn resolve_ident(&self, ident: &Ident) -> Option<NameBinding> {
+        let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
+        Resolver::resolve_ident_from_ribs(ident, ribs)
     }
 
-    // TODO: self is not needed
-    pub fn resolve_ident(&self, ident: &Ident, ribs: &[Rc<Rib>]) -> Option<NameBinding> {
+    // just utility function of resolve_ident
+    fn resolve_ident_from_ribs(ident: &Ident, ribs: &[Rib]) -> Option<NameBinding> {
         for r in ribs.iter().rev() {
             if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
                 return Some(NameBinding::new(*defined_ident_node_id));
             }
         }
         None
+    }
+
+    fn get_next_id(&mut self) -> u32 {
+        let id = self.next_rib_id;
+        self.next_rib_id += 1;
+        id
+    }
+
+    fn new_rib(&mut self) -> Rib {
+        Rib::new(self.get_next_id())
+    }
+
+    fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
+        // FIXME: this `clone()` might be very slow.
+        //   register all identifiers to name_ribs and after doing so, make it
+        //   shared immutable using `Rc`
+        self.ident_to_ribs
+            .insert(ident_node_id, self.name_ribs.clone());
     }
 }
 
@@ -48,38 +74,7 @@ impl NameBinding {
     }
 }
 
-pub fn analyze(ctx: &mut Ctxt, krate: &Crate) {
-    let mut analyzer = RibAnlyzer::new(ctx);
-    ast::visitor::go(&mut analyzer, krate);
-}
-
-struct RibAnlyzer<'ctx> {
-    pub ctx: &'ctx mut Ctxt,
-    name_ribs: Vec<Rib>,
-    next_rib_id: u32,
-}
-
-impl<'ctx> RibAnlyzer<'ctx> {
-    fn new(ctx: &'ctx mut Ctxt) -> Self {
-        RibAnlyzer {
-            ctx,
-            name_ribs: vec![],
-            next_rib_id: 0,
-        }
-    }
-
-    fn get_next_id(&mut self) -> u32 {
-        let id = self.next_rib_id;
-        self.next_rib_id += 1;
-        id
-    }
-
-    fn new_rib(&mut self) -> Rib {
-        Rib::new(self.get_next_id())
-    }
-}
-
-impl<'ctx> ast::visitor::Visitor<'ctx> for RibAnlyzer<'ctx> {
+impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         let mut r = self.new_rib();
         for (param, _) in &func.params {
@@ -90,7 +85,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for RibAnlyzer<'ctx> {
 
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
         let r = self.name_ribs.pop().unwrap();
-        self.ctx.resolver.insert_rib(func.id, Rc::new(r));
+        self.insert_rib(func.id, r);
     }
 
     fn visit_block(&mut self, _block: &'ctx ast::Block) {
@@ -100,7 +95,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for RibAnlyzer<'ctx> {
 
     fn visit_block_post(&mut self, block: &'ctx ast::Block) {
         let r = self.name_ribs.pop().unwrap();
-        self.ctx.resolver.insert_rib(block.id, Rc::new(r))
+        self.insert_rib(block.id, r)
     }
 
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
@@ -112,11 +107,15 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for RibAnlyzer<'ctx> {
                 .insert_binding(let_stmt.ident.clone())
         }
     }
+
+    fn visit_ident(&mut self, ident: &'ctx ast::Ident) {
+        self.set_ribs_to_ident_node(ident.id);
+    }
 }
 
 /// Struct representing a scope
 /// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rib {
     id: u32,
     bindings: HashMap<String, NodeId>,

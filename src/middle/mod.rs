@@ -1,8 +1,8 @@
 pub mod ty;
 
-use crate::ast::{self, NodeId};
+use crate::ast::{self, Crate, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::{NameBinding, Resolver};
+use crate::resolve::Resolver;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -23,7 +23,7 @@ pub struct Ctxt {
     pub dump_enabled: bool,
 }
 
-impl Ctxt {
+impl<'ctx> Ctxt {
     pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
             resolver: Resolver::new(),
@@ -35,6 +35,10 @@ impl Ctxt {
     }
 
     // Resolution Stage
+
+    pub fn resolve(&mut self, krate: &'ctx Crate) {
+        ast::visitor::go(&mut self.resolver, krate);
+    }
 
     // Typecheck Stage
 

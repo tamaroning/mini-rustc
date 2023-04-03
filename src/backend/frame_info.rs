@@ -1,29 +1,30 @@
+use crate::ast::visitor::{self};
+use crate::ast::{self};
+use crate::middle::Ctxt;
+use crate::resolve::NameBinding;
 use std::collections::HashMap;
 
-use crate::ast;
-use crate::ast::visitor::{self};
-use crate::middle::Ctxt;
+const LOCAL_OR_PARAM_START_OFFSET: u32 = 8;
 
-const INIT_LOCAL_OR_PARAM_OFFSET: u32 = 8;
-
-// FIXME: shadowing, scope. See Ctxt
+/// Struct representing a single stack frame
+/// FIXME: shadowing, scope. See Ctxt
 #[derive(Debug)]
-pub struct FrameInfo<'a> {
+pub struct FrameInfo {
     pub size: u32,
-    pub locals: HashMap<&'a String, LocalInfo>,
-    pub args: HashMap<&'a String, LocalInfo>,
+    // local variables and parameters to LocalInfo mappings
+    pub locals: HashMap<NameBinding, LocalInfo>,
 }
 
-impl FrameInfo<'_> {
+impl FrameInfo {
     fn new() -> Self {
         FrameInfo {
-            size: INIT_LOCAL_OR_PARAM_OFFSET,
+            size: LOCAL_OR_PARAM_START_OFFSET,
             locals: HashMap::new(),
-            args: HashMap::new(),
         }
     }
 }
 
+/// Struct representing a local variable including arguments
 #[derive(Debug)]
 pub struct LocalInfo {
     pub offset: u32,
@@ -31,11 +32,12 @@ pub struct LocalInfo {
     // align: u32,
 }
 
-impl<'ctx> FrameInfo<'ctx> {
-    pub fn compute(ctx: &'ctx Ctxt, func: &'ctx ast::Func) -> Self {
+impl FrameInfo {
+    /// Collect all locals (including args) and create `FrameInfo`
+    pub fn compute(ctx: &Ctxt, func: &ast::Func) -> Self {
         let mut analyzer = FuncAnalyzer {
             ctx,
-            current_offset: INIT_LOCAL_OR_PARAM_OFFSET,
+            current_offset: LOCAL_OR_PARAM_START_OFFSET,
             frame_info: FrameInfo::new(),
         };
         visitor::go_func(&mut analyzer, func);
@@ -44,10 +46,10 @@ impl<'ctx> FrameInfo<'ctx> {
     }
 }
 
-struct FuncAnalyzer<'a> {
-    ctx: &'a Ctxt,
+struct FuncAnalyzer<'ctx> {
+    ctx: &'ctx Ctxt,
     current_offset: u32,
-    frame_info: FrameInfo<'a>,
+    frame_info: FrameInfo,
     // FIXME: alignment
 }
 
@@ -64,7 +66,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
     //   stack bottom
     //   (high addr)
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        for (param_ident, param_ty) in &func.params {
+        for (param, param_ty) in &func.params {
             let param_size = self.ctx.get_size(param_ty);
             self.current_offset += param_size;
             self.frame_info.size += param_size;
@@ -72,9 +74,11 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
                 offset: self.current_offset,
                 size: param_size,
             };
-            self.frame_info.args.insert(&param_ident.symbol, local);
+            let name_binding = self.ctx.resolver.resolve_ident(param).unwrap();
+            self.frame_info.locals.insert(name_binding, local);
         }
     }
+
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
         let size = self.ctx.get_size(&let_stmt.ty);
         self.current_offset += size;
@@ -83,6 +87,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
             offset: self.current_offset,
             size,
         };
-        self.frame_info.locals.insert(&let_stmt.ident.symbol, local);
+        let name_binding = self.ctx.resolver.resolve_ident(&let_stmt.ident).unwrap();
+        self.frame_info.locals.insert(name_binding, local);
     }
 }

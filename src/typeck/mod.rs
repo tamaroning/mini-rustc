@@ -1,11 +1,11 @@
-use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
+use crate::ast::{self, BinOp, Crate, ExprKind, LetStmt, StmtKind};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
-use crate::resolve::{NameBinding, Rib};
+use crate::resolve::NameBinding;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
+pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<String>> {
     let mut checker = TypeChecker::new(ctx);
     ast::visitor::go(&mut checker, krate);
     if checker.errors.is_empty() {
@@ -17,7 +17,6 @@ pub fn typeck(ctx: &mut Ctxt, krate: &Crate) -> Result<(), Vec<String>> {
 
 struct TypeChecker<'chk> {
     ctx: &'chk mut Ctxt,
-    ribs: Vec<Rc<Rib>>,
     // TODO: use stacks respresenting the current scope
     /// local variables, paramters to type mappings
     name_ty_mappings: HashMap<NameBinding, Rc<Ty>>,
@@ -29,7 +28,6 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             ctx,
-            ribs: vec![],
             name_ty_mappings: HashMap::new(),
             current_return_type: None,
             errors: vec![],
@@ -59,18 +57,6 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
     }
-
-    fn push_rib(&mut self, rib: Rc<Rib>) {
-        self.ribs.push(rib);
-    }
-
-    fn pop_rib(&mut self) {
-        self.ribs.pop();
-    }
-
-    fn resolve_ident(&self, ident: &'chk Ident) -> Option<NameBinding> {
-        self.ctx.resolver.resolve_ident(ident, &self.ribs)
-    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
@@ -93,11 +79,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx
             .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
 
-        // push rib
-        self.push_rib(self.ctx.resolver.get_rib(func.id));
         // push scope
         for (param, param_ty) in &func.params {
-            let name_binding = self.resolve_ident(param).unwrap();
+            let name_binding = self.ctx.resolver.resolve_ident(param).unwrap();
             self.insert_name_type(name_binding, Rc::clone(param_ty));
         }
         // push return type
@@ -114,8 +98,6 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 ));
             }
         }
-        // pop rib
-        self.pop_rib();
         // pop return type
         self.pop_return_type();
     }
@@ -129,16 +111,6 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 .collect(),
         };
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
-    }
-
-    fn visit_block(&mut self, block: &'ctx ast::Block) {
-        // push rib
-        self.push_rib(self.ctx.resolver.get_rib(block.id));
-    }
-
-    fn visit_block_post(&mut self, _block: &'ctx ast::Block) {
-        // pop rib
-        self.pop_rib();
     }
 
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
@@ -172,7 +144,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // TODO: shadowing
     fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
         // set local variable type
-        let name_binding = self.resolve_ident(&let_stmt.ident).unwrap();
+        let name_binding = self.ctx.resolver.resolve_ident(&let_stmt.ident).unwrap();
         // set type of local variable
         self.insert_name_type(name_binding, Rc::clone(&let_stmt.ty));
         // set type of statement
@@ -257,7 +229,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     ty
                 }
                 // then find symbols in local variables and in parameters
-                else if let Some(name_binding) = self.resolve_ident(ident) {
+                else if let Some(name_binding) = self.ctx.resolver.resolve_ident(ident) {
                     if let Some(ty) = self.get_name_type(&name_binding) {
                         ty
                     } else {

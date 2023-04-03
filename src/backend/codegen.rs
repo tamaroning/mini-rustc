@@ -19,7 +19,7 @@ pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
 // add NameBinding to LocalInfo mappings
 struct Codegen<'a> {
     ctx: &'a Ctxt,
-    current_frame: Option<FrameInfo<'a>>,
+    current_frame: Option<FrameInfo>,
     // String literal to label mappings
     // "some_lit" => .LCN
     str_label_mappings: HashMap<&'a String, String>,
@@ -42,7 +42,7 @@ impl<'a> Codegen<'a> {
         id
     }
 
-    fn push_current_frame(&mut self, frame: FrameInfo<'a>) {
+    fn push_current_frame(&mut self, frame: FrameInfo) {
         self.current_frame = Some(frame);
     }
 
@@ -116,7 +116,7 @@ impl<'a> Codegen<'a> {
         println!("\tpush rbp");
         println!("\tmov rbp, rsp");
         println!("\tsub rsp, {}", frame.size);
-        for (i, (_, local)) in frame.args.iter().enumerate() {
+        for (i, (_, local)) in frame.locals.iter().enumerate() {
             println!("\tmov [rbp-{}], {}", local.offset, PARAM_REGISTERS[i]);
         }
         Ok(())
@@ -318,15 +318,10 @@ impl<'a> Codegen<'a> {
 
     fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
         // Try to find ident in all locals
-        if let Some(local) = self.get_current_frame().locals.get(&ident.symbol) {
+        if let Some(binding) = self.ctx.resolver.resolve_ident(ident) {
+            let local = self.get_current_frame().locals.get(&binding).unwrap();
             println!("\tmov rax, rbp");
             println!("\tsub rax, {}", local.offset);
-            Ok(())
-        }
-        // Try to find ident in all args
-        else if let Some(arg) = self.get_current_frame().args.get(&ident.symbol) {
-            println!("\tmov rax, rbp");
-            println!("\tsub rax, {}", arg.offset);
             Ok(())
         } else {
             eprintln!("Unknwon identifier: {}", ident.symbol);

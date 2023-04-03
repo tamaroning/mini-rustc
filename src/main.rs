@@ -47,7 +47,7 @@ fn main() {
         dbg!(&krate);
     }
 
-    resolve::analyze(&mut ctx, &krate);
+    ctx.resolve(&krate);
 
     if ctx.dump_enabled {
         dbg!(&ctx);

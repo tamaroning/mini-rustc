@@ -53,6 +53,10 @@ fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
 fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     v.visit_func(func);
     walk_ident(v, &func.name);
+    for (param, ty) in &func.params {
+        walk_ident(v, param);
+        walk_type(v, ty);
+    }
     if let Some(body) = &func.body {
         walk_block(v, body)
     }

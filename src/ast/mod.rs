@@ -69,6 +69,8 @@ pub struct LetStmt {
 
 #[derive(Debug, Clone)]
 pub struct Ident {
+    // TODO: remove symbol and span
+    // add ident: crate::span::Ident
     pub symbol: String,
     pub span: Span,
     pub id: NodeId,

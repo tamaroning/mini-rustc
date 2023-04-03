@@ -1,7 +1,7 @@
 use crate::ast::{self, BinOp, Crate, ExprKind, Ident, LetStmt, StmtKind};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
-use crate::resolve::Rib;
+use crate::resolve::{NameBinding, Rib};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -83,6 +83,10 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
 
     fn pop_rib(&mut self) {
         self.ribs.pop();
+    }
+
+    fn resolve_ident(&self, ident: &'chk Ident) -> Option<NameBinding> {
+        self.ctx.resolver.resolve_ident(ident, &self.ribs)
     }
 }
 

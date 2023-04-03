@@ -2,7 +2,7 @@ pub mod ty;
 
 use crate::ast::{self, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::Resolver;
+use crate::resolve::{NameBinding, Resolver};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -14,12 +14,13 @@ pub struct Ctxt {
     // To deal with this, add the following fields to Ctxt
     //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
     //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
-    /// ExprOrStmt to type mappings, which is set by typechecker
     pub resolver: Resolver,
+    /// ExprOrStmt to type mappings, which is set by typechecker
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
     adt_defs: HashMap<String, AdtDef>,
+    fn_binding_mappings: HashMap<String, NameBinding>,
     pub dump_enabled: bool,
 }
 
@@ -30,6 +31,7 @@ impl Ctxt {
             ty_mappings: HashMap::new(),
             fn_types: HashMap::new(),
             adt_defs: HashMap::new(),
+            fn_binding_mappings: HashMap::new(),
             dump_enabled,
         }
     }

@@ -23,9 +23,32 @@ impl Resolver {
     pub fn get_rib(&self, node_id: NodeId) -> Rc<Rib> {
         Rc::clone(self.ribs.get(&node_id).unwrap())
     }
+
+    // TODO: self is not needed
+    pub fn resolve_ident(&self, ident: &Ident, ribs: &Vec<Rc<Rib>>) -> Option<NameBinding> {
+        for r in ribs.iter().rev() {
+            if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
+                return Some(NameBinding::new(*defined_ident_node_id));
+            }
+        }
+        None
+    }
 }
 
-pub fn resolve(ctx: &mut Ctxt, krate: &Crate) {
+#[derive(Debug)]
+pub struct NameBinding {
+    defined_ident_node_id: NodeId,
+}
+
+impl NameBinding {
+    fn new(defined_ident_node_id: NodeId) -> Self {
+        NameBinding {
+            defined_ident_node_id,
+        }
+    }
+}
+
+pub fn analyze(ctx: &mut Ctxt, krate: &Crate) {
     let mut analyzer = RibAnlyzer::new(ctx);
     ast::visitor::go(&mut analyzer, krate);
 }
@@ -107,6 +130,7 @@ impl Rib {
         }
     }
 
+    // TODO: shadowing
     pub fn insert_binding(&mut self, ident: Ident) {
         // FIXME: duplicate symbol?
         let _ = self.bindings.insert(ident.symbol, ident.id);

@@ -463,6 +463,7 @@ impl<'a> Codegen<'a> {
 
         let store_kind = self.codegen_expr(expr)?;
         match store_kind {
+            /*
             StoreKind::Stack => {
                 let flatten_fields = if let Ty::Adt(name) = ty {
                     let adt = self.ctx.lookup_adt_def(name).unwrap();
@@ -481,6 +482,7 @@ impl<'a> Codegen<'a> {
                     self.load_ax_to_rdi(fd_size);
                 }
             }
+            */
             StoreKind::Rax => {
                 // push lhs to stack
                 self.push();
@@ -504,6 +506,7 @@ impl<'a> Codegen<'a> {
 
         let store_kind = self.codegen_expr(rhs)?;
         match store_kind {
+            /*
             StoreKind::Stack => {
                 let flatten_fields = if let Ty::Adt(name) = &*ty {
                     let adt = self.ctx.lookup_adt_def(name).unwrap();
@@ -521,7 +524,9 @@ impl<'a> Codegen<'a> {
                     let fd_size = self.ctx.get_size(fd_ty);
                     self.load_ax_to_rdi(fd_size);
                 }
+
             }
+            */
             StoreKind::Rax => {
                 self.push();
                 self.codegen_addr(lhs)?;
@@ -575,7 +580,7 @@ impl<'a> Codegen<'a> {
 
 #[derive(PartialEq, Eq)]
 enum StoreKind {
-    Stack,
+    //Stack,
     Rax,
     None,
 }

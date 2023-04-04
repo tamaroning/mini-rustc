@@ -177,6 +177,7 @@ impl<'ctx> Ctxt {
         adt_info.field_offsets.get(field).map(|u| *u)
     }
 
+    /*
     /// Flatten all fields of ADT to primitive types (no ADT or array) but ignores ZST fields. Returns fields with their offset.
     /// e.g. `S2 { u: (), a: bool } S { a: i32, b: S2, u: (), c: i32 }`
     ///     flatten_struct(s) => [ (i32, 0), (bool, 4), (i32, 8) ]
@@ -248,6 +249,7 @@ impl<'ctx> Ctxt {
             }
         }
     }
+    */
 }
 
 #[derive(Debug)]
@@ -266,6 +268,7 @@ fn calc_padding(current_ofs: usize, align: usize) -> usize {
     }
 }
 
+/*
 #[test]
 fn flatten_struct_simple() {
     let mut fields = Vec::new();
@@ -350,3 +353,4 @@ fn flatten_struct_containing_array() {
     assert_eq!(*flatten[6].0, Ty::I32);
     assert_eq!(flatten[6].1, 12);
 }
+*/

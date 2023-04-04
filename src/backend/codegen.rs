@@ -174,8 +174,9 @@ impl<'a> Codegen<'a> {
 
     /// Generate code for expression.
     /// Result is stored to al, eax, or rax. In case of al and eax, rax is zero-extended with al, or eax.
-    /// If expr is ZST, rax is not set.
-    /// If expr is ADT, all of its fields are pushed to the stack.
+    /// If size of expr is = 0, rax is not set.
+    /// If size of expr is > 0 and <= 8, rax is set.
+    /// If size of expr is > 8, all of its fields are pushed to the stack.
     fn codegen_expr(&mut self, expr: &'a Expr) -> Result<(), ()> {
         println!("# Starts expr `{}`", expr.span.to_snippet());
         match &expr.kind {
@@ -311,7 +312,9 @@ impl<'a> Codegen<'a> {
                 }
             }
             ExprKind::Array(elems) => {
-                todo!()
+                for e in elems {
+                    self.codegen_expr(e)?;
+                }
             }
         }
 
@@ -421,19 +424,26 @@ impl<'a> Codegen<'a> {
     fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
         let ty = self.ctx.get_type(rhs.id);
         let size = self.ctx.get_size(&ty);
-        // TODO: change this to size > 8
-        if ty.is_adt() {
-            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-            let flatten_fields = self.ctx.flatten_struct(adt);
-            self.codegen_expr(rhs)?;
-            for (fd_ty, ofs) in flatten_fields.iter().rev() {
-                self.codegen_addr(lhs)?;
-                println!("\tmov rdi, rax");
-                println!("\tadd rdi, {ofs}");
-                println!("\tpop rax");
-                let fd_size = self.ctx.get_size(fd_ty);
-                self.load_ax_to_rdi(fd_size);
+        if size > 8 {
+            let flatten_fields = if ty.is_adt() {
+                let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                self.ctx.flatten_struct(adt)
+                
+            } else if let Ty::Array(elem_ty, elem_num) = &*ty  {
+                self.ctx.flatten_array(elem_ty, *elem_num)
             }
+            else {
+                panic!("ICE");
+            };
+            self.codegen_expr(rhs)?;
+                for (fd_ty, ofs) in flatten_fields.iter().rev() {
+                    self.codegen_addr(lhs)?;
+                    println!("\tmov rdi, rax");
+                    println!("\tadd rdi, {ofs}");
+                    println!("\tpop rax");
+                    let fd_size = self.ctx.get_size(fd_ty);
+                    self.load_ax_to_rdi(fd_size);
+                }
         } else if 0 < size && size <= 8 {
             self.codegen_addr(lhs)?;
             self.push();

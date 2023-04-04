@@ -304,16 +304,29 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
             }
             ExprKind::Struct(ident, fds) => {
+                let size = self.ctx.get_size(&self.ctx.get_type(expr.id));
+                if size <= 8 {
+                    todo!()
+                }
+
                 let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
                 for (_, fd) in fds {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
+                    // TODO: size?
                     self.push();
                 }
             }
             ExprKind::Array(elems) => {
+                let size = self.ctx.get_size(&self.ctx.get_type(expr.id));
+                if size <= 8 {
+                    todo!()
+                }
+
                 for e in elems {
                     self.codegen_expr(e)?;
+                    // TODO: size?
+                    self.push();
                 }
             }
         }
@@ -334,6 +347,7 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
+    /// Load address of local var (including args) to rax
     fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
         // Try to find ident in all locals
         if let Some(binding) = self.ctx.resolver.resolve_ident(ident) {
@@ -391,10 +405,19 @@ impl<'a> Codegen<'a> {
         expr: &'a Expr,
     ) -> Result<(), ()> {
         let size = self.ctx.get_size(ty);
-        // TODO: change this to size > 8
-        if ty.is_adt() {
-            let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-            let flatten_fields = self.ctx.flatten_struct(adt);
+        // TODO:
+        if size <= 8 && matches!(ty, Ty::Adt(_) | Ty::Array(_, _)) {
+            todo!()
+        }
+        if size > 8 {
+            let flatten_fields = if ty.is_adt() {
+                let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                self.ctx.flatten_struct(adt)
+            } else if let Ty::Array(elem_ty, elem_num) = ty {
+                self.ctx.flatten_array(elem_ty, *elem_num)
+            } else {
+                panic!("ICE");
+            };
             self.codegen_expr(expr)?;
             for (fd_ty, ofs) in flatten_fields.iter().rev() {
                 self.codegen_addr_local_var(name)?;
@@ -424,26 +447,28 @@ impl<'a> Codegen<'a> {
     fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
         let ty = self.ctx.get_type(rhs.id);
         let size = self.ctx.get_size(&ty);
+        // TODO:
+        if size <= 8 && matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
+            todo!()
+        }
         if size > 8 {
             let flatten_fields = if ty.is_adt() {
                 let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
                 self.ctx.flatten_struct(adt)
-                
-            } else if let Ty::Array(elem_ty, elem_num) = &*ty  {
+            } else if let Ty::Array(elem_ty, elem_num) = &*ty {
                 self.ctx.flatten_array(elem_ty, *elem_num)
-            }
-            else {
+            } else {
                 panic!("ICE");
             };
             self.codegen_expr(rhs)?;
-                for (fd_ty, ofs) in flatten_fields.iter().rev() {
-                    self.codegen_addr(lhs)?;
-                    println!("\tmov rdi, rax");
-                    println!("\tadd rdi, {ofs}");
-                    println!("\tpop rax");
-                    let fd_size = self.ctx.get_size(fd_ty);
-                    self.load_ax_to_rdi(fd_size);
-                }
+            for (fd_ty, ofs) in flatten_fields.iter().rev() {
+                self.codegen_addr(lhs)?;
+                println!("\tmov rdi, rax");
+                println!("\tadd rdi, {ofs}");
+                println!("\tpop rax");
+                let fd_size = self.ctx.get_size(fd_ty);
+                self.load_ax_to_rdi(fd_size);
+            }
         } else if 0 < size && size <= 8 {
             self.codegen_addr(lhs)?;
             self.push();

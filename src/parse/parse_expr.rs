@@ -10,6 +10,7 @@ pub fn is_expr_start(token: &Token) -> bool {
             | TokenKind::Ident(_)
             | TokenKind::OpenParen
             | TokenKind::OpenBrace
+            | TokenKind::OpenBracket
             | TokenKind::BinOp(lexer::BinOp::Plus | lexer::BinOp::Minus)
             | TokenKind::Return
             | TokenKind::True

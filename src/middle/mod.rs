@@ -139,11 +139,11 @@ impl<'ctx> Ctxt {
         let mut saw_field = false;
         let mut offs = 0;
         for (field, ty) in &adt.fields {
+            offs += self.get_size(ty);
             if f == field {
                 saw_field = true;
                 break;
             }
-            offs += self.get_size(ty);
         }
         if saw_field {
             Some(offs)
@@ -176,7 +176,7 @@ impl<'ctx> Ctxt {
                 self.collect_fields(adt, ofs_and_tys, current_ofs);
             } else if let Ty::Array(elem_ty, elem_num) = &**ty {
                 // array
-                self.collect_elems(&elem_ty, *elem_num, ofs_and_tys, current_ofs);
+                self.collect_elems(elem_ty, *elem_num, ofs_and_tys, current_ofs);
             } else {
                 // primitive
                 *current_ofs += self.get_size(ty);
@@ -203,14 +203,14 @@ impl<'ctx> Ctxt {
         for _ in 0..n {
             if let Ty::Adt(name) = &**elem_ty {
                 // adt
-                let adt = self.lookup_adt_def(&name).unwrap();
+                let adt = self.lookup_adt_def(name).unwrap();
                 self.collect_fields(adt, ofs_and_tys, current_ofs);
             } else if let Ty::Array(elem_elem_ty, elem_elem_num) = &**elem_ty {
                 // array
                 self.collect_elems(elem_elem_ty, *elem_elem_num, ofs_and_tys, current_ofs)
             } else {
                 // primitive
-                *current_ofs += self.get_size(&elem_ty);
+                *current_ofs += self.get_size(elem_ty);
                 ofs_and_tys.push((Rc::clone(elem_ty), *current_ofs));
             }
         }
@@ -276,7 +276,7 @@ fn flatten_struct_containing_array() {
     assert_eq!(flatten[4].1, 11);
     assert_eq!(*flatten[5].0, Ty::Bool);
     assert_eq!(flatten[5].1, 12);
-    
+
     assert_eq!(*flatten[6].0, Ty::I32);
     assert_eq!(flatten[6].1, 16);
 }

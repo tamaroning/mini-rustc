@@ -14,8 +14,8 @@ cargo build
 ./tests/compile.sh
 success_or_stop "$?"
 
-./tests/execute.sh
+./tests/fail.sh
 success_or_stop "$?"
 
-./tests/fail.sh
+./tests/execute.sh
 success_or_stop "$?"

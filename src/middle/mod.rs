@@ -135,15 +135,16 @@ impl<'ctx> Ctxt {
     /// Gets offset of the given field.
     /// Returns None if the field does not exists on the ADT.
     // TODO: alignment
+    // TODO: add tests
     pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<usize> {
         let mut saw_field = false;
         let mut offs = 0;
         for (field, ty) in &adt.fields {
-            offs += self.get_size(ty);
             if f == field {
                 saw_field = true;
                 break;
             }
+            offs += self.get_size(ty);
         }
         if saw_field {
             Some(offs)
@@ -152,7 +153,7 @@ impl<'ctx> Ctxt {
         }
     }
 
-    /// Flatten all fields of ADT to primitive types (no ADT or array). Returns fields with their offset.
+    /// Flatten all fields of ADT to primitive types (no ADT or array) but ignores ZST fields. Returns fields with their offset.
     /// e.g. `S2 { u: (), a: bool } S { a: i32, c: S2, u: () }`
     ///     flatten_struct(s) => [ (i32, 0), ((), 4), (bool, 4) ]
     /// TODO: alignment
@@ -177,10 +178,12 @@ impl<'ctx> Ctxt {
             } else if let Ty::Array(elem_ty, elem_num) = &**ty {
                 // array
                 self.collect_elems(elem_ty, *elem_num, ofs_and_tys, current_ofs);
+            } else if self.get_size(ty) == 0 {
+                // ignore ZST
             } else {
                 // primitive
-                *current_ofs += self.get_size(ty);
                 ofs_and_tys.push((Rc::clone(ty), *current_ofs));
+                *current_ofs += self.get_size(ty);
             }
         }
     }
@@ -199,6 +202,12 @@ impl<'ctx> Ctxt {
         ofs_and_tys: &mut Vec<(Rc<Ty>, usize)>,
         current_ofs: &mut usize,
     ) {
+        // ignore ZST
+        let elem_size = self.get_size(elem_ty);
+        if elem_size == 0 {
+            return;
+        }
+
         // FIXME: might be super slow
         for _ in 0..n {
             if let Ty::Adt(name) = &**elem_ty {
@@ -210,8 +219,8 @@ impl<'ctx> Ctxt {
                 self.collect_elems(elem_elem_ty, *elem_elem_num, ofs_and_tys, current_ofs)
             } else {
                 // primitive
-                *current_ofs += self.get_size(elem_ty);
                 ofs_and_tys.push((Rc::clone(elem_ty), *current_ofs));
+                *current_ofs += self.get_size(elem_ty);
             }
         }
     }
@@ -227,11 +236,11 @@ fn flatten_struct_simple() {
     let ctx = Ctxt::new(false);
     let flatten = ctx.flatten_struct(&adt);
     assert_eq!(*flatten[0].0, Ty::I32);
-    assert_eq!(flatten[0].1, 4);
+    assert_eq!(flatten[0].1, 0);
     assert_eq!(*flatten[1].0, Ty::I32);
-    assert_eq!(flatten[1].1, 8);
+    assert_eq!(flatten[1].1, 4);
     assert_eq!(*flatten[2].0, Ty::I32);
-    assert_eq!(flatten[2].1, 12);
+    assert_eq!(flatten[2].1, 8);
 }
 
 #[test]
@@ -241,15 +250,15 @@ fn flatten_array_simple() {
     let flatten = ctx.flatten_array(&elem_ty, 5);
     dbg!(&flatten);
     assert_eq!(*flatten[0].0, Ty::I32);
-    assert_eq!(flatten[0].1, 4);
+    assert_eq!(flatten[0].1, 0);
     assert_eq!(*flatten[1].0, Ty::I32);
-    assert_eq!(flatten[1].1, 8);
+    assert_eq!(flatten[1].1, 4);
     assert_eq!(*flatten[2].0, Ty::I32);
-    assert_eq!(flatten[2].1, 12);
+    assert_eq!(flatten[2].1, 8);
     assert_eq!(*flatten[3].0, Ty::I32);
-    assert_eq!(flatten[3].1, 16);
+    assert_eq!(flatten[3].1, 12);
     assert_eq!(*flatten[4].0, Ty::I32);
-    assert_eq!(flatten[4].1, 20);
+    assert_eq!(flatten[4].1, 16);
 }
 
 #[test]
@@ -262,21 +271,22 @@ fn flatten_struct_containing_array() {
     let adt = AdtDef { fields };
     let ctx = Ctxt::new(false);
     let flatten = ctx.flatten_struct(&adt);
+    dbg!(&flatten);
     assert_eq!(flatten.len(), 7);
     assert_eq!(*flatten[0].0, Ty::I32);
-    assert_eq!(flatten[0].1, 4);
+    assert_eq!(flatten[0].1, 0);
     assert_eq!(*flatten[1].0, Ty::I32);
-    assert_eq!(flatten[1].1, 8);
+    assert_eq!(flatten[1].1, 4);
 
     assert_eq!(*flatten[2].0, Ty::Bool);
-    assert_eq!(flatten[2].1, 9);
+    assert_eq!(flatten[2].1, 8);
     assert_eq!(*flatten[3].0, Ty::Bool);
-    assert_eq!(flatten[3].1, 10);
+    assert_eq!(flatten[3].1, 9);
     assert_eq!(*flatten[4].0, Ty::Bool);
-    assert_eq!(flatten[4].1, 11);
+    assert_eq!(flatten[4].1, 10);
     assert_eq!(*flatten[5].0, Ty::Bool);
-    assert_eq!(flatten[5].1, 12);
+    assert_eq!(flatten[5].1, 11);
 
     assert_eq!(*flatten[6].0, Ty::I32);
-    assert_eq!(flatten[6].1, 16);
+    assert_eq!(flatten[6].1, 12);
 }

@@ -177,7 +177,7 @@ impl<'a> Codegen<'a> {
     /// If size of expr is = 0, rax is not set.
     /// If size of expr is > 0 and <= 8, rax is set.
     /// If size of expr is > 8, all of its fields are pushed to the stack.
-    fn codegen_expr(&mut self, expr: &'a Expr) -> Result<(), ()> {
+    fn codegen_expr(&mut self, expr: &'a Expr) -> Result<StoreKind, ()> {
         println!("# Starts expr `{}`", expr.span.to_snippet());
         match &expr.kind {
             ExprKind::NumLit(n) => {
@@ -203,7 +203,9 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Unary(unop, inner_expr) => {
                 match unop {
-                    UnOp::Plus => self.codegen_expr(inner_expr)?,
+                    UnOp::Plus => {
+                        self.codegen_expr(inner_expr)?;
+                    }
                     UnOp::Minus => {
                         // compile `-expr` as `0 - expr`
                         self.codegen_expr(inner_expr)?;
@@ -304,30 +306,29 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
             }
             ExprKind::Struct(ident, fds) => {
-                let size = self.ctx.get_size(&self.ctx.get_type(expr.id));
-                if size <= 8 {
-                    todo!()
-                }
-
                 let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
                 for (_, fd) in fds {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
-                    // TODO: size?
-                    self.push();
+                    let fd_ty = self.ctx.get_type(fd.id);
+                    let fd_size = self.ctx.get_size(&fd_ty);
+                    if !matches!(*fd_ty, Ty::Adt(_) | Ty::Array(_, _)) && fd_size != 0 {
+                        self.push();
+                    }
                 }
+                return Ok(StoreKind::Stack);
             }
             ExprKind::Array(elems) => {
-                let size = self.ctx.get_size(&self.ctx.get_type(expr.id));
-                if size <= 8 {
-                    todo!()
-                }
-
                 for e in elems {
                     self.codegen_expr(e)?;
+                    let elem_ty = self.ctx.get_type(e.id);
+                    let elem_size = self.ctx.get_size(&elem_ty);
                     // TODO: size?
-                    self.push();
+                    if !matches!(*elem_ty, Ty::Adt(_) | Ty::Array(_, _)) && elem_size != 0 {
+                        self.push();
+                    }
                 }
+                return Ok(StoreKind::Stack);
             }
         }
 
@@ -344,7 +345,7 @@ impl<'a> Codegen<'a> {
         }
 
         println!("# Finishes expr `{}`", expr.span.to_snippet());
-        Ok(())
+        Ok(StoreKind::Rax)
     }
 
     /// Load address of local var (including args) to rax
@@ -405,13 +406,10 @@ impl<'a> Codegen<'a> {
         expr: &'a Expr,
     ) -> Result<(), ()> {
         let size = self.ctx.get_size(ty);
-        // TODO:
-        if size <= 8 && matches!(ty, Ty::Adt(_) | Ty::Array(_, _)) {
-            todo!()
-        }
-        if size > 8 {
-            let flatten_fields = if ty.is_adt() {
-                let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+
+        if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
+            let flatten_fields = if let Ty::Adt(name) = ty {
+                let adt = self.ctx.lookup_adt_def(name).unwrap();
                 self.ctx.flatten_struct(adt)
             } else if let Ty::Array(elem_ty, elem_num) = ty {
                 self.ctx.flatten_array(elem_ty, *elem_num)
@@ -447,13 +445,10 @@ impl<'a> Codegen<'a> {
     fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
         let ty = self.ctx.get_type(rhs.id);
         let size = self.ctx.get_size(&ty);
-        // TODO:
-        if size <= 8 && matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
-            todo!()
-        }
-        if size > 8 {
-            let flatten_fields = if ty.is_adt() {
-                let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+
+        if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
+            let flatten_fields = if let Ty::Adt(name) = &*ty {
+                let adt = self.ctx.lookup_adt_def(name).unwrap();
                 self.ctx.flatten_struct(adt)
             } else if let Ty::Array(elem_ty, elem_num) = &*ty {
                 self.ctx.flatten_array(elem_ty, *elem_num)
@@ -518,4 +513,9 @@ impl<'a> Codegen<'a> {
             self.pop("rax");
         }
     }
+}
+
+enum StoreKind {
+    Stack,
+    Rax,
 }

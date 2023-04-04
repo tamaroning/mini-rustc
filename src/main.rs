@@ -64,7 +64,7 @@ fn main() {
         std::process::exit(1);
     };
 
-    let codegen_result = backend::compile(&ctx, &krate);
+    let codegen_result = backend::compile(&mut ctx, &krate);
     let Ok(()) = codegen_result else {
         eprintln!("ICE: Failed to generate assembly");
         std::process::exit(1);

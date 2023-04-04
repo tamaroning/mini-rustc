@@ -31,7 +31,7 @@ impl FrameInfo {
 
 impl FrameInfo {
     /// Collect all locals (including args) and create `FrameInfo`
-    pub fn compute(ctx: &Ctxt, func: &ast::Func) -> Self {
+    pub fn compute(ctx: &mut Ctxt, func: &ast::Func) -> Self {
         let mut analyzer = FuncAnalyzer {
             ctx,
             current_offset: LOCAL_OR_PARAM_START_OFFSET,
@@ -59,7 +59,7 @@ pub struct LocalInfo {
 }
 
 struct FuncAnalyzer<'ctx> {
-    ctx: &'ctx Ctxt,
+    ctx: &'ctx mut Ctxt,
     current_offset: usize,
     frame_info: FrameInfo,
 }

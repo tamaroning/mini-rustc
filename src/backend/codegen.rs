@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
+pub fn codegen(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
     let mut codegen = Codegen::new(ctx);
     codegen.go(krate)?;
     Ok(())
@@ -19,7 +19,7 @@ pub fn codegen(ctx: &Ctxt, krate: &Crate) -> Result<(), ()> {
 // add func to NameBinding mappings
 // add NameBinding to LocalInfo mappings
 struct Codegen<'a> {
-    ctx: &'a Ctxt,
+    ctx: &'a mut Ctxt,
     current_frame: Option<FrameInfo>,
     // String literal to label mappings
     // "some_lit" => .LCN
@@ -28,7 +28,7 @@ struct Codegen<'a> {
 }
 
 impl<'a> Codegen<'a> {
-    fn new(ctx: &'a Ctxt) -> Self {
+    fn new(ctx: &'a mut Ctxt) -> Self {
         Codegen {
             ctx,
             current_frame: None,
@@ -156,8 +156,7 @@ impl<'a> Codegen<'a> {
                     let ty = self.ctx.get_type(expr.id);
                     // TODO: clean up array
                     if ty.is_adt() {
-                        let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-                        self.clean_adt_on_stack(adt);
+                        self.clean_adt_on_stack(ty.get_adt_name().unwrap());
                     }
                 }
                 StoreKind::None
@@ -376,20 +375,7 @@ impl<'a> Codegen<'a> {
         Ok(StoreKind::Rax)
     }
 
-    /// Load address of local var (including args) to rax
-    fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
-        // Try to find ident in all locals
-        if let Some(binding) = self.ctx.resolver.resolve_ident(ident) {
-            let local = self.get_current_frame().locals.get(&binding).unwrap();
-            println!("\tmov rax, rbp");
-            println!("\tsub rax, {}", local.offset);
-            Ok(())
-        } else {
-            eprintln!("Unknwon identifier: {}", ident.symbol);
-            Err(())
-        }
-    }
-
+    /// Load address to rax
     fn codegen_addr(&mut self, expr: &'a Expr) -> Result<(), ()> {
         match &expr.kind {
             ExprKind::Ident(ident) => {
@@ -412,11 +398,14 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Field(recv, fd) => {
                 self.codegen_addr(recv)?;
-                let adt = self
+
+                let offs = self
                     .ctx
-                    .lookup_adt_def(self.ctx.get_type(recv.id).get_adt_name().unwrap())
+                    .get_field_offset(
+                        self.ctx.get_type(recv.id).get_adt_name().unwrap(),
+                        &fd.symbol,
+                    )
                     .unwrap();
-                let offs = self.ctx.get_field_offsett(adt, &fd.symbol).unwrap();
                 println!("\tadd rax, {}", offs);
                 Ok(())
             }
@@ -424,6 +413,20 @@ impl<'a> Codegen<'a> {
                 eprintln!("ICE: Cannot codegen {:?} as lval", expr);
                 Err(())
             }
+        }
+    }
+
+    /// Load address to rax
+    fn codegen_addr_local_var(&mut self, ident: &'a Ident) -> Result<(), ()> {
+        // Try to find ident in all locals
+        if let Some(binding) = self.ctx.resolver.resolve_ident(ident) {
+            let local = self.get_current_frame().locals.get(&binding).unwrap();
+            println!("\tmov rax, rbp");
+            println!("\tsub rax, {}", local.offset);
+            Ok(())
+        } else {
+            eprintln!("Unknwon identifier: {}", ident.symbol);
+            Err(())
         }
     }
 
@@ -441,7 +444,7 @@ impl<'a> Codegen<'a> {
             StoreKind::Stack => {
                 let flatten_fields = if let Ty::Adt(name) = ty {
                     let adt = self.ctx.lookup_adt_def(name).unwrap();
-                    self.ctx.flatten_struct(adt)
+                    self.ctx.flatten_struct(&adt)
                 } else if let Ty::Array(elem_ty, elem_num) = ty {
                     self.ctx.flatten_array(elem_ty, *elem_num)
                 } else {
@@ -482,7 +485,7 @@ impl<'a> Codegen<'a> {
             StoreKind::Stack => {
                 let flatten_fields = if let Ty::Adt(name) = &*ty {
                     let adt = self.ctx.lookup_adt_def(name).unwrap();
-                    self.ctx.flatten_struct(adt)
+                    self.ctx.flatten_struct(&adt)
                 } else if let Ty::Array(elem_ty, elem_num) = &*ty {
                     self.ctx.flatten_array(elem_ty, *elem_num)
                 } else {
@@ -538,8 +541,8 @@ impl<'a> Codegen<'a> {
     }
 
     // FIXME:
-    fn clean_adt_on_stack(&self, adt: &AdtDef) {
-        let size = self.ctx.get_adt_size(adt);
+    fn clean_adt_on_stack(&mut self, adt_name: &String) {
+        let size = self.ctx.get_adt_info(adt_name).size;
         // FIXME: correct?
         let pop_rax_time = size / 8;
         for _ in 0..pop_rax_time {

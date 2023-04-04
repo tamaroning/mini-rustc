@@ -101,6 +101,7 @@ pub enum ExprKind {
     Index(Box<Expr>, Box<Expr>),
     Field(Box<Expr>, Ident),
     Struct(Ident, Vec<(Ident, Box<Expr>)>),
+    Array(Vec<Expr>),
 }
 
 #[derive(Debug)]

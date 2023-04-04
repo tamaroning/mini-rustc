@@ -33,11 +33,17 @@ pub enum TokenKind {
     Colon,
     Comma,
     Dot,
+    /// (
     OpenParen,
+    /// )
     CloseParen,
-    OpenBrace,
-    CloseBracket,
+    /// [
     OpenBracket,
+    /// ]
+    CloseBracket,
+    /// {
+    OpenBrace,
+    /// }
     CloseBrace,
     BinOp(BinOp),
     /// Identifier

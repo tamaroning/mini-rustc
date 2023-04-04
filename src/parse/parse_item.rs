@@ -279,7 +279,8 @@ impl Parser {
                     );
                     return None;
                 }
-                Some(Ty::Array(Rc::new(elem_ty), n))
+                // u32 is safely converted to usize
+                Some(Ty::Array(Rc::new(elem_ty), n.try_into().unwrap()))
             }
             TokenKind::Ident(s) => Some(Ty::Adt(s)),
             TokenKind::BinOp(lexer::BinOp::And) => {

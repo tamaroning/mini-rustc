@@ -340,6 +340,44 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
+            ExprKind::Array(elems) => {
+                if elems.is_empty() {
+                    // TODO: type inference: typecheck arary with zero element
+                    self.error("Array with zero element is not supported".to_string());
+                    Rc::new(Ty::Error)
+                } else {
+                    let first_elem = elems.first().unwrap();
+                    let first_elem_ty = self.ctx.get_type(first_elem.id);
+
+                    if first_elem_ty.is_never() {
+                        self.error(format!(
+                            "First element `{}` has never type. Could not infer type of array `{}`.",
+                            first_elem.span.to_snippet(),
+                            expr.span.to_snippet(),
+                        ));
+                        Rc::new(Ty::Error)
+                    } else {
+                        let mut saw_error = false;
+                        for elem in elems {
+                            let elem_ty = self.ctx.get_type(elem.id);
+                            if !elem_ty.is_never() && elem_ty != first_elem_ty {
+                                self.error(format!(
+                                    "Expected type `{:?}`, but `{}` has type `{:?}`",
+                                    first_elem_ty,
+                                    elem.span.to_snippet(),
+                                    elem_ty,
+                                ));
+                                saw_error = true;
+                            }
+                        }
+                        if saw_error {
+                            Rc::new(Ty::Error)
+                        } else {
+                            Rc::new(Ty::Array(first_elem_ty, elems.len()))
+                        }
+                    }
+                }
+            }
         };
         self.ctx.insert_type(expr.id, ty);
     }

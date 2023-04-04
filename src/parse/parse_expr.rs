@@ -205,6 +205,7 @@ impl Parser {
     ///     | ident | callExpr | indexExpr | ifExpr
     ///     | returnExpr | "(" expr ")"
     ///     | unsafeBlock | block
+    ///     | arrayExpr
     ///     | fieldExpr | structExpr
     /// returnExpr ::= "return" expr
     fn parse_binary_primary(&mut self) -> Option<Expr> {
@@ -257,6 +258,7 @@ impl Parser {
             // FIXME: ambiguity: parser cannot decide ident or struct expr.
             // e.g. `if s { } else {}`
             TokenKind::Ident(_) => self.parse_ident_or_struct_expr()?,
+            TokenKind::OpenBracket => self.parse_array_expr()?,
             TokenKind::OpenParen => {
                 let mut span = self.peek_token().span.clone();
                 // skip '('
@@ -399,6 +401,7 @@ impl Parser {
     }
 
     /// structExprField ::= ident ":" expr
+    /// https://doc.rust-lang.org/reference/expressions/struct-expr.html
     fn parse_struct_expr_field(&mut self) -> Option<(Ident, Box<Expr>)> {
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
@@ -410,6 +413,51 @@ impl Parser {
         }
         let expr = self.parse_expr()?;
         Some((ident, Box::new(expr)))
+    }
+
+    /// arrayExpr ::= "[" arrayElements? "]"
+    /// https://doc.rust-lang.org/reference/expressions/array-expr.html
+    fn parse_array_expr(&mut self) -> Option<Expr> {
+        let mut span = self.peek_token().span.clone();
+
+        // skip '['
+        self.skip_token();
+        let elems = if self.peek_token().kind == TokenKind::CloseBracket {
+            vec![]
+        } else {
+            self.parse_array_elements()?
+        };
+
+        // skip ']'
+        span = span.concat(&self.peek_token().span);
+        if !self.skip_expected_token(TokenKind::CloseBracket) {
+            eprintln!(
+                "Expected ']', but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
+            return None;
+        }
+        Some(Expr {
+            kind: ExprKind::Array(elems),
+            id: self.get_next_id(),
+            span,
+        })
+    }
+
+    /// arrayElements ::= expr ("," expr)* ","?
+    /// https://doc.rust-lang.org/reference/expressions/array-expr.html
+    /// TODO: `;` separator
+    fn parse_array_elements(&mut self) -> Option<Vec<Expr>> {
+        let mut elems = vec![];
+        elems.push(self.parse_expr()?);
+
+        while matches!(self.peek_token().kind, TokenKind::Comma) {
+            self.skip_token();
+            if is_expr_start(self.peek_token()) {
+                elems.push(self.parse_expr()?);
+            }
+        }
+        Some(elems)
     }
 
     /// callExpr ::= primary "(" callParams? ")"

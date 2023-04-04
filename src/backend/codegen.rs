@@ -310,6 +310,9 @@ impl<'a> Codegen<'a> {
                     self.push();
                 }
             }
+            ExprKind::Array(elems) => {
+                todo!()
+            }
         }
 
         // Extract the significant bits
@@ -447,12 +450,12 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    fn load_ax_to_rdi(&self, size: u32) {
+    fn load_ax_to_rdi(&self, size: usize) {
         match size {
             0 => (),
             1 => println!("\tmov BYTE PTR [rdi], al"),
-            4 => println!("\tmov DWORD PTR [rdi], eax"),
-            8 => println!("\tmov QWORD PTR [rdi], rax"),
+            2..=4 => println!("\tmov DWORD PTR [rdi], eax"),
+            5..=8 => println!("\tmov QWORD PTR [rdi], rax"),
             _ => panic!("ICE"),
         }
     }

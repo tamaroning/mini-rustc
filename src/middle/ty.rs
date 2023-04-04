@@ -6,7 +6,7 @@ pub enum Ty {
     Bool,
     I32,
     Str,
-    Array(Rc<Ty>, u32),
+    Array(Rc<Ty>, usize),
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
     Adt(String),
     Ref(Region, Rc<Ty>),

@@ -159,6 +159,11 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
                 walk_expr(v, expr);
             }
         }
+        ExprKind::Array(elems) => {
+            for e in elems {
+                walk_expr(v, e);
+            }
+        }
     }
     v.visit_expr_post(expr);
 }

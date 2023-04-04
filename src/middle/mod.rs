@@ -83,7 +83,7 @@ impl<'ctx> Ctxt {
     /// ref: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=3b57a75c2bb154e552a9014f446c1c06
     // FIXME: infinite loop in case of recursive struct
     // e.g. `struct S { s: S }`
-    pub fn get_size(&self, ty: &Ty) -> u32 {
+    pub fn get_size(&self, ty: &Ty) -> usize {
         match ty {
             Ty::Unit => 0,
             Ty::Bool => 1,
@@ -102,7 +102,7 @@ impl<'ctx> Ctxt {
     }
 
     // FIXME: infinite loop
-    pub fn get_adt_size(&self, adt: &AdtDef) -> u32 {
+    pub fn get_adt_size(&self, adt: &AdtDef) -> usize {
         let mut size = 0;
         for (_, ty) in &adt.fields {
             size += self.get_size(ty);
@@ -110,7 +110,7 @@ impl<'ctx> Ctxt {
         size
     }
 
-    pub fn get_align(&self, ty: &Ty) -> u32 {
+    pub fn get_align(&self, ty: &Ty) -> usize {
         match ty {
             Ty::Unit => 1,
             Ty::Bool => 1,
@@ -135,7 +135,7 @@ impl<'ctx> Ctxt {
     /// Gets offset of the given field.
     /// Returns None if the field does not exists on the ADT.
     // TODO: alignment
-    pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<u32> {
+    pub fn get_field_offsett(&self, adt: &AdtDef, f: &String) -> Option<usize> {
         let mut saw_field = false;
         let mut offs = 0;
         for (field, ty) in &adt.fields {
@@ -156,7 +156,7 @@ impl<'ctx> Ctxt {
     /// e.g. `S2 { u: (), a: bool } S { a: i32, c: S2, u: () }`
     ///     flatten_struct(s) => [ (i32, 0), ((), 4), (bool, 4) ]
     /// TODO: alignment
-    pub fn flatten_struct(&self, adt: &AdtDef) -> Vec<(Rc<Ty>, u32)> {
+    pub fn flatten_struct(&self, adt: &AdtDef) -> Vec<(Rc<Ty>, usize)> {
         let mut ofs_and_tys = vec![];
         let mut ofs = 0;
         self.collect_fields(adt, &mut ofs_and_tys, &mut ofs);
@@ -166,8 +166,8 @@ impl<'ctx> Ctxt {
     fn collect_fields(
         &self,
         adt: &AdtDef,
-        ofs_and_tys: &mut Vec<(Rc<Ty>, u32)>,
-        current_ofs: &mut u32,
+        ofs_and_tys: &mut Vec<(Rc<Ty>, usize)>,
+        current_ofs: &mut usize,
     ) {
         for (_, ty) in &adt.fields {
             if let Ty::Adt(name) = &**ty {

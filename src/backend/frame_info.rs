@@ -6,16 +6,16 @@ use crate::resolve::NameBinding;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-const LOCAL_OR_PARAM_START_OFFSET: u32 = 0;
+const LOCAL_OR_PARAM_START_OFFSET: usize = 0;
 /// RSP (and RBP??) must align by 16 bytes
-const FRAME_SIZE_ALIGN: u32 = 16;
+const FRAME_SIZE_ALIGN: usize = 16;
 
 /// Struct representing a single stack frame
 /// FIXME: shadowing, scope. See Ctxt
 #[derive(Debug)]
 pub struct FrameInfo {
     // TODO: frame size should align by 16 bytes because rsp must do so.
-    pub size: u32,
+    pub size: usize,
     // local variables and parameters to LocalInfo mappings
     pub locals: HashMap<NameBinding, LocalInfo>,
 }
@@ -42,11 +42,11 @@ impl FrameInfo {
         analyzer.frame_info
     }
 
-    fn add_padding(&mut self, padd_size: u32) {
+    fn add_padding(&mut self, padd_size: usize) {
         self.size += padd_size;
     }
 
-    fn add_local(&mut self, size: u32) {
+    fn add_local(&mut self, size: usize) {
         self.size += size;
     }
 }
@@ -54,13 +54,13 @@ impl FrameInfo {
 /// Struct representing a local variable on a stack
 #[derive(Debug)]
 pub struct LocalInfo {
-    pub offset: u32,
-    pub size: u32,
+    pub offset: usize,
+    pub size: usize,
 }
 
 struct FuncAnalyzer<'ctx> {
     ctx: &'ctx Ctxt,
-    current_offset: u32,
+    current_offset: usize,
     frame_info: FrameInfo,
 }
 

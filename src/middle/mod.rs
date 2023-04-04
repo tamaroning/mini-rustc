@@ -79,16 +79,18 @@ impl<'ctx> Ctxt {
 
     // Codegen stage
 
+    /// Get size of type
+    /// ref: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=3b57a75c2bb154e552a9014f446c1c06
     // FIXME: infinite loop in case of recursive struct
     // e.g. `struct S { s: S }`
     pub fn get_size(&self, ty: &Ty) -> u32 {
         match ty {
-            Ty::Unit => 8, // TODO: 0
-            Ty::Bool => 8, // TODO: 1
-            Ty::I32 => 8,  // TODO: 4
+            Ty::Unit => 0,
+            Ty::Bool => 1,
+            Ty::I32 => 4,
             Ty::Str => panic!("ICE"),
             Ty::Array(elem_ty, n) => self.get_size(elem_ty) * n,
-            Ty::Fn(_, _) => 8, // = pointer size
+            Ty::Fn(_, _) => 8, // = pointer size FIXME: correct?
             Ty::Adt(name) => {
                 let adt = self.lookup_adt_def(name).unwrap();
                 self.get_adt_size(adt)
@@ -106,6 +108,28 @@ impl<'ctx> Ctxt {
             size += self.get_size(ty);
         }
         size
+    }
+
+    pub fn get_align(&self, ty: &Ty) -> u32 {
+        match ty {
+            Ty::Unit => 1,
+            Ty::Bool => 1,
+            Ty::I32 => 4,
+            Ty::Str => panic!("ICE"),
+            Ty::Array(elem_ty, _) => self.get_align(elem_ty),
+            Ty::Fn(_, _) => 8,
+            Ty::Adt(_) => {
+                let size = self.get_size(ty);
+                if size == 0 {
+                    1
+                } else {
+                    size
+                }
+            }
+            Ty::Ref(_, _) => 8,
+            Ty::Never => 1,
+            Ty::Error => panic!("ICE"),
+        }
     }
 
     /// Gets offset of the given field.

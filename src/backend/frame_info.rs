@@ -1,11 +1,14 @@
 use crate::ast::visitor::{self};
-use crate::ast::{self};
+use crate::ast::{self, Ident};
+use crate::middle::ty::Ty;
 use crate::middle::Ctxt;
 use crate::resolve::NameBinding;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-// RSP (and RBP??) must align by 16 bytes
 const LOCAL_OR_PARAM_START_OFFSET: u32 = 0;
+/// RSP (and RBP??) must align by 16 bytes
+const FRAME_SIZE_ALIGN: u32 = 16;
 
 /// Struct representing a single stack frame
 /// FIXME: shadowing, scope. See Ctxt
@@ -26,14 +29,6 @@ impl FrameInfo {
     }
 }
 
-/// Struct representing a local variable including arguments
-#[derive(Debug)]
-pub struct LocalInfo {
-    pub offset: u32,
-    pub size: u32,
-    // align: u32,
-}
-
 impl FrameInfo {
     /// Collect all locals (including args) and create `FrameInfo`
     pub fn compute(ctx: &Ctxt, func: &ast::Func) -> Self {
@@ -46,13 +41,65 @@ impl FrameInfo {
 
         analyzer.frame_info
     }
+
+    fn add_padding(&mut self, padd_size: u32) {
+        self.size += padd_size;
+    }
+
+    fn add_local(&mut self, size: u32) {
+        self.size += size;
+    }
+}
+
+/// Struct representing a local variable on a stack
+#[derive(Debug)]
+pub struct LocalInfo {
+    pub offset: u32,
+    pub size: u32,
 }
 
 struct FuncAnalyzer<'ctx> {
     ctx: &'ctx Ctxt,
     current_offset: u32,
     frame_info: FrameInfo,
-    // FIXME: alignment
+}
+
+impl FuncAnalyzer<'_> {
+    fn add_local(&mut self, ident: &Ident, ty: &Rc<Ty>) {
+        let size = self.ctx.get_size(ty);
+        self.current_offset += size;
+
+        // insert padding
+        let align = self.ctx.get_align(ty);
+        assert!(align != 0);
+        let padding = if self.current_offset % align == 0 {
+            0
+        } else {
+            align - self.current_offset % align
+        };
+        self.current_offset += padding;
+        self.frame_info.add_padding(padding);
+
+        // add LocalInfo to the FramInfo
+        self.frame_info.add_local(size);
+        let local = LocalInfo {
+            offset: self.current_offset,
+            size,
+        };
+        let name_binding = self.ctx.resolver.resolve_ident(ident).unwrap();
+        self.frame_info.locals.insert(name_binding, local);
+    }
+
+    fn finalize(&mut self) {
+        let align = FRAME_SIZE_ALIGN;
+        let padding = if self.current_offset % align == 0 {
+            0
+        } else {
+            align - self.current_offset % align
+        };
+        self.current_offset += padding;
+        self.frame_info.add_padding(padding);
+    }
 }
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
@@ -69,27 +116,15 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for FuncAnalyzer<'a> {
     //   (high addr)
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         for (param, param_ty) in &func.params {
-            let param_size = self.ctx.get_size(param_ty);
-            self.current_offset += param_size;
-            self.frame_info.size += param_size;
-            let local = LocalInfo {
-                offset: self.current_offset,
-                size: param_size,
-            };
-            let name_binding = self.ctx.resolver.resolve_ident(param).unwrap();
-            self.frame_info.locals.insert(name_binding, local);
+            self.add_local(param, param_ty);
         }
     }
 
+    fn visit_func_post(&mut self, _func: &'ctx ast::Func) {
+        self.finalize();
+    }
+
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let size = self.ctx.get_size(&let_stmt.ty);
-        self.current_offset += size;
-        self.frame_info.size += size;
-        let local = LocalInfo {
-            offset: self.current_offset,
-            size,
-        };
-        let name_binding = self.ctx.resolver.resolve_ident(&let_stmt.ident).unwrap();
-        self.frame_info.locals.insert(name_binding, local);
+        self.add_local(&let_stmt.ident, &let_stmt.ty);
     }
 }

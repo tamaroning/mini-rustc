@@ -4,6 +4,7 @@ use crate::ast::{
 };
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
+use crate::resolve::BindingKind;
 use std::collections::HashMap;
 
 const PARAM_REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
@@ -116,8 +117,18 @@ impl<'a> Codegen<'a> {
         println!("\tpush rbp");
         println!("\tmov rbp, rsp");
         println!("\tsub rsp, {}", frame.size);
-        for (i, (_, local)) in frame.locals.iter().enumerate() {
-            println!("\tmov [rbp-{}], {}", local.offset, PARAM_REGISTERS[i]);
+        for (i, (_, local)) in frame
+            .locals
+            .iter()
+            .filter(|(binding, _)| binding.kind == BindingKind::Arg)
+            .enumerate()
+        {
+            // FIXME: size > 8 and size == 0?
+            println!("\tmov rax, {} # load {i}th param", PARAM_REGISTERS[i]);
+            println!("\tmov rdi, rbp");
+            println!("\tsub rdi, {}", local.offset);
+            dbg!(local.size);
+            self.load_ax_to_rdi(local.size);
         }
         Ok(())
     }
@@ -374,24 +385,32 @@ impl<'a> Codegen<'a> {
         ty: &Ty,
         expr: &'a Expr,
     ) -> Result<(), ()> {
+        let size = self.ctx.get_size(ty);
+        // TODO: change this to size > 8
         if ty.is_adt() {
             let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
             let flatten_fields = self.ctx.flatten_struct(adt);
             self.codegen_expr(expr)?;
-            for (_ty, ofs) in flatten_fields.iter().rev() {
+            for (fd_ty, ofs) in flatten_fields.iter().rev() {
                 self.codegen_addr_local_var(name)?;
-                println!("\tadd rax, {ofs}");
-                println!("\tpop rdi");
-                println!("\tmov [rax], rdi");
+                println!("\tmov rdi, rax");
+                println!("\tadd rdi, {ofs}");
+                println!("\tpop rax");
+                let fd_size = self.ctx.get_size(fd_ty);
+                self.load_ax_to_rdi(fd_size);
             }
-        } else {
+        } else if 0 < size && size <= 8 {
             self.codegen_addr_local_var(name)?;
             self.push();
             self.codegen_expr(expr)?;
             self.push();
-            self.pop("rdi");
-            self.pop("rax");
-            println!("\tmov [rax], rdi");
+            self.pop("rax"); // rax <- rhs
+            self.pop("rdi"); // rdi <- lhs
+            self.load_ax_to_rdi(size);
+        } else if size == 0 {
+            // do nothing
+        } else {
+            panic!("ICE");
         }
         Ok(())
     }
@@ -399,26 +418,44 @@ impl<'a> Codegen<'a> {
     // FIXME: sync with `codegen_assign_local_var`
     fn codegen_assign(&mut self, lhs: &'a Expr, rhs: &'a Expr) -> Result<(), ()> {
         let ty = self.ctx.get_type(rhs.id);
+        let size = self.ctx.get_size(&ty);
+        // TODO: change this to size > 8
         if ty.is_adt() {
             let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
             let flatten_fields = self.ctx.flatten_struct(adt);
             self.codegen_expr(rhs)?;
-            for (_ty, ofs) in flatten_fields.iter().rev() {
+            for (fd_ty, ofs) in flatten_fields.iter().rev() {
                 self.codegen_addr(lhs)?;
-                println!("\tadd rax, {ofs}");
-                println!("\tpop rdi");
-                println!("\tmov [rax], rdi");
+                println!("\tmov rdi, rax");
+                println!("\tadd rdi, {ofs}");
+                println!("\tpop rax");
+                let fd_size = self.ctx.get_size(fd_ty);
+                self.load_ax_to_rdi(fd_size);
             }
-        } else {
+        } else if 0 < size && size <= 8 {
             self.codegen_addr(lhs)?;
             self.push();
             self.codegen_expr(rhs)?;
             self.push();
-            self.pop("rdi");
-            self.pop("rax");
-            println!("\tmov [rax], rdi");
+            self.pop("rax"); // rax <- rhs
+            self.pop("rdi"); // rdi <- lhs
+            self.load_ax_to_rdi(size);
+        } else if size == 0 {
+            // do nothing
+        } else {
+            panic!("ICE");
         }
         Ok(())
+    }
+
+    fn load_ax_to_rdi(&self, size: u32) {
+        match size {
+            0 => (),
+            1 => println!("\tmov BYTE PTR [rdi], al"),
+            4 => println!("\tmov DWORD PTR [rdi], eax"),
+            8 => println!("\tmov QWORD PTR [rdi], rax"),
+            _ => panic!("ICE"),
+        }
     }
 
     fn retrieve_name<'b>(&'b self, expr: &'b Expr) -> Result<&Ident, ()> {

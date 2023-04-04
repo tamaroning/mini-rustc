@@ -35,8 +35,12 @@ impl Resolver {
     // just utility function of resolve_ident
     fn resolve_ident_from_ribs(ident: &Ident, ribs: &[Rib]) -> Option<NameBinding> {
         for r in ribs.iter().rev() {
+            let binding_kind = match &r.kind {
+                RibKind::Block => BindingKind::Let,
+                RibKind::Func => BindingKind::Arg,
+            };
             if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
-                return Some(NameBinding::new(*defined_ident_node_id));
+                return Some(NameBinding::new(*defined_ident_node_id, binding_kind));
             }
         }
         None
@@ -48,8 +52,8 @@ impl Resolver {
         id
     }
 
-    fn new_rib(&mut self) -> Rib {
-        Rib::new(self.get_next_id())
+    fn new_rib(&mut self, kind: RibKind) -> Rib {
+        Rib::new(self.get_next_id(), kind)
     }
 
     fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
@@ -63,20 +67,28 @@ impl Resolver {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct NameBinding {
+    pub kind: BindingKind,
     defined_ident_node_id: NodeId,
 }
 
 impl NameBinding {
-    fn new(defined_ident_node_id: NodeId) -> Self {
+    fn new(defined_ident_node_id: NodeId, kind: BindingKind) -> Self {
         NameBinding {
+            kind,
             defined_ident_node_id,
         }
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum BindingKind {
+    Arg,
+    Let,
+}
+
 impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        let mut r = self.new_rib();
+        let mut r = self.new_rib(RibKind::Func);
         for (param, _) in &func.params {
             r.insert_binding(param.clone())
         }
@@ -89,7 +101,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     }
 
     fn visit_block(&mut self, _block: &'ctx ast::Block) {
-        let r = self.new_rib();
+        let r = self.new_rib(RibKind::Block);
         self.name_ribs.push(r);
     }
 
@@ -118,13 +130,21 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 #[derive(Debug, Clone)]
 pub struct Rib {
     id: u32,
+    kind: RibKind,
     bindings: HashMap<String, NodeId>,
 }
 
+#[derive(Debug, Clone)]
+enum RibKind {
+    Func,
+    Block,
+}
+
 impl Rib {
-    fn new(rib_id: u32) -> Self {
+    fn new(rib_id: u32, kind: RibKind) -> Self {
         Rib {
             id: rib_id,
+            kind,
             bindings: HashMap::new(),
         }
     }

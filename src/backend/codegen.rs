@@ -340,6 +340,10 @@ impl<'a> Codegen<'a> {
             //
             // But it seems that chibicc does not support expressions whose size is > 8 (e.g. struct expr, array expr)
             //   ref: https://github.com/rui314/chibicc/blob/main/test/struct.c
+            //
+            // Solution I have come up with:
+            //   1. Allocate stack frames every time AST nodes which have struct or array type but are not variables are found.
+            //   2. Then we can store a value to them using address where allocated data are located.
             ExprKind::Struct(ident, fds) => {
                 // TODO:
                 todo!()

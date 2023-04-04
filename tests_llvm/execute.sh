@@ -2,8 +2,10 @@
 cd $(dirname $0)
 RUSTC="../target/debug/mini-rustc"
 TMP="../tmp.ll"
+ASM="../tmp.s"
 EXE="../tmp"
 LLC="llc"
+CC="gcc"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -15,8 +17,9 @@ assert() {
     input="$2"
 
     rm $TMP $EXE
-    $RUSTC "$input" --llvm >$TMP
-    $LLC -o $EXE $TMP
+    $RUSTC "$input" --llvm > $TMP
+    $LLC -o $ASM $TMP
+    $CC -o $EXE $ASM
     chmod +x $EXE
     $EXE
     actual="$?"
@@ -31,5 +34,9 @@ assert() {
 
 QT="'"
 
+cd ..
+cargo build
+cd tests_llvm
+
 echo "===== Execute Tests ====="
-assert 0 'fn main() -> i32 { 0 }'
+assert 0 'fn main() -> i32 { return 0; }'

@@ -73,13 +73,15 @@ Hello world!
 # Status
 
 - [x] types
-  - `i32`, `bool`, unit(`()`), never(`!`), array(`[ty; N]`), `str`
-  - [ ] references
-  - ADT
+  - `i32`, `bool`, unit(`()`), never(`!`), `str`
+  - references
+    - [x] `&'static str`
+  - [x] arrays
+  - ADTs
     - [x] (nested) structs
     - [ ] enums
-- [x] typechecking
-- [ ] type inference
+  - [x] typechecking
+  - [ ] type inference
 - items
   - [x] structs
   - [x] functions
@@ -89,18 +91,23 @@ Hello world!
   - [ ] modules
 - statements
   - [x] let statement
-    - `mut` and initializers are not supported
+    - keyword `mut` is not supported
   - [x] expression statements
-  - [x] return
 - expressions
   - [x] arithmetic operators `+`, `-`, `*`
   - [x] comparison operators `==`
   - [x] literals: integer, boolean, string
   - [x] if-else expressions
   - [x] block expressions
+  - [x] return expressions
+  - [x] call expressions
+    - parameter passing: ZSTs and ADTs and arrays are not supported
+    - return value: ADTs and arrays are not supported
+  - [ ] array expressions `[expr, expr, ...]`
+  - [ ] struct expressions `SomeName { field1: expr, .. }`
 - misc
   - [ ] paths
-  - [ ] pattern matching
+  - [ ] patterns (matching)
   - [x] comments `//`
 
 ## Problem of ambiguous grammars

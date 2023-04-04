@@ -161,14 +161,14 @@ impl<'a> Codegen<'a> {
                         self.clean_adt_on_stack(adt);
                     }
                 }
-                StoreKind::Rax
+                StoreKind::None
             }
             StmtKind::Expr(expr) => self.codegen_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty, init }) => {
                 if let Some(init) = init {
                     self.codegen_assign_local_var(ident, ty, init)?;
                 }
-                StoreKind::Rax
+                StoreKind::None
             }
         };
         println!("# Finished stmt `{}`", stmt.span.to_snippet());
@@ -203,7 +203,9 @@ impl<'a> Codegen<'a> {
                 }
             }
             ExprKind::Unit => {
+                // main returns unit, so set 0 to rax
                 println!("\tmov rax, 0");
+                return Ok(StoreKind::None)
             }
             ExprKind::Unary(unop, inner_expr) => {
                 match unop {
@@ -257,6 +259,7 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Assign(lhs, rhs) => {
                 self.codegen_assign(lhs, rhs)?;
+                return Ok(StoreKind::None);
             }
             ExprKind::Return(inner) => {
                 self.codegen_expr(inner)?;
@@ -268,6 +271,7 @@ impl<'a> Codegen<'a> {
                 }
                 println!("\tpop rbp");
                 println!("\tret");
+                return Ok(StoreKind::None);
             }
             ExprKind::Call(func, args) => {
                 if args.len() > 6 {
@@ -533,4 +537,5 @@ impl<'a> Codegen<'a> {
 enum StoreKind {
     Stack,
     Rax,
+    None,
 }

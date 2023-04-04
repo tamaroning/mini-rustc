@@ -1,7 +1,7 @@
 #!/bin/bash
 cd $(dirname $0)
 RUSTC="../target/debug/mini-rustc"
-TMP="./tmp.s"
+TMP="../tmp.s"
 CC="gcc"
 
 RED='\033[0;31m'

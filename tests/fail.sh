@@ -1,8 +1,8 @@
 #!/bin/bash
 cd $(dirname $0)
 RUSTC="../target/debug/mini-rustc"
-TMP="./tmp.s"
-EXE="./tmp"
+TMP="../tmp.s"
+EXE="../tmp"
 CC="gcc"
 
 RED='\033[0;31m'

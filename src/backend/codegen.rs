@@ -436,37 +436,38 @@ impl<'a> Codegen<'a> {
     ) -> Result<(), ()> {
         let size = self.ctx.get_size(ty);
 
-        if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
-            // TODO: use StoreKind
-            let flatten_fields = if let Ty::Adt(name) = ty {
-                let adt = self.ctx.lookup_adt_def(name).unwrap();
-                self.ctx.flatten_struct(adt)
-            } else if let Ty::Array(elem_ty, elem_num) = ty {
-                self.ctx.flatten_array(elem_ty, *elem_num)
-            } else {
-                panic!("ICE");
-            };
-            self.codegen_expr(expr)?;
-            for (fd_ty, ofs) in flatten_fields.iter().rev() {
-                self.codegen_addr_local_var(name)?;
-                println!("\tmov rdi, rax");
-                println!("\tadd rdi, {ofs}");
-                println!("\tpop rax");
-                let fd_size = self.ctx.get_size(fd_ty);
-                self.load_ax_to_rdi(fd_size);
+        let store_kind = self.codegen_expr(expr)?;
+        match store_kind {
+            StoreKind::Stack => {
+                let flatten_fields = if let Ty::Adt(name) = ty {
+                    let adt = self.ctx.lookup_adt_def(name).unwrap();
+                    self.ctx.flatten_struct(adt)
+                } else if let Ty::Array(elem_ty, elem_num) = ty {
+                    self.ctx.flatten_array(elem_ty, *elem_num)
+                } else {
+                    panic!("ICE");
+                };
+                for (fd_ty, ofs) in flatten_fields.iter().rev() {
+                    self.codegen_addr_local_var(name)?;
+                    println!("\tmov rdi, rax");
+                    println!("\tadd rdi, {ofs}");
+                    self.pop("rax"); // rax <- addr
+                    let fd_size = self.ctx.get_size(fd_ty);
+                    self.load_ax_to_rdi(fd_size);
+                }
             }
-        } else if 0 < size && size <= 8 {
-            self.codegen_addr_local_var(name)?;
-            self.push();
-            self.codegen_expr(expr)?;
-            self.push();
-            self.pop("rax"); // rax <- rhs
-            self.pop("rdi"); // rdi <- lhs
-            self.load_ax_to_rdi(size);
-        } else if size == 0 {
-            // do nothing
-        } else {
-            panic!("ICE");
+            StoreKind::Rax => {
+                // push lhs to stack
+                self.push();
+                self.codegen_addr_local_var(name)?;
+                self.push();
+                self.pop("rdi"); // rdi <- addr of lhs
+                self.pop("rax"); // rax <- rhs
+                self.load_ax_to_rdi(size);
+            }
+            StoreKind::None => {
+                // do nothing
+            }
         }
         Ok(())
     }
@@ -476,38 +477,37 @@ impl<'a> Codegen<'a> {
         let ty = self.ctx.get_type(rhs.id);
         let size = self.ctx.get_size(&ty);
 
-        // TODO: use StoreKind
-        if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
-            let flatten_fields = if let Ty::Adt(name) = &*ty {
-                let adt = self.ctx.lookup_adt_def(name).unwrap();
-                self.ctx.flatten_struct(adt)
-            } else if let Ty::Array(elem_ty, elem_num) = &*ty {
-                self.ctx.flatten_array(elem_ty, *elem_num)
-            } else {
-                panic!("ICE");
-            };
-            self.codegen_expr(rhs)?;
-            for (fd_ty, ofs) in flatten_fields.iter().rev() {
-                self.codegen_addr(lhs)?;
-                println!("\tmov rdi, rax");
-                println!("\tadd rdi, {ofs}");
-                println!("\tpop rax");
-                let fd_size = self.ctx.get_size(fd_ty);
-                self.load_ax_to_rdi(fd_size);
+        let store_kind = self.codegen_expr(rhs)?;
+        match store_kind {
+            StoreKind::Stack => {
+                let flatten_fields = if let Ty::Adt(name) = &*ty {
+                    let adt = self.ctx.lookup_adt_def(name).unwrap();
+                    self.ctx.flatten_struct(adt)
+                } else if let Ty::Array(elem_ty, elem_num) = &*ty {
+                    self.ctx.flatten_array(elem_ty, *elem_num)
+                } else {
+                    panic!("ICE");
+                };
+                for (fd_ty, ofs) in flatten_fields.iter().rev() {
+                    self.codegen_addr(lhs)?;
+                    println!("\tmov rdi, rax");
+                    println!("\tadd rdi, {ofs}");
+                    self.pop("rax");
+                    let fd_size = self.ctx.get_size(fd_ty);
+                    self.load_ax_to_rdi(fd_size);
+                }
             }
-        } else if 0 < size && size <= 8 {
-            self.codegen_addr(lhs)?;
-            self.push();
-            let s = self.codegen_expr(rhs)?;
-            assert!(s == StoreKind::Rax);
-            self.push();
-            self.pop("rax"); // rax <- rhs
-            self.pop("rdi"); // rdi <- lhs
-            self.load_ax_to_rdi(size);
-        } else if size == 0 {
-            // do nothing
-        } else {
-            panic!("ICE");
+            StoreKind::Rax => {
+                self.push();
+                self.codegen_addr(lhs)?;
+                self.push();
+                self.pop("rdi"); // rdi <- lhs
+                self.pop("rax"); // rax <- rhs
+                self.load_ax_to_rdi(size);
+            }
+            StoreKind::None => {
+                // do nothing
+            }
         }
         Ok(())
     }

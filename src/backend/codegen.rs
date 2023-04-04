@@ -332,7 +332,17 @@ impl<'a> Codegen<'a> {
                 println!(".Lend{label_id}:");
                 return Ok(store_kind);
             }
+            // storategy of chibicc
+            // load(ty): load value to rax (array, struct: No)
+            //   ref: https://github.com/rui314/chibicc/blob/90d1f7f199cc55b13c7fdb5839d1409806633fdb/codegen.c#L186
+            // store(ty): store [rax] to an address that the stack top is pointing to (array, struct: OK)
+            //   ref: https://github.com/rui314/chibicc/blob/90d1f7f199cc55b13c7fdb5839d1409806633fdb/codegen.c#L233-L238
+            //
+            // But it seems that chibicc does not support expressions whose size is > 8 (e.g. struct expr, array expr)
+            //   ref: https://github.com/rui314/chibicc/blob/main/test/struct.c
             ExprKind::Struct(ident, fds) => {
+                // TODO:
+                todo!()
                 /*
                 let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
                 // starts pushing from the first field
@@ -347,9 +357,11 @@ impl<'a> Codegen<'a> {
                 }
                 return Ok(StoreKind::Stack);
                 */
-                todo!()
             }
             ExprKind::Array(elems) => {
+                // TODO:
+                // ref:
+                todo!()
                 // starts pushing from the first element
                 /*
                 for e in elems {
@@ -362,7 +374,6 @@ impl<'a> Codegen<'a> {
                     }
                 }
                 return Ok(StoreKind::Stack);*/
-                todo!()
             }
         }
 

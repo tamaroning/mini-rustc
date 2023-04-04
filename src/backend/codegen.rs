@@ -152,7 +152,6 @@ impl<'a> Codegen<'a> {
                 let store_kind = self.codegen_expr(expr)?;
 
                 // In case of struct type, pop stack to clean it.
-                // FIXME: necessary?
                 if store_kind == StoreKind::Stack {
                     let ty = self.ctx.get_type(expr.id);
                     // TODO: clean up array
@@ -205,16 +204,18 @@ impl<'a> Codegen<'a> {
             ExprKind::Unit => {
                 // main returns unit, so set 0 to rax
                 println!("\tmov rax, 0");
-                return Ok(StoreKind::None)
+                return Ok(StoreKind::None);
             }
             ExprKind::Unary(unop, inner_expr) => {
                 match unop {
                     UnOp::Plus => {
-                        self.codegen_expr(inner_expr)?;
+                        let s = self.codegen_expr(inner_expr)?;
+                        assert!(s == StoreKind::Rax);
                     }
                     UnOp::Minus => {
                         // compile `-expr` as `0 - expr`
-                        self.codegen_expr(inner_expr)?;
+                        let s = self.codegen_expr(inner_expr)?;
+                        assert!(s == StoreKind::Rax);
                         println!("\tmov rdi, rax");
                         println!("\tmov rax, 0");
                         println!("\tsub rax, rdi");
@@ -225,9 +226,11 @@ impl<'a> Codegen<'a> {
                 // use rax and rdi if rhs/lhs is size of 64bit
                 let ax = "eax";
                 let di = "edi";
-                self.codegen_expr(lhs)?;
+                let s = self.codegen_expr(lhs)?;
+                assert!(s == StoreKind::Rax);
                 self.push();
-                self.codegen_expr(rhs)?;
+                let s = self.codegen_expr(rhs)?;
+                assert!(s == StoreKind::Rax);
                 self.push();
                 self.pop("rdi");
                 self.pop("rax");
@@ -262,7 +265,11 @@ impl<'a> Codegen<'a> {
                 return Ok(StoreKind::None);
             }
             ExprKind::Return(inner) => {
-                self.codegen_expr(inner)?;
+                let s = self.codegen_expr(inner)?;
+                if s != StoreKind::Rax && s != StoreKind::None {
+                    // TODO: return struct and arrays
+                    todo!()
+                }
                 println!("\tmov rsp, rbp");
                 // TODO: remove this?
                 let inner_ty = self.ctx.get_type(inner.id);
@@ -280,7 +287,11 @@ impl<'a> Codegen<'a> {
                 for param in args {
                     // TODO: pass struct param via stack
                     // p16. https://www.uclibc.org/docs/psABI-x86_64.pdf
-                    self.codegen_expr(param)?;
+                    let s = self.codegen_expr(param)?;
+                    // TODO: StoreKind::None
+                    if s != StoreKind::Rax {
+                        todo!();
+                    }
                     self.push();
                 }
                 for i in 0..args.len() {
@@ -301,7 +312,8 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::If(cond, then, els) => {
                 let label_id = self.get_new_label_id();
-                self.codegen_expr(cond)?;
+                let s = self.codegen_expr(cond)?;
+                assert!(s == StoreKind::Rax);
                 println!("\tcmp rax, 0");
                 if els.is_some() {
                     println!("\tje .Lelse{label_id}");
@@ -313,7 +325,8 @@ impl<'a> Codegen<'a> {
                 if let Some(els) = els {
                     println!("\tjmp .Lend{label_id}");
                     println!(".Lelse{label_id}:");
-                    self.codegen_expr(els)?;
+                    let els_store_kind = self.codegen_expr(els)?;
+                    assert!(store_kind == els_store_kind);
                 }
                 println!(".Lend{label_id}:");
                 return Ok(store_kind);
@@ -387,7 +400,8 @@ impl<'a> Codegen<'a> {
                 let elem_ty_size = self.ctx.get_size(&self.ctx.get_type(expr.id));
                 self.codegen_addr(array)?;
                 self.push();
-                self.codegen_expr(index)?;
+                let s = self.codegen_expr(index)?;
+                assert!(s == StoreKind::Rax);
                 self.push();
                 self.pop("rdi"); // rdi <- index
                 println!("\tmov rax, {}", elem_ty_size); // rax <- size_of(size)
@@ -484,7 +498,8 @@ impl<'a> Codegen<'a> {
         } else if 0 < size && size <= 8 {
             self.codegen_addr(lhs)?;
             self.push();
-            self.codegen_expr(rhs)?;
+            let s = self.codegen_expr(rhs)?;
+            assert!(s == StoreKind::Rax);
             self.push();
             self.pop("rax"); // rax <- rhs
             self.pop("rdi"); // rdi <- lhs

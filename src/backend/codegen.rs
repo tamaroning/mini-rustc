@@ -145,31 +145,34 @@ impl<'a> Codegen<'a> {
         println!("\tret");
     }
 
-    fn codegen_stmt(&mut self, stmt: &'a Stmt) -> Result<(), ()> {
+    fn codegen_stmt(&mut self, stmt: &'a Stmt) -> Result<StoreKind, ()> {
         println!("# Starts stmt `{}`", stmt.span.to_snippet());
-        match &stmt.kind {
+        let store_kind = match &stmt.kind {
             StmtKind::Semi(expr) => {
-                self.codegen_expr(expr)?;
+                let store_kind = self.codegen_expr(expr)?;
 
                 // In case of struct type, pop stack to clean it.
                 // FIXME: necessary?
-                let ty = self.ctx.get_type(expr.id);
-                if ty.is_adt() {
-                    let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
-                    self.clean_adt_on_stack(adt);
+                if store_kind == StoreKind::Stack {
+                    let ty = self.ctx.get_type(expr.id);
+                    // TODO: clean up array
+                    if ty.is_adt() {
+                        let adt = self.ctx.lookup_adt_def(ty.get_adt_name().unwrap()).unwrap();
+                        self.clean_adt_on_stack(adt);
+                    }
                 }
+                StoreKind::Rax
             }
-            StmtKind::Expr(expr) => {
-                self.codegen_expr(expr)?;
-            }
+            StmtKind::Expr(expr) => self.codegen_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty, init }) => {
                 if let Some(init) = init {
                     self.codegen_assign_local_var(ident, ty, init)?;
                 }
+                StoreKind::Rax
             }
-        }
+        };
         println!("# Finished stmt `{}`", stmt.span.to_snippet());
-        Ok(())
+        Ok(store_kind)
     }
 
     /// Generate code for expression.
@@ -177,6 +180,7 @@ impl<'a> Codegen<'a> {
     /// If size of expr is = 0, rax is not set.
     /// If size of expr is > 0 and <= 8, rax is set.
     /// If size of expr is > 8, all of its fields are pushed to the stack.
+    /// TODO: store kind
     fn codegen_expr(&mut self, expr: &'a Expr) -> Result<StoreKind, ()> {
         println!("# Starts expr `{}`", expr.span.to_snippet());
         match &expr.kind {
@@ -249,6 +253,7 @@ impl<'a> Codegen<'a> {
                 println!("#ident or index");
                 self.codegen_addr(expr)?;
                 println!("\tmov rax, [rax]");
+                // TODO: store kind
             }
             ExprKind::Assign(lhs, rhs) => {
                 self.codegen_assign(lhs, rhs)?;
@@ -281,11 +286,14 @@ impl<'a> Codegen<'a> {
                 // FIXME: To support va_args, set 0 to rax
                 println!("\tmov eax, 0");
                 println!("\tcall {}", name.symbol);
+                // TODO: StoreKind::Stack?
             }
             ExprKind::Block(block) => {
+                let mut store_kind = StoreKind::Rax;
                 for stmt in &block.stmts {
-                    self.codegen_stmt(stmt)?;
+                    store_kind = self.codegen_stmt(stmt)?;
                 }
+                return Ok(store_kind);
             }
             ExprKind::If(cond, then, els) => {
                 let label_id = self.get_new_label_id();
@@ -296,7 +304,7 @@ impl<'a> Codegen<'a> {
                 } else {
                     println!("\tje .Lend{label_id}");
                 }
-                self.codegen_expr(then)?;
+                let store_kind = self.codegen_expr(then)?;
 
                 if let Some(els) = els {
                     println!("\tjmp .Lend{label_id}");
@@ -304,9 +312,11 @@ impl<'a> Codegen<'a> {
                     self.codegen_expr(els)?;
                 }
                 println!(".Lend{label_id}:");
+                return Ok(store_kind);
             }
             ExprKind::Struct(ident, fds) => {
                 let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
+                // starts pushing from the first field
                 for (_, fd) in fds {
                     // TODO: deal with order
                     self.codegen_expr(fd)?;
@@ -319,6 +329,7 @@ impl<'a> Codegen<'a> {
                 return Ok(StoreKind::Stack);
             }
             ExprKind::Array(elems) => {
+                // starts pushing from the first element
                 for e in elems {
                     self.codegen_expr(e)?;
                     let elem_ty = self.ctx.get_type(e.id);
@@ -408,6 +419,7 @@ impl<'a> Codegen<'a> {
         let size = self.ctx.get_size(ty);
 
         if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
+            // TODO: use StoreKind
             let flatten_fields = if let Ty::Adt(name) = ty {
                 let adt = self.ctx.lookup_adt_def(name).unwrap();
                 self.ctx.flatten_struct(adt)
@@ -446,6 +458,7 @@ impl<'a> Codegen<'a> {
         let ty = self.ctx.get_type(rhs.id);
         let size = self.ctx.get_size(&ty);
 
+        // TODO: use StoreKind
         if matches!(&*ty, Ty::Adt(_) | Ty::Array(_, _)) {
             let flatten_fields = if let Ty::Adt(name) = &*ty {
                 let adt = self.ctx.lookup_adt_def(name).unwrap();
@@ -505,6 +518,7 @@ impl<'a> Codegen<'a> {
         println!("\tpop {}", reg);
     }
 
+    // FIXME:
     fn clean_adt_on_stack(&self, adt: &AdtDef) {
         let size = self.ctx.get_adt_size(adt);
         // FIXME: correct?
@@ -515,6 +529,7 @@ impl<'a> Codegen<'a> {
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum StoreKind {
     Stack,
     Rax,

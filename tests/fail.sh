@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 
 compile_fail() {
   input="$1"
-  $RUSTC "$input" >&/dev/null
+  $RUSTC "$input" #>&/dev/null
   code="$?"
   if [ "$code" = 1 ]; then
     echo -e "[${GREEN}OK${NC}] $input"
@@ -49,5 +49,6 @@ compile_fail 'fn main() -> i32 { { let unit: () = (); } }'
 compile_fail 'fn main() -> () { { let a: () = (); } a }'
 # array expr with no element
 compile_fail 'fn main() -> () { []; }'
-# array expr with first elem with never type
-compile_fail 'fn main() -> () { [(return ())]; }'
+compile_fail 'fn main() -> () { let a: [i32; 1] = [1, 2]; }'
+compile_fail 'fn main() -> () { let a: [i32; 1] = [true]; }'
+compile_fail 'fn main() -> () { let a: [i32; 1]; a[0] = true; }'

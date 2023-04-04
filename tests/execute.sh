@@ -83,3 +83,4 @@ assert 31 'struct Pt { x: i32, y: i32, z: i32 } struct Edge { p1: Pt, p2: Pt }
 fn main() -> i32 { let e: Edge; e.p1 = Pt { x: 10, y: 20, z: 0 }; e.p2.x = 1; e.p2.y = 2; e.p1.x + e.p1.y + e.p2.x }'
 # array expr
 assert 3 'fn main() -> i32 { let a:[i32; 4]; a = [1, 2, 3, 4]; a[2] }'
+# TODO: assert 0 'fn main() -> () { [()][0] }'

@@ -127,7 +127,6 @@ impl<'a> Codegen<'a> {
             println!("\tmov rax, {} # load {i}th param", PARAM_REGISTERS[i]);
             println!("\tmov rdi, rbp");
             println!("\tsub rdi, {}", local.offset);
-            dbg!(local.size);
             self.load_ax_to_rdi(local.size);
         }
         Ok(())

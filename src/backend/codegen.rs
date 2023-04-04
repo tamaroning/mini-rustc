@@ -152,6 +152,7 @@ impl<'a> Codegen<'a> {
                 let store_kind = self.codegen_expr(expr)?;
 
                 // In case of struct type, pop stack to clean it.
+                /* TODO:
                 if store_kind == StoreKind::Stack {
                     let ty = self.ctx.get_type(expr.id);
                     // TODO: clean up array
@@ -159,6 +160,7 @@ impl<'a> Codegen<'a> {
                         self.clean_adt_on_stack(ty.get_adt_name().unwrap());
                     }
                 }
+                */
                 StoreKind::None
             }
             StmtKind::Expr(expr) => self.codegen_expr(expr)?,
@@ -331,6 +333,7 @@ impl<'a> Codegen<'a> {
                 return Ok(store_kind);
             }
             ExprKind::Struct(ident, fds) => {
+                /*
                 let _adt = self.ctx.lookup_adt_def(&ident.symbol).unwrap();
                 // starts pushing from the first field
                 for (_, fd) in fds {
@@ -343,9 +346,12 @@ impl<'a> Codegen<'a> {
                     }
                 }
                 return Ok(StoreKind::Stack);
+                */
+                todo!()
             }
             ExprKind::Array(elems) => {
                 // starts pushing from the first element
+                /*
                 for e in elems {
                     self.codegen_expr(e)?;
                     let elem_ty = self.ctx.get_type(e.id);
@@ -355,7 +361,8 @@ impl<'a> Codegen<'a> {
                         self.push();
                     }
                 }
-                return Ok(StoreKind::Stack);
+                return Ok(StoreKind::Stack);*/
+                todo!()
             }
         }
 

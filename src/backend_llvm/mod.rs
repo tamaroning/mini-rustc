@@ -177,10 +177,25 @@ impl<'a> Codegen<'a> {
                         rhs_lhs_llty
                     }
                     ast::BinOp::Eq => {
+                        assert!(rhs_lhs_llty.is_integer());
                         println!("\t{reg} = icmp eq {}, {}", l.reg, r.reg);
-                        self.ty_to_llty(&Ty::Bool)
+                        LLTy::I8
                     }
-                    _ => todo!(),
+                    ast::BinOp::Ne => {
+                        assert!(rhs_lhs_llty.is_integer());
+                        println!("\t{reg} = icmp ne {}, {}", l.reg, r.reg);
+                        LLTy::I8
+                    }
+                    ast::BinOp::Gt => {
+                        assert!(rhs_lhs_llty.is_signed_integer());
+                        println!("\t{reg} = icmp sgt {}, {}", l.reg, r.reg);
+                        LLTy::I8
+                    }
+                    ast::BinOp::Lt => {
+                        assert!(rhs_lhs_llty.is_signed_integer());
+                        println!("\t{reg} = icmp slt {}, {}", l.reg, r.reg);
+                        LLTy::I8
+                    }
                 };
                 Some(LLReg { reg, llty })
             }
@@ -214,6 +229,10 @@ impl LLTy {
     }
 
     fn is_integer(&self) -> bool {
+        matches!(self, LLTy::I32)
+    }
+
+    fn is_signed_integer(&self) -> bool {
         matches!(self, LLTy::I32)
     }
 }

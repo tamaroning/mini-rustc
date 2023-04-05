@@ -204,7 +204,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                         }
                     }
                     BinOp::Eq | BinOp::Ne => {
-                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
+                        // TODO: other types?
+                        if (**lhs_ty == Ty::I32 && **rhs_ty == Ty::I32)
+                            || (**lhs_ty == Ty::Bool && **rhs_ty == Ty::Bool)
+                        {
                             Rc::new(Ty::Bool)
                         } else {
                             self.error("Both lhs and rhs must have the same type".to_string());

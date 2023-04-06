@@ -123,7 +123,7 @@ impl<'a> Codegen<'a> {
             ExprKind::Block(block) => self.gen_block(block)?,
             ExprKind::Ident(_) => {
                 let llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
-                let ptr_reg = self.to_ptr(expr)?;
+                let ptr_reg = self.get_addr(expr)?;
                 let reg = self.get_fresh_reg();
                 //  %4 = load i32, i32* %2, align 4
                 println!(
@@ -137,12 +137,10 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Assign(lhs, rhs) => {
                 let rhs_val = self.gen_expr(rhs)?;
-                let rhs_llty = self.ty_to_llty(&self.ctx.get_type(rhs.id));
-                let lhs_ptr = self.to_ptr(lhs)?;
+                let lhs_ptr = self.get_addr(lhs)?;
                 println!(
-                    "\tstore {} {}, {} {}",
-                    rhs_llty.to_string(),
-                    rhs_val.to_string(),
+                    "\tstore {}, {} {}",
+                    rhs_val.to_string_with_type(),
                     lhs_ptr.llty.to_string(),
                     lhs_ptr.name,
                 );

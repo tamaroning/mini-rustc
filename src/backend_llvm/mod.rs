@@ -3,7 +3,7 @@ mod codegen_expr;
 mod frame;
 
 use self::frame::{Frame, VisitFrame};
-use crate::ast::{self, Crate, Expr, ExprKind};
+use crate::ast::{self, Crate, Expr, ExprKind, Ident};
 use crate::middle::ty::Ty;
 use crate::middle::Ctxt;
 use std::rc::Rc;
@@ -86,14 +86,16 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    fn to_ptr(&self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
+    fn get_addr(&self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
         match &expr.kind {
-            ExprKind::Ident(ident) => {
-                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
-                Ok(self.peek_frame().get_local(&name))
-            }
+            ExprKind::Ident(ident) => Ok(self.get_ident_addr(ident)),
             _ => panic!(),
         }
+    }
+
+    fn get_ident_addr(&self, ident: &'a Ident) -> Rc<LLReg> {
+        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        self.peek_frame().get_local(&name)
     }
 }
 
@@ -153,9 +155,7 @@ impl LLValue {
 
     pub fn to_string_with_type(&self) -> String {
         match self {
-            LLValue::Reg(reg) => {
-                format!("{} {}", self.llty().to_string(), self.to_string())
-            }
+            LLValue::Reg(reg) => reg.to_string_with_type(),
             LLValue::Imm(imm) => imm.to_string_with_type(),
         }
     }
@@ -170,6 +170,10 @@ pub struct LLReg {
 impl LLReg {
     fn new(name: String, llty: LLTy) -> Self {
         LLReg { name, llty }
+    }
+
+    pub fn to_string_with_type(&self) -> String {
+        format!("{} {}", self.llty.to_string(), self.name)
     }
 }
 
@@ -198,8 +202,8 @@ impl LLImm {
 
     pub fn llty(&self) -> LLTy {
         match self {
-            LLImm::I32(n) => LLTy::I32,
-            LLImm::I8(n) => LLTy::I8,
+            LLImm::I32(_) => LLTy::I32,
+            LLImm::I8(_) => LLTy::I8,
             LLImm::Void => LLTy::Void,
         }
     }

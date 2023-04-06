@@ -1,7 +1,7 @@
 use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
-    backend_llvm::{LLImm, LLReg, LLTy},
+    backend_llvm::LLImm,
     resolve::BindingKind,
 };
 
@@ -77,12 +77,17 @@ impl<'a> Codegen<'a> {
                 LLValue::Imm(LLImm::Void)
             }
             StmtKind::Expr(expr) => self.gen_expr(expr)?,
-            StmtKind::Let(LetStmt {
-                ident,
-                ty: _,
-                init: _,
-            }) => {
-                // TODO: initializer
+            StmtKind::Let(LetStmt { ident, ty: _, init }) => {
+                if let Some(init) = init {
+                    let ident_reg = self.get_ident_addr(ident);
+                    let init_val = self.gen_expr(init)?;
+                    // TODO: initializer
+                    println!(
+                        "\tstore {}, {}",
+                        init_val.to_string_with_type(),
+                        ident_reg.to_string_with_type()
+                    );
+                }
                 LLValue::Imm(LLImm::Void)
             }
         };

@@ -8,7 +8,7 @@ pub enum Ty {
     Str,
     Array(Rc<Ty>, usize),
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
-    Adt(String),
+    Adt(Rc<String>),
     Ref(Region, Rc<Ty>),
     Never,
     Error,
@@ -38,5 +38,5 @@ impl Ty {
 
 #[derive(Debug)]
 pub struct AdtDef {
-    pub fields: Vec<(String, Rc<Ty>)>,
+    pub fields: Vec<(Rc<String>, Rc<Ty>)>,
 }

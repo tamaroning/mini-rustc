@@ -20,8 +20,8 @@ pub struct Ctxt {
     /// ExprOrStmtOrBlock to type mappings, which is set by typechecker
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     // move to tyctxt?
-    fn_types: HashMap<String, Rc<Ty>>,
-    adt_defs: HashMap<String, Rc<AdtDef>>,
+    fn_types: HashMap<Rc<String>, Rc<Ty>>,
+    adt_defs: HashMap<Rc<String>, Rc<AdtDef>>,
 
     // codegen
     /// cache
@@ -60,7 +60,7 @@ impl<'ctx> Ctxt {
         self.fn_types.get(func_name).map(Rc::clone)
     }
 
-    pub fn set_fn_type(&mut self, func_name: String, fn_ty: Rc<Ty>) {
+    pub fn set_fn_type(&mut self, func_name: Rc<String>, fn_ty: Rc<Ty>) {
         self.fn_types.insert(func_name, fn_ty);
     }
 
@@ -68,7 +68,7 @@ impl<'ctx> Ctxt {
         self.adt_defs.get(adt_name).map(Rc::clone)
     }
 
-    pub fn set_adt_def(&mut self, name: String, adt: AdtDef) {
+    pub fn set_adt_def(&mut self, name: Rc<String>, adt: AdtDef) {
         self.adt_defs.insert(name, Rc::new(adt));
     }
 
@@ -120,8 +120,8 @@ impl<'ctx> Ctxt {
             let fd_align = self.get_align(fd_ty);
             max_fd_align = max(max_fd_align, fd_align);
 
-            field_offsets.insert(fd.clone(), current_ofs);
-            field_sizes.insert(fd.clone(), fd_size);
+            field_offsets.insert(Rc::clone(fd), current_ofs);
+            field_sizes.insert(Rc::clone(fd), fd_size);
 
             current_ofs += fd_size;
             current_ofs += calc_padding(current_ofs, fd_align);
@@ -245,8 +245,8 @@ impl<'ctx> Ctxt {
 pub struct AdtInfo {
     pub size: usize,
     pub align: usize,
-    pub field_offsets: HashMap<String, usize>,
-    pub field_sizes: HashMap<String, usize>,
+    pub field_offsets: HashMap<Rc<String>, usize>,
+    pub field_sizes: HashMap<Rc<String>, usize>,
 }
 
 fn calc_padding(current_ofs: usize, align: usize) -> usize {

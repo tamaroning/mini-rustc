@@ -98,7 +98,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
-        let body = func.body.as_ref().unwrap();
+        let Some(body) = &func.body else {
+            return;
+        };
         let body_ty = self.ctx.get_type(body.id);
         let expected = self.peek_return_type();
         if !body_ty.is_never() && &*body_ty != expected {
@@ -116,7 +118,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             fields: strct
                 .fields
                 .iter()
-                .map(|(s, ty)| (s.symbol.clone(), Rc::clone(ty)))
+                .map(|(s, ty)| (Rc::clone(&s.symbol), Rc::clone(ty)))
                 .collect(),
         };
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
@@ -346,7 +348,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 let adt_name = &ident.symbol;
                 if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
                     // TODO: typecheck fields
-                    Rc::new(Ty::Adt(adt_name.clone()))
+                    Rc::new(Ty::Adt(Rc::clone(adt_name)))
                 } else {
                     self.error(format!("Cannot find type {}", adt_name));
                     Rc::new(Ty::Error)

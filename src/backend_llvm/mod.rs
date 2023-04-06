@@ -1,6 +1,14 @@
+mod frame;
+
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use crate::ast::{self, Block, Crate, Expr, ExprKind, Func, ItemKind, LetStmt, Stmt, StmtKind};
 use crate::middle::ty::Ty;
 use crate::middle::Ctxt;
+use crate::resolve::NameBinding;
+
+use self::frame::{Frame, VisitFrame};
 
 pub fn compile(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
     codegen(ctx, krate)?;
@@ -14,14 +22,19 @@ pub fn codegen(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
     Ok(())
 }
 
-struct Codegen<'a> {
+pub struct Codegen<'a> {
     ctx: &'a mut Ctxt,
+    current_frame: Option<Frame>,
     next_reg: usize,
 }
 
 impl<'a> Codegen<'a> {
     fn new(ctx: &'a mut Ctxt) -> Self {
-        Codegen { ctx, next_reg: 1 }
+        Codegen {
+            ctx,
+            current_frame: None,
+            next_reg: 1,
+        }
     }
 
     fn get_fresh_reg(&mut self) -> String {
@@ -37,6 +50,34 @@ impl<'a> Codegen<'a> {
             Ty::Bool => LLTy::I8,
             _ => panic!(),
         }
+    }
+
+    pub fn compute_frame(&mut self, func: &'a ast::Func) -> Frame {
+        let mut frame = Frame::new();
+        let mut analyzer = VisitFrame {
+            codegen: self,
+            frame: &mut frame,
+        };
+        ast::visitor::go_func(&mut analyzer, func);
+        frame
+    }
+
+    fn push_frame(&mut self, frame: Frame) {
+        self.current_frame = Some(frame);
+    }
+
+    fn peek_frame(&self) -> &Frame {
+        let Some(f) = &self.current_frame else {
+            panic!("ICE");
+        };
+        f
+    }
+
+    fn pop_frame(&mut self) {
+        if self.current_frame.is_none() {
+            panic!("ICE: cannot pop the current frame");
+        }
+        self.current_frame = None;
     }
 
     fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
@@ -66,6 +107,9 @@ impl<'a> Codegen<'a> {
             return Ok(());
         }
 
+        let frame = self.compute_frame(func);
+        self.push_frame(frame);
+
         println!(
             "define {} @{}() {{",
             self.ty_to_llty(&func.ret_ty).to_string(),
@@ -81,8 +125,10 @@ impl<'a> Codegen<'a> {
                 }
             }
         }
-        //println!("\tret void");
         println!("}}");
+
+        self.pop_frame();
+
         Ok(())
     }
 
@@ -102,9 +148,13 @@ impl<'a> Codegen<'a> {
                 Ok(None)
             }
             StmtKind::Expr(expr) => Ok(self.gen_expr(expr)?),
-            StmtKind::Let(_) => {
-                // TODO:
-                todo!()
+            StmtKind::Let(LetStmt { ident, ty, init }) => {
+                // if let stmt is in a loop, memory might be allocated inifinitely
+                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+                let reg = self.peek_frame().get_local(&name);
+                println!("\t{} = alloca {}", reg.reg, reg.llty.peel_ptr().to_string());
+                // TODO: init
+                Ok(None)
             }
         };
         println!("; Finished stmt `{}`", stmt.span.to_snippet());
@@ -205,10 +255,47 @@ impl<'a> Codegen<'a> {
                 None
             }
             ExprKind::Block(block) => self.gen_block(block)?,
+            ExprKind::Ident(_) => {
+                let llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
+                let ptr_reg = self.to_ptr(expr)?;
+                let reg = self.get_fresh_reg();
+                //  %4 = load i32, i32* %2, align 4
+                println!(
+                    "\t{} = load {}, {} {}",
+                    reg,
+                    llty.to_string(),
+                    ptr_reg.llty.to_string(),
+                    ptr_reg.reg
+                );
+                Some(LLReg::new(reg, llty))
+            }
+            ExprKind::Assign(lhs, rhs) => {
+                let rhs_reg = self.gen_expr(rhs)?.unwrap();
+                let rhs_llty = self.ty_to_llty(&self.ctx.get_type(rhs.id));
+                let lhs_ptr_reg = self.to_ptr(lhs)?;
+                println!(
+                    "\tstore {} {}, {} {}",
+                    rhs_llty.to_string(),
+                    rhs_reg.reg,
+                    lhs_ptr_reg.llty.to_string(),
+                    lhs_ptr_reg.reg,
+                );
+                None
+            }
             _ => panic!(),
         };
         println!("; Starts expr `{}`", expr.span.to_snippet());
         Ok(ret)
+    }
+
+    fn to_ptr(&self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
+        match &expr.kind {
+            ExprKind::Ident(ident) => {
+                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+                Ok(self.peek_frame().get_local(&name))
+            }
+            _ => panic!(),
+        }
     }
 }
 
@@ -217,6 +304,7 @@ enum LLTy {
     Void,
     I8,
     I32,
+    Ptr(Box<LLTy>),
 }
 
 impl LLTy {
@@ -225,6 +313,7 @@ impl LLTy {
             LLTy::Void => "void".to_string(),
             LLTy::I8 => "i8".to_string(),
             LLTy::I32 => "i32".to_string(),
+            LLTy::Ptr(inner) => format!("{}*", inner.to_string()),
         }
     }
 
@@ -235,10 +324,17 @@ impl LLTy {
     fn is_signed_integer(&self) -> bool {
         matches!(self, LLTy::I32)
     }
+
+    fn peel_ptr(&self) -> &LLTy {
+        match self {
+            LLTy::Ptr(inner) => inner,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct LLReg {
+pub struct LLReg {
     reg: String,
     llty: LLTy,
 }

@@ -60,3 +60,9 @@ assert 9 'fn main() -> i32 { 4 + 5 }'
 assert 3 'fn main() -> i32 { 10 - 7 }'
 assert 6 'fn main() -> i32 { 2 * 3 }'
 assert 9 'fn main() -> i32 { 11 + 8 * 2 - 3 * (1 + 5) }'
+# let
+assert 0 'fn main() -> i32 { let a: i32; let b: i32; 0 }'
+# assign
+assert 0 'fn main() -> i32 { let a: i32; a = 1; 0 }'
+# load
+assert 1 'fn main() -> i32 { let a: i32; a = 1; a }'

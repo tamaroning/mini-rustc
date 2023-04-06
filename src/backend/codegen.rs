@@ -2,7 +2,7 @@ use super::frame_info::FrameInfo;
 use crate::ast::{
     BinOp, Crate, Expr, ExprKind, Func, Ident, ItemKind, LetStmt, Stmt, StmtKind, UnOp,
 };
-use crate::middle::ty::{AdtDef, Ty};
+use crate::middle::ty::Ty;
 use crate::middle::Ctxt;
 use crate::resolve::BindingKind;
 use std::collections::HashMap;
@@ -149,7 +149,7 @@ impl<'a> Codegen<'a> {
         println!("# Starts stmt `{}`", stmt.span.to_snippet());
         let store_kind = match &stmt.kind {
             StmtKind::Semi(expr) => {
-                let store_kind = self.codegen_expr(expr)?;
+                let _store_kind = self.codegen_expr(expr)?;
 
                 // In case of struct type, pop stack to clean it.
                 /* TODO:
@@ -344,7 +344,7 @@ impl<'a> Codegen<'a> {
             // Solution I have come up with:
             //   1. Allocate stack frames every time AST nodes which have struct or array type but are not variables are found.
             //   2. Then we can store a value to them using address where allocated data are located.
-            ExprKind::Struct(ident, fds) => {
+            ExprKind::Struct(_ident, _fds) => {
                 // TODO:
                 todo!()
                 /*
@@ -362,7 +362,7 @@ impl<'a> Codegen<'a> {
                 return Ok(StoreKind::Stack);
                 */
             }
-            ExprKind::Array(elems) => {
+            ExprKind::Array(_elems) => {
                 // TODO:
                 // ref:
                 todo!()
@@ -568,6 +568,7 @@ impl<'a> Codegen<'a> {
     }
 
     // FIXME:
+    /*
     fn clean_adt_on_stack(&mut self, adt_name: &String) {
         let size = self.ctx.get_adt_info(adt_name).size;
         // FIXME: correct?
@@ -576,6 +577,7 @@ impl<'a> Codegen<'a> {
             self.pop("rax");
         }
     }
+    */
 }
 
 #[derive(PartialEq, Eq)]

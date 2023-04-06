@@ -25,6 +25,7 @@ pub struct Ctxt {
 
     // codegen
     /// cache
+    // TODO: remove (x86-64 backend)
     adt_info_cache: HashMap<String, Rc<AdtInfo>>,
 }
 
@@ -72,8 +73,13 @@ impl<'ctx> Ctxt {
         self.adt_defs.insert(name, Rc::new(adt));
     }
 
+    pub fn get_adt_defs(&self) -> &HashMap<Rc<String>, Rc<AdtDef>> {
+        &self.adt_defs
+    }
+
     // Codegen stage
 
+    // TODO: remove (x86-64 backend)
     /// Get size of ADT from cache.
     /// Calculate ADT info if it does not exist on cache.
     pub fn get_adt_info(&mut self, name: &String) -> Rc<AdtInfo> {
@@ -88,6 +94,7 @@ impl<'ctx> Ctxt {
         }
     }
 
+    // TODO: remove (x86-64 backend)
     /// Get size of type
     /// ref: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=3b57a75c2bb154e552a9014f446c1c06
     // FIXME: infinite loop in case of recursive struct
@@ -107,6 +114,7 @@ impl<'ctx> Ctxt {
         }
     }
 
+    // TODO: remove (x86-64 backend)
     /// Perform actual calculation
     /// TODO: add tests
     fn calc_adt_info(&mut self, adt: &AdtDef) -> AdtInfo {
@@ -137,6 +145,7 @@ impl<'ctx> Ctxt {
         }
     }
 
+    // TODO: remove (x86-64 backend)
     /// Recursively caluculate alignment of type
     pub fn get_align(&self, ty: &Ty) -> usize {
         match ty {
@@ -160,6 +169,7 @@ impl<'ctx> Ctxt {
         }
     }
 
+    // TODO: remove (x86-64 backend)
     /// Gets offset of the given field.
     pub fn get_field_offset(&mut self, adt_name: &String, field: &String) -> Option<usize> {
         let adt_info = self.get_adt_info(adt_name);
@@ -241,6 +251,7 @@ impl<'ctx> Ctxt {
     */
 }
 
+// TODO: remove (x86-64 backend)
 #[derive(Debug)]
 pub struct AdtInfo {
     pub size: usize,
@@ -249,6 +260,7 @@ pub struct AdtInfo {
     pub field_sizes: HashMap<Rc<String>, usize>,
 }
 
+// TODO: remove (x86-64 backend)
 fn calc_padding(current_ofs: usize, align: usize) -> usize {
     if current_ofs % align != 0 {
         align - (current_ofs % align)

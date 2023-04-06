@@ -22,7 +22,7 @@ impl Resolver {
         }
     }
 
-    pub fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
+    fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
         self.ribs.insert(block_or_func_node_id, rib);
     }
 

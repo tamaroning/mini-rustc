@@ -121,13 +121,14 @@ impl<'a> Codegen<'a> {
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Block(block) => self.gen_block(block)?,
+            // identifiers may not be allocated on memory
             ExprKind::Ident(ident) => LLValue::Reg(self.load_ident_if_necessary(ident)),
-            ExprKind::Index(_, _) => {
+            // arrays and structs are always allocated on memory
+            ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 let lval = self.gen_lval(expr)?;
                 let rval = self.load_lval(&lval);
                 LLValue::Reg(rval)
             }
-
             ExprKind::Assign(lhs, rhs) => {
                 let rhs_val = self.gen_expr(rhs)?;
 

@@ -87,3 +87,7 @@ assert 0 'fn ret_unit() -> () { {} } fn main() -> i32 { ret_unit(); 0 }'
 # struct
 assert 0 'struct Empty { } fn main() -> i32 { let s: Empty; 0 }'
 assert 0 'struct Point { x: i32, y: i32, } fn main() -> i32 { let p: Point; 0 }'
+assert 0 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; 0 }'
+assert 1 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; p.x }'
+assert 3 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.y = 5; p.x = 2; p.y - p.x }'
+

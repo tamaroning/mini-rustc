@@ -44,6 +44,13 @@ impl LLTy {
         }
     }
 
+    pub fn get_adt_name(&self) -> Option<Rc<String>> {
+        match self {
+            LLTy::Adt(name) => Some(Rc::clone(name)),
+            _ => None,
+        }
+    }
+
     pub fn is_void(&self) -> bool {
         matches!(self, LLTy::Void)
     }
@@ -126,5 +133,16 @@ impl LLImm {
 }
 
 pub struct LLAdtDef {
-    pub fields: Vec<LLTy>,
+    pub fields: Vec<(Rc<String>, Rc<LLTy>)>,
+}
+
+impl LLAdtDef {
+    pub fn get_field_index(&self, field: &String) -> Option<usize> {
+        let f = self
+            .fields
+            .iter()
+            .enumerate()
+            .find(|(_, (fd, _))| **fd == *field);
+        f.map(|i| i.0)
+    }
 }

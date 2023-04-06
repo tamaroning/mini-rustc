@@ -59,8 +59,8 @@ impl<'a> Codegen<'a> {
 
     fn construct_lladt(&self, adt: &AdtDef) -> LLAdtDef {
         let mut fields = vec![];
-        for (_, fd_ty) in &adt.fields {
-            fields.push(self.ty_to_llty(fd_ty))
+        for (fd, fd_ty) in &adt.fields {
+            fields.push((Rc::clone(fd), Rc::new(self.ty_to_llty(fd_ty))))
         }
         LLAdtDef { fields }
     }
@@ -102,7 +102,7 @@ impl<'a> Codegen<'a> {
         for (name, adt_def) in self.ctx.get_adt_defs() {
             let lladt = self.construct_lladt(adt_def);
             print!("%Struct.{} = type {{", name);
-            for (i, fd_llty) in lladt.fields.iter().enumerate() {
+            for (i, (_, fd_llty)) in lladt.fields.iter().enumerate() {
                 print!(" {}", fd_llty.to_string());
                 if i != lladt.fields.len() - 1 {
                     print!(",");
@@ -123,6 +123,7 @@ impl<'a> Codegen<'a> {
         match &expr.kind {
             ExprKind::Ident(ident) => self.ident_is_allocated(ident),
             ExprKind::Index(array, _) => self.is_allocated(array),
+            ExprKind::Field(strct, _) => self.is_allocated(strct),
             _ => todo!(),
         }
     }
@@ -157,6 +158,27 @@ impl<'a> Codegen<'a> {
                         .get_element_type()
                         .unwrap(),
                 );
+                Ok(LLReg::new(new_reg, Rc::new(ret_llty)))
+            }
+            ExprKind::Field(strct, field) => {
+                let ty = self.ctx.get_type(strct.id);
+                let adt_name = ty.get_adt_name().unwrap();
+                let lladt = self.ll_adt_defs.get(adt_name).unwrap();
+                let field_index = lladt.get_field_index(&field.symbol).unwrap();
+                // `type { T1, T2, T3 }*` => `Tn*`
+                let ret_llty = LLTy::Ptr(Rc::clone(&lladt.fields[field_index].1));
+
+                let struct_ptr_reg = self.gen_lval(strct)?;
+
+                let new_reg = self.get_fresh_reg();
+                println!(
+                    "\t{} = getelementptr {}, {}, i32 0, i32 {}",
+                    new_reg,
+                    struct_ptr_reg.llty.peel_ptr().unwrap().to_string(),
+                    struct_ptr_reg.to_string_with_type(),
+                    field_index
+                );
+
                 Ok(LLReg::new(new_reg, Rc::new(ret_llty)))
             }
             _ => todo!(),

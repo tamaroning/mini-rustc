@@ -17,7 +17,7 @@ pub enum Ty {
 pub type Region = String;
 
 impl Ty {
-    pub fn get_adt_name(&self) -> Option<&String> {
+    pub fn get_adt_name(&self) -> Option<&Rc<String>> {
         if let Ty::Adt(name) = self {
             Some(name)
         } else {

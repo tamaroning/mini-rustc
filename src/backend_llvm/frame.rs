@@ -19,6 +19,10 @@ impl Frame {
     pub fn get_local(&self, name: &NameBinding) -> Rc<LLReg> {
         Rc::clone(self.locals.get(name).unwrap())
     }
+
+    pub fn get_locals(&self) -> &HashMap<NameBinding, Rc<LLReg>> {
+        &self.locals
+    }
 }
 
 pub struct VisitFrame<'a, 'b, 'c> {

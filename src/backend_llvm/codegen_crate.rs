@@ -2,6 +2,7 @@ use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{LLImm, LLReg, LLTy},
+    resolve::BindingKind,
 };
 
 impl<'a> Codegen<'a> {
@@ -23,15 +24,28 @@ impl<'a> Codegen<'a> {
         let Some(body) = &func.body else{
             return Ok(());
         };
-
-        let frame = self.compute_frame(func);
-        self.push_frame(frame);
-
         println!(
             "define {} @{}() {{",
             self.ty_to_llty(&func.ret_ty).to_string(),
             func.name.symbol
         );
+
+        let frame = self.compute_frame(func);
+        self.push_frame(frame);
+
+        for (name_binding, reg) in self.peek_frame().get_locals() {
+            match &name_binding.kind {
+                // Allocate memory for all local variables declared with `let`
+                BindingKind::Let => {
+                    println!(
+                        "\t{} = alloca {}",
+                        reg.name,
+                        reg.llty.peel_ptr().to_string()
+                    );
+                }
+                _ => panic!(),
+            }
+        }
 
         let body_val = self.gen_block(body)?;
 
@@ -68,14 +82,6 @@ impl<'a> Codegen<'a> {
                 ty: _,
                 init: _,
             }) => {
-                // if let stmt is in a loop, memory might be allocated inifinitely
-                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
-                let reg = self.peek_frame().get_local(&name);
-                println!(
-                    "\t{} = alloca {}",
-                    reg.name,
-                    reg.llty.peel_ptr().to_string()
-                );
                 // TODO: initializer
                 LLValue::Imm(LLImm::Void)
             }

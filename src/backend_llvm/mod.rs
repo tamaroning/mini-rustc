@@ -97,8 +97,8 @@ impl<'a> Codegen<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum LLTy {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum LLTy {
     Void,
     I8,
     I32,
@@ -131,18 +131,6 @@ impl LLTy {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct LLReg {
-    name: String,
-    llty: LLTy,
-}
-
-impl LLReg {
-    fn new(name: String, llty: LLTy) -> Self {
-        LLReg { name, llty }
-    }
-}
-
 pub enum LLValue {
     Reg(LLReg),
     Imm(LLImm),
@@ -154,6 +142,33 @@ impl LLValue {
             LLValue::Reg(reg) => reg.name.clone(),
             LLValue::Imm(imm) => imm.to_string(),
         }
+    }
+
+    pub fn llty(&self) -> LLTy {
+        match self {
+            LLValue::Reg(reg) => reg.llty.clone(),
+            LLValue::Imm(imm) => imm.llty(),
+        }
+    }
+
+    pub fn to_string_with_type(&self) -> String {
+        // void => "void"
+        if self.llty() == LLTy::Void {
+            return "void".to_string();
+        }
+        format!("{} {}", self.llty().to_string(), self.to_string())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct LLReg {
+    name: String,
+    llty: LLTy,
+}
+
+impl LLReg {
+    fn new(name: String, llty: LLTy) -> Self {
+        LLReg { name, llty }
     }
 }
 
@@ -169,6 +184,14 @@ impl LLImm {
             LLImm::I32(n) => format!("i32 {n}"),
             LLImm::I8(n) => format!("i8 {n}"),
             LLImm::Void => "void".to_string(),
+        }
+    }
+
+    pub fn llty(&self) -> LLTy {
+        match self {
+            LLImm::I32(n) => LLTy::I32,
+            LLImm::I8(n) => LLTy::I8,
+            LLImm::Void => LLTy::Void,
         }
     }
 }

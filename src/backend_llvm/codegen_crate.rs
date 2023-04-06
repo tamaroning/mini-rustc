@@ -1,7 +1,7 @@
-use super::Codegen;
+use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
-    backend_llvm::{LLReg, LLTy},
+    backend_llvm::{LLImm, LLReg, LLTy},
 };
 
 impl<'a> Codegen<'a> {
@@ -20,9 +20,9 @@ impl<'a> Codegen<'a> {
 
     fn gen_func(&mut self, func: &'a Func) -> Result<(), ()> {
         // do not generate code for the func if it does not have its body
-        if func.body.is_none() {
+        let Some(body) = &func.body else{
             return Ok(());
-        }
+        };
 
         let frame = self.compute_frame(func);
         self.push_frame(frame);
@@ -32,16 +32,13 @@ impl<'a> Codegen<'a> {
             self.ty_to_llty(&func.ret_ty).to_string(),
             func.name.symbol
         );
-        let body_res = self.gen_block(func.body.as_ref().unwrap())?;
 
-        match body_res {
-            Some(LLReg { name, llty }) => println!("\tret {} {}", llty.to_string(), name),
-            None => {
-                if self.ty_to_llty(&func.ret_ty) == LLTy::Void {
-                    println!("\tret void");
-                }
-            }
+        let body_val = self.gen_block(body)?;
+
+        if !self.ctx.get_type(body.id).is_never() {
+            println!("\tret {}", body_val.to_string_with_type());
         }
+
         println!("}}");
 
         self.pop_frame();
@@ -49,22 +46,23 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    pub fn gen_block(&mut self, block: &'a Block) -> Result<Option<LLReg>, ()> {
-        let mut last_stmt_res = None;
+    pub fn gen_block(&mut self, block: &'a Block) -> Result<LLValue, ()> {
+        let mut last_stmt_val = None;
         for stmt in &block.stmts {
-            last_stmt_res = self.gen_stmt(stmt)?;
+            last_stmt_val = Some(self.gen_stmt(stmt)?);
         }
-        Ok(last_stmt_res)
+        let ret = last_stmt_val.unwrap_or(LLValue::Imm(LLImm::Void));
+        Ok(ret)
     }
 
-    fn gen_stmt(&mut self, stmt: &'a Stmt) -> Result<Option<LLReg>, ()> {
+    fn gen_stmt(&mut self, stmt: &'a Stmt) -> Result<LLValue, ()> {
         println!("; Starts stmt `{}`", stmt.span.to_snippet());
-        let res = match &stmt.kind {
+        let val = match &stmt.kind {
             StmtKind::Semi(expr) => {
                 self.gen_expr(expr)?;
-                Ok(None)
+                LLValue::Imm(LLImm::Void)
             }
-            StmtKind::Expr(expr) => Ok(self.gen_expr(expr)?),
+            StmtKind::Expr(expr) => self.gen_expr(expr)?,
             StmtKind::Let(LetStmt {
                 ident,
                 ty: _,
@@ -79,10 +77,10 @@ impl<'a> Codegen<'a> {
                     reg.llty.peel_ptr().to_string()
                 );
                 // TODO: initializer
-                Ok(None)
+                LLValue::Imm(LLImm::Void)
             }
         };
         println!("; Finished stmt `{}`", stmt.span.to_snippet());
-        res
+        Ok(val)
     }
 }

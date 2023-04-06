@@ -35,7 +35,7 @@ impl<'a> Codegen<'a> {
         let body_res = self.gen_block(func.body.as_ref().unwrap())?;
 
         match body_res {
-            Some(LLReg { reg, llty }) => println!("\tret {} {}", llty.to_string(), reg),
+            Some(LLReg { name, llty }) => println!("\tret {} {}", llty.to_string(), name),
             None => {
                 if self.ty_to_llty(&func.ret_ty) == LLTy::Void {
                     println!("\tret void");
@@ -73,7 +73,11 @@ impl<'a> Codegen<'a> {
                 // if let stmt is in a loop, memory might be allocated inifinitely
                 let name = self.ctx.resolver.resolve_ident(ident).unwrap();
                 let reg = self.peek_frame().get_local(&name);
-                println!("\t{} = alloca {}", reg.reg, reg.llty.peel_ptr().to_string());
+                println!(
+                    "\t{} = alloca {}",
+                    reg.name,
+                    reg.llty.peel_ptr().to_string()
+                );
                 // TODO: initializer
                 Ok(None)
             }

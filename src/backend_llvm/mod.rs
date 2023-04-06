@@ -133,12 +133,42 @@ impl LLTy {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LLReg {
-    reg: String,
+    name: String,
     llty: LLTy,
 }
 
 impl LLReg {
-    fn new(llreg: String, llty: LLTy) -> Self {
-        LLReg { reg: llreg, llty }
+    fn new(name: String, llty: LLTy) -> Self {
+        LLReg { name, llty }
+    }
+}
+
+pub enum LLValue {
+    Reg(LLReg),
+    Imm(LLImm),
+}
+
+impl LLValue {
+    pub fn to_string(&self) -> String {
+        match self {
+            LLValue::Reg(reg) => reg.name.clone(),
+            LLValue::Imm(imm) => imm.to_string(),
+        }
+    }
+}
+
+pub enum LLImm {
+    I32(i32),
+    I8(i8),
+    Void,
+}
+
+impl LLImm {
+    pub fn to_string(&self) -> String {
+        match self {
+            LLImm::I32(n) => format!("i32 {n}"),
+            LLImm::I8(n) => format!("i8 {n}"),
+            LLImm::Void => "void".to_string(),
+        }
     }
 }

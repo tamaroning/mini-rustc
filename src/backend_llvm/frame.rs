@@ -1,7 +1,5 @@
 use std::{collections::HashMap, rc::Rc};
-
 use crate::{ast, middle::ty::Ty, resolve::NameBinding};
-
 use super::{Codegen, LLReg, LLTy};
 
 #[derive(Debug)]

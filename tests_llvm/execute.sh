@@ -72,4 +72,8 @@ assert 1 'fn main() -> i32 { let a: i32; a = 1; a }'
 assert 0 'fn zero() -> i32 { 0 } fn main() -> i32 { zero() }'
 assert 0 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(0) }'
 assert 1 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(1) }'
-
+# array
+assert 0 'fn main() -> i32 { let arr: [i32; 10]; 0 }'
+assert 0 'fn main() -> i32 { let arr: [[i32; 4]; 8]; 0 }'
+assert 5 'fn main() -> i32 { let arr: [i32; 8]; arr[1] = 5; arr[1] }'
+assert 10 'fn main() -> i32 { let arr: [[i32; 4]; 8]; arr[7][3] = 10; arr[7][3] }'

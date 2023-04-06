@@ -2,7 +2,7 @@ use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{frame::LocalKind, LLImm},
-    resolve::{BindingKind, NameBinding},
+    resolve::BindingKind,
 };
 
 impl<'a> Codegen<'a> {
@@ -44,7 +44,6 @@ impl<'a> Codegen<'a> {
         while let Some((_, local)) = it.next() {
             print!("{}", local.reg.to_string_with_type());
             if it.peek().is_some() {
-                //
                 print!(", ");
             }
         }
@@ -94,7 +93,7 @@ impl<'a> Codegen<'a> {
             StmtKind::Expr(expr) => self.gen_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
                 if let Some(init) = init {
-                    let ident_reg = self.get_ident_addr(ident).unwrap();
+                    let ident_reg = self.gen_ident_lval(ident).unwrap();
                     let init_val = self.gen_expr(init)?;
                     // TODO: initializer
                     println!(

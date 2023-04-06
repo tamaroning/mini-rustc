@@ -120,12 +120,18 @@ impl<'a> Codegen<'a> {
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Block(block) => self.gen_block(block)?,
-            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident(ident)),
+            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident_if_necessary(ident)),
+            ExprKind::Index(_, _) => {
+                let lval = self.gen_lval(expr)?;
+                let rval = self.load_lval(&lval);
+                LLValue::Reg(rval)
+            }
+
             ExprKind::Assign(lhs, rhs) => {
                 let rhs_val = self.gen_expr(rhs)?;
 
                 if self.is_allocated(lhs) {
-                    let lhs_addr_reg = self.get_addr(lhs).unwrap();
+                    let lhs_addr_reg = self.gen_lval(lhs).unwrap();
                     println!(
                         "\tstore {}, {} {}",
                         rhs_val.to_string_with_type(),

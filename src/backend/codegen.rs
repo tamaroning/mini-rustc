@@ -135,7 +135,7 @@ impl<'a> Codegen<'a> {
     fn codegen_func_epilogue(&self, func: &'a Func) {
         // FIXME: remove this?
         if let Some(body) = &func.body {
-            let block_ty = self.ctx.get_block_type(body);
+            let block_ty = self.ctx.get_type(body.id);
             if *block_ty == Ty::Unit {
                 println!("\tmov rax, 0");
             }

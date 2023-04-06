@@ -17,7 +17,7 @@ pub struct Ctxt {
     //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
     //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
     pub resolver: Resolver,
-    /// ExprOrStmt to type mappings, which is set by typechecker
+    /// ExprOrStmtOrBlock to type mappings, which is set by typechecker
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     // move to tyctxt?
     fn_types: HashMap<String, Rc<Ty>>,
@@ -54,17 +54,6 @@ impl<'ctx> Ctxt {
 
     pub fn get_type(&self, node_id: NodeId) -> Rc<Ty> {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
-    }
-
-    /// Get type of block
-    pub fn get_block_type(&self, block: &ast::Block) -> Rc<Ty> {
-        if let Some(stmt) = block.stmts.last() {
-            let last_stmt_ty = &self.get_type(stmt.id);
-            Rc::clone(last_stmt_ty)
-        } else {
-            // no statement. Unit type
-            Rc::new(Ty::Unit)
-        }
     }
 
     pub fn lookup_fn_type(&self, func_name: &String) -> Option<Rc<Ty>> {

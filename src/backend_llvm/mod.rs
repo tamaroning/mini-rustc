@@ -1,11 +1,14 @@
 mod codegen_crate;
 mod codegen_expr;
 mod frame;
+mod llvm;
 
 use self::frame::{Frame, Local, LocalKind, VisitFrame};
+use self::llvm::*;
 use crate::ast::{self, Crate, Expr, ExprKind, Ident};
-use crate::middle::ty::Ty;
+use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn compile(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
@@ -23,6 +26,7 @@ pub fn codegen(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
 pub struct Codegen<'a> {
     ctx: &'a mut Ctxt,
     current_frame: Option<Frame>,
+    ll_adt_defs: HashMap<Rc<String>, LLAdtDef>,
     next_reg: usize,
 }
 
@@ -31,6 +35,7 @@ impl<'a> Codegen<'a> {
         Codegen {
             ctx,
             current_frame: None,
+            ll_adt_defs: HashMap::new(),
             next_reg: 1,
         }
     }
@@ -47,8 +52,17 @@ impl<'a> Codegen<'a> {
             Ty::I32 => LLTy::I32,
             Ty::Bool => LLTy::I8,
             Ty::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
+            Ty::Adt(name) => LLTy::Adt(Rc::clone(name)),
             _ => panic!(),
         }
+    }
+
+    fn construct_lladt(&self, adt: &AdtDef) -> LLAdtDef {
+        let mut fields = vec![];
+        for (_, fd_ty) in &adt.fields {
+            fields.push(self.ty_to_llty(fd_ty))
+        }
+        LLAdtDef { fields }
     }
 
     pub fn compute_frame(&mut self, func: &'a ast::Func) -> Frame {
@@ -79,10 +93,26 @@ impl<'a> Codegen<'a> {
         self.current_frame = None;
     }
 
+    /// Generate code for top-level
     fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(r#"target triple = "x86_64-unknown-linux-gnu""#);
         println!();
-        // TODO: struct
+
+        // register all ADTs
+        for (name, adt_def) in self.ctx.get_adt_defs() {
+            let lladt = self.construct_lladt(adt_def);
+            print!("%Struct.{} = type {{", name);
+            for (i, fd_llty) in lladt.fields.iter().enumerate() {
+                print!(" {}", fd_llty.to_string());
+                if i != lladt.fields.len() - 1 {
+                    print!(",");
+                }
+            }
+            println!(" }}");
+            //%struct.Empty = type {}
+            self.ll_adt_defs.insert(Rc::clone(name), lladt);
+        }
+
         println!();
         self.gen_crate(krate)?;
         // TODO: literals
@@ -175,128 +205,5 @@ impl<'a> Codegen<'a> {
             reg.name
         );
         LLReg::new(new_reg, derefed_ty)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum LLTy {
-    Void,
-    I8,
-    I32,
-    Ptr(Rc<LLTy>),
-    Array(Rc<LLTy>, usize),
-}
-
-impl LLTy {
-    fn to_string(&self) -> String {
-        match self {
-            LLTy::Void => "void".to_string(),
-            LLTy::I8 => "i8".to_string(),
-            LLTy::I32 => "i32".to_string(),
-            LLTy::Ptr(inner) => format!("{}*", inner.to_string()),
-            LLTy::Array(elem_ty, n) => format!("[{} x {}]", n, elem_ty.to_string()),
-        }
-    }
-
-    fn is_integer(&self) -> bool {
-        matches!(self, LLTy::I32)
-    }
-
-    fn is_signed_integer(&self) -> bool {
-        matches!(self, LLTy::I32)
-    }
-
-    fn peel_ptr(&self) -> Option<Rc<LLTy>> {
-        match self {
-            LLTy::Ptr(inner) => Some(Rc::clone(inner)),
-            _ => None,
-        }
-    }
-
-    fn get_element_type(&self) -> Option<Rc<LLTy>> {
-        match self {
-            LLTy::Array(elem, _) => Some(Rc::clone(elem)),
-            _ => None,
-        }
-    }
-
-    pub fn is_void(&self) -> bool {
-        matches!(self, LLTy::Void)
-    }
-}
-
-pub enum LLValue {
-    Reg(Rc<LLReg>),
-    Imm(LLImm),
-}
-
-impl LLValue {
-    pub fn to_string(&self) -> String {
-        match self {
-            LLValue::Reg(reg) => reg.name.clone(),
-            LLValue::Imm(imm) => imm.to_string(),
-        }
-    }
-
-    pub fn llty(&self) -> Rc<LLTy> {
-        match self {
-            LLValue::Reg(reg) => Rc::clone(&reg.llty),
-            LLValue::Imm(imm) => imm.llty(),
-        }
-    }
-
-    pub fn to_string_with_type(&self) -> String {
-        match self {
-            LLValue::Reg(reg) => reg.to_string_with_type(),
-            LLValue::Imm(imm) => imm.to_string_with_type(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct LLReg {
-    name: String,
-    llty: Rc<LLTy>,
-}
-
-impl LLReg {
-    fn new(name: String, llty: Rc<LLTy>) -> Rc<Self> {
-        Rc::new(LLReg { name, llty })
-    }
-
-    pub fn to_string_with_type(&self) -> String {
-        format!("{} {}", self.llty.to_string(), self.name)
-    }
-}
-
-pub enum LLImm {
-    I32(i32),
-    I8(i8),
-    Void,
-}
-
-impl LLImm {
-    pub fn to_string(&self) -> String {
-        match self {
-            LLImm::I32(n) => format!("{n}"),
-            LLImm::I8(n) => format!("{n}"),
-            LLImm::Void => "void".to_string(),
-        }
-    }
-
-    pub fn to_string_with_type(&self) -> String {
-        match self {
-            LLImm::I32(n) => format!("i32 {n}"),
-            LLImm::I8(n) => format!("i8 {n}"),
-            LLImm::Void => "void".to_string(),
-        }
-    }
-
-    pub fn llty(&self) -> Rc<LLTy> {
-        Rc::new(match self {
-            LLImm::I32(_) => LLTy::I32,
-            LLImm::I8(_) => LLTy::I8,
-            LLImm::Void => LLTy::Void,
-        })
     }
 }

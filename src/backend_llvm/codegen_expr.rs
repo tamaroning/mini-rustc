@@ -150,10 +150,19 @@ impl<'a> Codegen<'a> {
                 let ExprKind::Ident(ident) = &func.kind else {
                     todo!();
                 };
+
                 let mut arg_vals = vec![];
                 for arg in args {
-                    let arg_val = self.gen_expr(arg)?;
-                    arg_vals.push(arg_val);
+                    let arg_ty = &self.ctx.get_type(arg.id);
+                    let llty = self.ty_to_llty(arg_ty);
+                    if !llty.is_void() {
+                        let arg_val = if llty.passed_via_memory() {
+                            LLValue::Reg(self.gen_lval(arg)?)
+                        } else {
+                            self.gen_expr(arg)?
+                        };
+                        arg_vals.push(arg_val);
+                    }
                 }
 
                 let ret_llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
@@ -170,12 +179,14 @@ impl<'a> Codegen<'a> {
 
                 print!("call {} @{}(", ret_llty.to_string(), ident.symbol);
                 for (i, arg_val) in arg_vals.iter().enumerate() {
-                    print!("{}", arg_val.to_string_with_type());
-                    if i != arg_vals.len() - 1 {
-                        print!(", ");
+                    if !arg_val.llty().is_void() {
+                        print!("{}", arg_val.to_string_with_type());
+                        if i != arg_vals.len() - 1 {
+                            print!(", ");
+                        }
                     }
                 }
-                print!(")");
+                println!(")");
 
                 if let Some(reg_name) = reg_name {
                     LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty)))

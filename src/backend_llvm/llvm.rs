@@ -44,15 +44,12 @@ impl LLTy {
         }
     }
 
-    pub fn get_adt_name(&self) -> Option<Rc<String>> {
-        match self {
-            LLTy::Adt(name) => Some(Rc::clone(name)),
-            _ => None,
-        }
-    }
-
     pub fn is_void(&self) -> bool {
         matches!(self, LLTy::Void)
+    }
+
+    pub fn passed_via_memory(&self) -> bool {
+        matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
     }
 }
 

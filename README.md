@@ -95,13 +95,13 @@ Hello world!
   - [x] expression statements
 - expressions
   - [x] arithmetic operators `+`, `-`, `*`
-  - [x] comparison operators `==`
+  - [x] comparison operators `==`, `<`, `>`
   - [x] literals: integer, boolean, string
-  - [x] if-else expressions
+  - [ ] if-else expressions
   - [x] block expressions
   - [x] return expressions
   - [x] call expressions
-    - parameter passing: ZSTs and ADTs and arrays are not supported
+    - parameter passing: ZSTs and ADTs are OK
     - return value: ADTs and arrays are not supported
   - [ ] array expressions `[expr, expr, ...]`
   - [ ] struct expressions `SomeName { field1: expr, .. }`
@@ -109,6 +109,10 @@ Hello world!
   - [ ] paths
   - [ ] patterns (matching)
   - [x] comments `//`
+
+## ABI
+
+When functions are called, arrays and ADTs are passed via memory, ZST parameters are ignored (not passed).
 
 ## Problem of ambiguous grammars
 

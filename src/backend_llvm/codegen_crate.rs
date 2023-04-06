@@ -25,8 +25,12 @@ impl<'a> Codegen<'a> {
             return Ok(());
         };
 
+        // collect information about all variables including parameters
         let frame = self.compute_frame(func);
         self.push_frame(frame);
+
+        // reset fresh registers
+        self.reset_fresh_reg();
 
         print!(
             "define {} @{}(",
@@ -34,12 +38,12 @@ impl<'a> Codegen<'a> {
             func.name.symbol
         );
 
-        // arguments
+        // parameters
         let mut it = self
             .peek_frame()
             .get_locals()
             .iter()
-            .filter(|(binding, _)| binding.kind == BindingKind::Arg)
+            .filter(|(b, l)| b.kind == BindingKind::Arg && !l.reg.llty.is_void())
             .peekable();
         while let Some((_, local)) = it.next() {
             print!("{}", local.reg.to_string_with_type());
@@ -68,6 +72,7 @@ impl<'a> Codegen<'a> {
         }
 
         println!("}}");
+        println!();
 
         self.pop_frame();
 

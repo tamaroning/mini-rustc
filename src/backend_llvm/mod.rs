@@ -3,7 +3,7 @@ mod codegen_expr;
 mod frame;
 mod llvm;
 
-use self::frame::{Frame, Local, LocalKind, VisitFrame};
+use self::frame::{Frame, LocalKind, VisitFrame};
 use self::llvm::*;
 use crate::ast::{self, Crate, Expr, ExprKind, Ident};
 use crate::middle::ty::{AdtDef, Ty};
@@ -44,6 +44,10 @@ impl<'a> Codegen<'a> {
         let i = self.next_reg;
         self.next_reg += 1;
         format!("%{i}")
+    }
+
+    fn reset_fresh_reg(&mut self) {
+        self.next_reg = 1;
     }
 
     fn ty_to_llty(&self, ty: &Ty) -> LLTy {

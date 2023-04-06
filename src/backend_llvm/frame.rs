@@ -68,7 +68,13 @@ impl VisitFrame<'_, '_, '_> {
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         for (param, param_ty) in &func.params {
-            self.add_local(param, param_ty, LocalKind::Value);
+            if self.codegen.ty_to_llty(param_ty).passed_via_memory() {
+                // argument passed via memory (i.e. call by reference)
+                self.add_local(param, param_ty, LocalKind::Ptr);
+            } else {
+                // argument passed via register (i.e. call by value)
+                self.add_local(param, param_ty, LocalKind::Value);
+            }
         }
     }
 

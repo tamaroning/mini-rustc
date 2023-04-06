@@ -17,7 +17,7 @@ assert() {
     input="$2"
 
     rm $TMP $EXE
-    $RUSTC "$input" --llvm > $TMP
+    $RUSTC "$input" --llvm >$TMP
     $LLC -o $ASM $TMP
     $CC -o $EXE $ASM
     chmod +x $EXE
@@ -90,4 +90,6 @@ assert 0 'struct Point { x: i32, y: i32, } fn main() -> i32 { let p: Point; 0 }'
 assert 0 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; 0 }'
 assert 1 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; p.x }'
 assert 3 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.y = 5; p.x = 2; p.y - p.x }'
-
+assert 46 'struct Point { x: i32, y: i32 }
+struct Line { p1: Point, p2: Point, }
+fn main() -> i32 { let l: Line; l.p1.x = 2; l.p1.y = 3; l.p2.x = 4; l.p2.y = 10; l.p1.x * l.p1.y + l.p2.x * l.p2.y }'

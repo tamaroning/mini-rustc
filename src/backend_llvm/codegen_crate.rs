@@ -51,7 +51,7 @@ impl<'a> Codegen<'a> {
         println!(") {{");
 
         for (name_binding, local) in self.peek_frame().get_locals() {
-            if name_binding.kind == BindingKind::Let {
+            if name_binding.kind == BindingKind::Let && !local.reg.llty.is_void() {
                 assert!(local.kind == LocalKind::Ptr);
                 println!(
                     "\t{} = alloca {}",
@@ -92,7 +92,10 @@ impl<'a> Codegen<'a> {
             }
             StmtKind::Expr(expr) => self.gen_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
-                if let Some(init) = init {
+                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+                let local = self.peek_frame().get_local(&name);
+
+                if let Some(init) = init && local.kind == LocalKind::Ptr {
                     let ident_reg = self.gen_ident_lval(ident).unwrap();
                     let init_val = self.gen_expr(init)?;
                     // TODO: initializer

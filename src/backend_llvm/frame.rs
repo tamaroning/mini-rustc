@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
-use crate::{ast, middle::ty::Ty, resolve::NameBinding};
 use super::{Codegen, LLReg, LLTy};
+use crate::{ast, middle::ty::Ty, resolve::NameBinding};
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug)]
 pub struct Frame {
@@ -23,7 +23,7 @@ impl Local {
 pub enum LocalKind {
     /// Allocated on stack
     Ptr,
-    /// Not allocated, which means the variable is passed via registers
+    /// Not allocated, which means the variable is passed via registers or has void-like (i.e. `()`) type
     Value,
 }
 
@@ -73,6 +73,11 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     }
 
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Ptr);
+        if self.codegen.ty_to_llty(&let_stmt.ty).is_void() {
+            // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`
+            self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Value);
+        } else {
+            self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Ptr);
+        }
     }
 }

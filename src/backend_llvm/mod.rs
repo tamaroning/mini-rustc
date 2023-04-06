@@ -81,7 +81,9 @@ impl<'a> Codegen<'a> {
 
     fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(r#"target triple = "x86_64-unknown-linux-gnu""#);
-        println!("");
+        println!();
+        // TODO: struct
+        println!();
         self.gen_crate(krate)?;
         // TODO: literals
         Ok(())
@@ -216,6 +218,10 @@ impl LLTy {
             LLTy::Array(elem, _) => Some(Rc::clone(elem)),
             _ => None,
         }
+    }
+
+    pub fn is_void(&self) -> bool {
+        matches!(self, LLTy::Void)
     }
 }
 

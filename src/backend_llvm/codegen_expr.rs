@@ -22,6 +22,7 @@ impl<'a> Codegen<'a> {
                     LLValue::Imm(LLImm::I8(0))
                 }
             }
+            ExprKind::Unit => LLValue::Imm(LLImm::Void),
             ExprKind::Unary(unop, inner) => match unop {
                 ast::UnOp::Minus => {
                     let inner_val = self.gen_expr(inner)?;
@@ -156,13 +157,17 @@ impl<'a> Codegen<'a> {
 
                 let ret_llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
 
-                let reg_name = self.get_fresh_reg();
-                print!(
-                    "{} = call {} @{}(",
-                    reg_name,
-                    ret_llty.to_string(),
-                    ident.symbol
-                );
+                // instructions returning void cannot have a reg name
+                print!("\t");
+                let reg_name = if !ret_llty.is_void() {
+                    let r = self.get_fresh_reg();
+                    print!("{} =", r);
+                    Some(r)
+                } else {
+                    None
+                };
+
+                print!("call {} @{}(", ret_llty.to_string(), ident.symbol);
                 for (i, arg_val) in arg_vals.iter().enumerate() {
                     print!("{}", arg_val.to_string_with_type());
                     if i != arg_vals.len() - 1 {
@@ -170,7 +175,12 @@ impl<'a> Codegen<'a> {
                     }
                 }
                 print!(")");
-                LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty)))
+
+                if let Some(reg_name) = reg_name {
+                    LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty)))
+                } else {
+                    LLValue::Imm(LLImm::Void)
+                }
             }
             _ => panic!(),
         };

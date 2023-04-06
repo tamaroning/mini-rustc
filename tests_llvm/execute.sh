@@ -68,3 +68,8 @@ assert 7 'fn main() -> i32 { let a: i32 = 4; let b: i32 = a + 3; b }'
 assert 0 'fn main() -> i32 { let a: i32; a = 1; 0 }'
 # load
 assert 1 'fn main() -> i32 { let a: i32; a = 1; a }'
+# func call
+assert 0 'fn zero() -> i32 { 0 } fn main() -> i32 { zero() }'
+assert 0 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(0) }'
+assert 1 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(1) }'
+

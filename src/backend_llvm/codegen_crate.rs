@@ -1,8 +1,8 @@
 use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
-    backend_llvm::LLImm,
-    resolve::BindingKind,
+    backend_llvm::{frame::LocalKind, LLImm},
+    resolve::{BindingKind, NameBinding},
 };
 
 impl<'a> Codegen<'a> {
@@ -24,26 +24,41 @@ impl<'a> Codegen<'a> {
         let Some(body) = &func.body else{
             return Ok(());
         };
-        println!(
-            "define {} @{}() {{",
-            self.ty_to_llty(&func.ret_ty).to_string(),
-            func.name.symbol
-        );
 
         let frame = self.compute_frame(func);
         self.push_frame(frame);
 
-        for (name_binding, reg) in self.peek_frame().get_locals() {
-            match &name_binding.kind {
-                // Allocate memory for all local variables declared with `let`
-                BindingKind::Let => {
-                    println!(
-                        "\t{} = alloca {}",
-                        reg.name,
-                        reg.llty.peel_ptr().to_string()
-                    );
-                }
-                _ => panic!(),
+        print!(
+            "define {} @{}(",
+            self.ty_to_llty(&func.ret_ty).to_string(),
+            func.name.symbol
+        );
+
+        // arguments
+        let mut it = self
+            .peek_frame()
+            .get_locals()
+            .iter()
+            .filter(|(binding, _)| binding.kind == BindingKind::Arg)
+            .peekable();
+        while let Some((_, local)) = it.next() {
+            print!("{}", local.reg.to_string_with_type());
+            if it.peek().is_some() {
+                //
+                print!(", ");
+            }
+        }
+
+        println!(") {{");
+
+        for (name_binding, local) in self.peek_frame().get_locals() {
+            if name_binding.kind == BindingKind::Let {
+                assert!(local.kind == LocalKind::Ptr);
+                println!(
+                    "\t{} = alloca {}",
+                    local.reg.name,
+                    local.reg.llty.peel_ptr().unwrap().to_string()
+                );
             }
         }
 
@@ -79,7 +94,7 @@ impl<'a> Codegen<'a> {
             StmtKind::Expr(expr) => self.gen_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
                 if let Some(init) = init {
-                    let ident_reg = self.get_ident_addr(ident);
+                    let ident_reg = self.get_ident_addr(ident).unwrap();
                     let init_val = self.gen_expr(init)?;
                     // TODO: initializer
                     println!(

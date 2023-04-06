@@ -2,7 +2,7 @@ mod codegen_crate;
 mod codegen_expr;
 mod frame;
 
-use self::frame::{Frame, VisitFrame};
+use self::frame::{Frame, Local, LocalKind, VisitFrame};
 use crate::ast::{self, Crate, Expr, ExprKind, Ident};
 use crate::middle::ty::Ty;
 use crate::middle::Ctxt;
@@ -86,16 +86,64 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    fn get_addr(&self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
+    pub fn is_allocated(&self, expr: &'a Expr) -> bool {
         match &expr.kind {
-            ExprKind::Ident(ident) => Ok(self.get_ident_addr(ident)),
-            _ => panic!(),
+            ExprKind::Ident(ident) => self.ident_is_allocated(ident),
+            _ => todo!(),
         }
     }
 
-    fn get_ident_addr(&self, ident: &'a Ident) -> Rc<LLReg> {
+    fn ident_is_allocated(&self, ident: &'a Ident) -> bool {
         let name = self.ctx.resolver.resolve_ident(ident).unwrap();
-        self.peek_frame().get_local(&name)
+        let local = self.peek_frame().get_local(&name);
+        local.kind == LocalKind::Ptr
+    }
+
+    fn get_addr(&self, expr: &'a Expr) -> Option<Rc<LLReg>> {
+        match &expr.kind {
+            ExprKind::Ident(ident) => self.get_ident_addr(ident),
+            _ => todo!(),
+        }
+    }
+
+    fn get_ident_addr(&self, ident: &'a Ident) -> Option<Rc<LLReg>> {
+        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        let local = self.peek_frame().get_local(&name);
+        match &local.kind {
+            LocalKind::Value => None,
+            LocalKind::Ptr => Some(Rc::clone(&local.reg)),
+        }
+    }
+
+    fn get_ident_val(&self, ident: &'a Ident) -> Option<Rc<LLReg>> {
+        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        let local = self.peek_frame().get_local(&name);
+        match &local.kind {
+            LocalKind::Value => Some(Rc::clone(&local.reg)),
+            LocalKind::Ptr => None,
+        }
+    }
+
+    // ident is allocated on stack => load fromm its reg and returns the value
+    // ident is not allocated => returns its reg
+    fn load_ident(&mut self, ident: &'a Ident) -> Rc<LLReg> {
+        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        let local = &self.peek_frame().get_local(&name);
+        match &local.kind {
+            LocalKind::Value => Rc::clone(&local.reg),
+            LocalKind::Ptr => {
+                let reg = self.get_fresh_reg();
+                let derefed_ty = local.reg.llty.peel_ptr().unwrap();
+                println!(
+                    "\t{} = load {}, {} {}",
+                    reg,
+                    derefed_ty.to_string(),
+                    local.reg.llty.to_string(),
+                    local.reg.name
+                );
+                LLReg::new(reg, derefed_ty)
+            }
+        }
     }
 }
 
@@ -104,7 +152,7 @@ pub enum LLTy {
     Void,
     I8,
     I32,
-    Ptr(Box<LLTy>),
+    Ptr(Rc<LLTy>),
 }
 
 impl LLTy {
@@ -125,16 +173,16 @@ impl LLTy {
         matches!(self, LLTy::I32)
     }
 
-    fn peel_ptr(&self) -> &LLTy {
+    fn peel_ptr(&self) -> Option<Rc<LLTy>> {
         match self {
-            LLTy::Ptr(inner) => inner,
-            _ => panic!(),
+            LLTy::Ptr(inner) => Some(Rc::clone(inner)),
+            _ => None,
         }
     }
 }
 
 pub enum LLValue {
-    Reg(LLReg),
+    Reg(Rc<LLReg>),
     Imm(LLImm),
 }
 
@@ -146,9 +194,9 @@ impl LLValue {
         }
     }
 
-    pub fn llty(&self) -> LLTy {
+    pub fn llty(&self) -> Rc<LLTy> {
         match self {
-            LLValue::Reg(reg) => reg.llty.clone(),
+            LLValue::Reg(reg) => Rc::clone(&reg.llty),
             LLValue::Imm(imm) => imm.llty(),
         }
     }
@@ -164,12 +212,12 @@ impl LLValue {
 #[derive(Debug, PartialEq, Eq)]
 pub struct LLReg {
     name: String,
-    llty: LLTy,
+    llty: Rc<LLTy>,
 }
 
 impl LLReg {
-    fn new(name: String, llty: LLTy) -> Self {
-        LLReg { name, llty }
+    fn new(name: String, llty: Rc<LLTy>) -> Rc<Self> {
+        Rc::new(LLReg { name, llty })
     }
 
     pub fn to_string_with_type(&self) -> String {
@@ -200,11 +248,11 @@ impl LLImm {
         }
     }
 
-    pub fn llty(&self) -> LLTy {
-        match self {
+    pub fn llty(&self) -> Rc<LLTy> {
+        Rc::new(match self {
             LLImm::I32(_) => LLTy::I32,
             LLImm::I8(_) => LLTy::I8,
             LLImm::Void => LLTy::Void,
-        }
+        })
     }
 }

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::{Codegen, LLValue};
 use crate::{
     ast::{self, Expr, ExprKind},
@@ -110,10 +112,7 @@ impl<'a> Codegen<'a> {
                         LLTy::I8
                     }
                 };
-                LLValue::Reg(LLReg {
-                    name: reg_name,
-                    llty,
-                })
+                LLValue::Reg(LLReg::new(reg_name, Rc::new(llty)))
             }
             ExprKind::Return(inner) => {
                 let inner_val = self.gen_expr(inner)?;
@@ -121,30 +120,51 @@ impl<'a> Codegen<'a> {
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Block(block) => self.gen_block(block)?,
-            ExprKind::Ident(_) => {
-                let llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
-                let ptr_reg = self.get_addr(expr)?;
-                let reg = self.get_fresh_reg();
-                //  %4 = load i32, i32* %2, align 4
-                println!(
-                    "\t{} = load {}, {} {}",
-                    reg,
-                    llty.to_string(),
-                    ptr_reg.llty.to_string(),
-                    ptr_reg.name
-                );
-                LLValue::Reg(LLReg::new(reg, llty))
-            }
+            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident(ident)),
             ExprKind::Assign(lhs, rhs) => {
                 let rhs_val = self.gen_expr(rhs)?;
-                let lhs_ptr = self.get_addr(lhs)?;
-                println!(
-                    "\tstore {}, {} {}",
-                    rhs_val.to_string_with_type(),
-                    lhs_ptr.llty.to_string(),
-                    lhs_ptr.name,
-                );
+
+                if self.is_allocated(lhs) {
+                    let lhs_addr_reg = self.get_addr(lhs).unwrap();
+                    println!(
+                        "\tstore {}, {} {}",
+                        rhs_val.to_string_with_type(),
+                        lhs_addr_reg.llty.to_string(),
+                        lhs_addr_reg.name,
+                    );
+                } else {
+                    todo!()
+                }
+
                 LLValue::Imm(LLImm::Void)
+            }
+            ExprKind::Call(func, args) => {
+                let ExprKind::Ident(ident) = &func.kind else {
+                    todo!();
+                };
+                let mut arg_vals = vec![];
+                for arg in args {
+                    let arg_val = self.gen_expr(arg)?;
+                    arg_vals.push(arg_val);
+                }
+
+                let ret_llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
+
+                let reg_name = self.get_fresh_reg();
+                print!(
+                    "{} = call {} @{}(",
+                    reg_name,
+                    ret_llty.to_string(),
+                    ident.symbol
+                );
+                for (i, arg_val) in arg_vals.iter().enumerate() {
+                    print!("{}", arg_val.to_string_with_type());
+                    if i != arg_vals.len() - 1 {
+                        print!(", ");
+                    }
+                }
+                print!(")");
+                LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty)))
             }
             _ => panic!(),
         };

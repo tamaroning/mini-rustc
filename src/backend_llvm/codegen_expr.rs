@@ -9,20 +9,16 @@ impl<'a> Codegen<'a> {
         println!("; Starts expr `{}`", expr.span.to_snippet());
         let ret: LLValue = match &expr.kind {
             ExprKind::NumLit(n) => {
-                let reg_name = self.get_fresh_reg();
-                let llty = LLTy::I32;
-                println!("\t{reg_name} = bitcast i32 {} to i32", n);
-                LLValue::Reg(LLReg::new(reg_name, llty))
+                // FIXME: Panics in some cases
+                let casted: i32 = (*n).try_into().unwrap();
+                LLValue::Imm(LLImm::I32(casted))
             }
             ExprKind::BoolLit(b) => {
-                let n = if *b { 1 } else { 0 };
-                let reg_name = self.get_fresh_reg();
-                let llty = LLTy::I8;
-                println!("\t{reg_name} = bitcast i8 {} to i8", n);
-                LLValue::Reg(LLReg {
-                    name: reg_name,
-                    llty,
-                })
+                if *b {
+                    LLValue::Imm(LLImm::I8(1))
+                } else {
+                    LLValue::Imm(LLImm::I8(0))
+                }
             }
             ExprKind::Unary(unop, inner) => match unop {
                 ast::UnOp::Minus => {

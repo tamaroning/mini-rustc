@@ -152,11 +152,12 @@ impl LLValue {
     }
 
     pub fn to_string_with_type(&self) -> String {
-        // void => "void"
-        if self.llty() == LLTy::Void {
-            return "void".to_string();
+        match self {
+            LLValue::Reg(reg) => {
+                format!("{} {}", self.llty().to_string(), self.to_string())
+            }
+            LLValue::Imm(imm) => imm.to_string_with_type(),
         }
-        format!("{} {}", self.llty().to_string(), self.to_string())
     }
 }
 
@@ -180,6 +181,14 @@ pub enum LLImm {
 
 impl LLImm {
     pub fn to_string(&self) -> String {
+        match self {
+            LLImm::I32(n) => format!("{n}"),
+            LLImm::I8(n) => format!("{n}"),
+            LLImm::Void => "void".to_string(),
+        }
+    }
+
+    pub fn to_string_with_type(&self) -> String {
         match self {
             LLImm::I32(n) => format!("i32 {n}"),
             LLImm::I8(n) => format!("i8 {n}"),

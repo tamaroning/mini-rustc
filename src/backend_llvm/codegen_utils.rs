@@ -154,17 +154,14 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    // TODO:
-    pub fn mem_copy(&mut self, dist: &Rc<LLReg>, src: &Rc<LLReg>) {
+    // TODO: alignment?
+    pub fn memcpy(&mut self, dist: &Rc<LLReg>, src: &Rc<LLReg>) {
         assert_eq!(dist.llty, src.llty);
-        match &*src.llty {
-            LLTy::Adt(name) => {
-                let lladt = self.get_lladt(name).unwrap();
-                for (_i, (_, _ty)) in lladt.fields.iter().enumerate() {
-                    todo!()
-                }
-            }
-            _ => todo!(),
-        }
+        let target_llty = src.llty.peel_ptr().unwrap();
+        let size = self.get_size(&target_llty);
+        println!(
+            "\tcall void @llvm.memcpy.p0i8.p0i8.i64(ptr {}, ptr {}, i64 {}, i1 false)",
+            dist.name, src.name, size
+        );
     }
 }

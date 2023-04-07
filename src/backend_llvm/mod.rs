@@ -28,6 +28,8 @@ pub struct Codegen<'a> {
     ctx: &'a mut Ctxt,
     current_frame: Option<Frame>,
     ll_adt_defs: HashMap<Rc<String>, Rc<LLAdtDef>>,
+    constants: Vec<Rc<LLConst>>,
+    next_str_id: usize,
 }
 
 impl<'a> Codegen<'a> {
@@ -36,7 +38,15 @@ impl<'a> Codegen<'a> {
             ctx,
             current_frame: None,
             ll_adt_defs: HashMap::new(),
+            constants: vec![],
+            next_str_id: 1,
         }
+    }
+
+    pub fn get_fresh_str_name(&mut self) -> String {
+        let i = self.next_str_id;
+        self.next_str_id += 1;
+        format!("@.str.{i}")
     }
 
     // TODO: memoize
@@ -48,6 +58,11 @@ impl<'a> Codegen<'a> {
             Ty::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
             Ty::Adt(name) => LLTy::Adt(Rc::clone(name)),
             Ty::Never => LLTy::Void,
+            Ty::Ref(_, inner) => match &**inner {
+                // FIXME: should be [N x i8]
+                Ty::Str => LLTy::Ptr(Rc::new(LLTy::I8)),
+                _ => todo!(),
+            },
             _ => panic!(),
         }
     }
@@ -112,7 +127,17 @@ impl<'a> Codegen<'a> {
 
         println!();
         self.gen_crate(krate)?;
-        // TODO: literals
+
+        // string literals
+        for cons in &self.constants {
+            println!(
+                "{} = constant {} c\"{}\\00\"",
+                cons.name,
+                cons.llty.to_string(),
+                cons.string_lit
+            );
+        }
+
         Ok(())
     }
 }

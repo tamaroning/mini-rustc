@@ -1,7 +1,7 @@
 use super::{Codegen, LLValue};
 use crate::{
     ast::{self, Expr, ExprKind},
-    backend_llvm::{LLImm, LLReg, LLTy},
+    backend_llvm::{llvm::LLConst, LLImm, LLReg, LLTy},
 };
 use std::rc::Rc;
 
@@ -30,6 +30,16 @@ impl<'a> Codegen<'a> {
                 }
             }
             ExprKind::Unit => LLValue::Imm(LLImm::Void),
+            ExprKind::StrLit(s) => {
+                let llcons = Rc::new(LLConst {
+                    name: self.get_fresh_str_name(),
+                    string_lit: s.clone(),
+                    // FIXME: +1 for \00
+                    llty: Rc::new(LLTy::Array(Rc::new(LLTy::I8), s.len() + 1)),
+                });
+                self.constants.push(Rc::clone(&llcons));
+                LLValue::PtrConst(llcons)
+            }
             ExprKind::Unary(unop, inner) => match unop {
                 ast::UnOp::Minus => {
                     let inner_val = self.eval_expr(inner)?;
@@ -176,7 +186,7 @@ impl<'a> Codegen<'a> {
                 print!("\t");
                 let reg_name = if !ret_llty.is_void() {
                     let r = self.peek_frame_mut().get_fresh_reg();
-                    print!("{} =", r);
+                    print!("{} = ", r);
                     Some(r)
                 } else {
                     None

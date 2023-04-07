@@ -64,6 +64,7 @@ impl LLTy {
 pub enum LLValue {
     Reg(Rc<LLReg>),
     Imm(LLImm),
+    PtrConst(Rc<LLConst>),
 }
 
 impl LLValue {
@@ -71,6 +72,7 @@ impl LLValue {
         match self {
             LLValue::Reg(reg) => reg.name.clone(),
             LLValue::Imm(imm) => imm.to_string(),
+            LLValue::PtrConst(cons) => cons.name.clone(),
         }
     }
 
@@ -78,6 +80,8 @@ impl LLValue {
         match self {
             LLValue::Reg(reg) => Rc::clone(&reg.llty),
             LLValue::Imm(imm) => imm.llty(),
+            // `[N x i8]` => i8*
+            LLValue::PtrConst(cons) => Rc::new(LLTy::Ptr(cons.llty.get_element_type().unwrap())),
         }
     }
 
@@ -85,6 +89,7 @@ impl LLValue {
         match self {
             LLValue::Reg(reg) => reg.to_string_with_type(),
             LLValue::Imm(imm) => imm.to_string_with_type(),
+            LLValue::PtrConst(cons) => format!("ptr {}", cons.name),
         }
     }
 }
@@ -150,4 +155,10 @@ impl LLAdtDef {
             .find(|(_, (fd, _))| **fd == *field);
         f.map(|i| i.0)
     }
+}
+
+pub struct LLConst {
+    pub name: String,
+    pub llty: Rc<LLTy>,
+    pub string_lit: String,
 }

@@ -1,6 +1,6 @@
 use super::{Codegen, LLValue};
 use crate::{
-    ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
+    ast::{Block, Crate, ExternBlock, Func, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{
         frame::{compute_frame, LocalKind},
         LLImm,
@@ -16,24 +16,33 @@ impl<'a> Codegen<'a> {
                     self.gen_func(func)?;
                 }
                 ItemKind::Struct(_) => (),
-                ItemKind::ExternBlock(_) => (),
+                ItemKind::ExternBlock(ext_block) => self.gen_external_block(ext_block)?,
             }
+        }
+        Ok(())
+    }
+
+    pub fn gen_external_block(&mut self, ext_block: &'a ExternBlock) -> Result<(), ()> {
+        for func in &ext_block.funcs {
+            self.gen_func(func)?;
         }
         Ok(())
     }
 
     fn gen_func(&mut self, func: &'a Func) -> Result<(), ()> {
         // do not generate code for the func if it does not have its body
-        let Some(body) = &func.body else{
-            return Ok(());
-        };
+        if func.body.is_none() {
+            print!("declare ")
+        } else {
+            print!("define ")
+        }
 
         // collect information about all variables including parameters
         let frame = compute_frame(self, func);
         self.push_frame(frame);
 
         print!(
-            "define {} @{}(",
+            "{} @{}(",
             self.ty_to_llty(&func.ret_ty).to_string(),
             func.name.symbol
         );
@@ -52,7 +61,14 @@ impl<'a> Codegen<'a> {
             }
         }
 
-        println!(") {{");
+        print!(")");
+
+        let Some(body) = &func.body else{
+            println!();
+            return Ok(());
+        };
+
+        println!(" {{");
 
         // allocate local variables
         for (name_binding, local) in self.peek_frame().get_locals() {

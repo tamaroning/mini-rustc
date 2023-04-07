@@ -11,11 +11,5 @@ success_or_stop() {
 }
 
 cargo build
-./tests/compile.sh
-success_or_stop "$?"
-
-./tests/fail.sh
-success_or_stop "$?"
-
-./tests/execute.sh
+./tests_x86_64/execute.sh
 success_or_stop "$?"

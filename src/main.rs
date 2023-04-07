@@ -1,6 +1,5 @@
 #![feature(let_chains)]
 mod ast;
-mod backend;
 mod backend_llvm;
 mod lexer;
 mod lvalue;
@@ -20,7 +19,6 @@ fn main() {
 
     // TODO: refine handling command line args
     let dump_enabled = args.contains(&"--dump".to_string());
-    let use_llvm_backend = args.contains(&"--llvm".to_string());
 
     let path_or_src = args[1].clone();
     let src = if args[1].ends_with(".rs") {
@@ -74,11 +72,8 @@ fn main() {
     lvalue::analyze(&mut ctx, &krate);
 
     // Codegen stage
-    let codegen_result = if use_llvm_backend {
-        backend_llvm::compile(&mut ctx, &krate)
-    } else {
-        backend::compile(&mut ctx, &krate)
-    };
+    let codegen_result = backend_llvm::compile(&mut ctx, &krate);
+
     let Ok(()) = codegen_result else {
         eprintln!("ICE: Failed to generate assembly");
         std::process::exit(1);

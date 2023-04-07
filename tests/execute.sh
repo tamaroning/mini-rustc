@@ -1,8 +1,10 @@
 #!/bin/bash
 cd $(dirname $0)
 RUSTC="../target/debug/mini-rustc"
-TMP="../tmp.s"
+TMP="../tmp.ll"
+ASM="../tmp.s"
 EXE="../tmp"
+LLC="llc"
 CC="gcc"
 
 RED='\033[0;31m'
@@ -15,8 +17,9 @@ assert() {
     input="$2"
 
     rm $TMP $EXE
-    $RUSTC "$input" >$TMP
-    $CC -o $EXE $TMP
+    $RUSTC "$input" --llvm >$TMP
+    $LLC -o $ASM $TMP
+    $CC -o $EXE $ASM
     chmod +x $EXE
     $EXE
     actual="$?"
@@ -31,56 +34,77 @@ assert() {
 
 QT="'"
 
+cd ..
+cargo build
+cd tests_llvm
+
 echo "===== Execute Tests ====="
-# arithmetic
-assert 42 'fn main() -> i32 { return 42; }'
-assert 6 'fn main() -> i32 { return 1+2+3; }'
-assert 80 'fn main() -> i32 { return 20*4; }'
-assert 5 'fn main() -> i32 { return 2*5+4-3*3; }'
-assert 150 'fn main() -> i32 { return 10*(4+5+6); }'
-assert 13 'fn main() -> i32 { return (((1))+(((4*((((3)))))))); }'
+# return
+assert 0 'fn main() -> i32 { return 0; }'
+assert 0 'fn main() -> i32 { { return 0; } }'
+# func body
+assert 0 'fn main() -> i32 { 0 }'
+assert 0 'fn main() -> i32 { { { 0 } } }'
+assert 10 'fn main() -> i32 { { { 10 } } }'
 # unary
-assert 5 'fn main() -> i32 { return +3+2; }'
-assert 4 'fn main() -> i32 { return -3+7; }'
-# let stmt
-assert 11 'fn main() -> i32 { return 3+8; return 4+6; }'
-assert 0 'fn main() -> i32 { let a: i32; let b: i32; return 0; }'
-assert 128 'fn main() -> i32 { let a: i32; a = 120; a = a + 8; return a; }'
-assert 1 'fn main() -> i32 { let a: i32; let b: i32; a = 1; b = 100; return a; }'
-# let with initalizer
-assert 0 'fn main() -> i32 { let a: i32 = 0; a }'
-assert 204 'fn main() -> i32 { let b: i32 = 10; let c: i32 = 20; 4 + c * b }'
-# func call with no arg
-assert 5 'fn five() -> i32 { return 5; } fn main() -> i32 { return five(); }'
-assert 0 'fn tru() -> bool { return true; } fn main() -> i32 { tru(); return 0; }'
-# block expr
-assert 2 'fn main() -> i32 { return { 1; 2 }; }'
-assert 3 'fn main() -> i32 { let blo: i32; blo = { 1; 2; 3 }; 4; return blo; }'
-assert 10 'fn main() -> i32 { 10 }'
-# if
-assert 1 'fn main() -> i32 { if true { 1 } else { 0 } }'
-assert 4 'fn main() -> i32 { if false { 3 } else { 4 } }'
+# Linux only?
+assert 255 'fn main() -> i32 { -1 }'
+assert 254 'fn main() -> i32 { -2 }'
+# numerical literals
+assert 200 'fn main() -> i32 { 100; 200 }'
+assert 3 'fn main() -> i32 { 0; 1; 2; 3 }'
+# boolean literals
+assert 0 'fn main() -> i32 { true; 0 }'
+# binop
+assert 9 'fn main() -> i32 { 4 + 5 }'
+assert 3 'fn main() -> i32 { 10 - 7 }'
+assert 6 'fn main() -> i32 { 2 * 3 }'
+assert 9 'fn main() -> i32 { 11 + 8 * 2 - 3 * (1 + 5) }'
+# let
+assert 0 'fn main() -> i32 { let a: i32; let b: i32; 0 }'
+assert 0 'fn main() -> i32 { let a: i32 = 0; let b: i32; a }'
+assert 7 'fn main() -> i32 { let a: i32 = 4; let b: i32 = a + 3; b }'
+# assign
+assert 0 'fn main() -> i32 { let a: i32; a = 1; 0 }'
+# load
+assert 1 'fn main() -> i32 { let a: i32; a = 1; a }'
 # func call
+assert 0 'fn zero() -> i32 { 0 } fn main() -> i32 { zero() }'
+assert 0 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(0) }'
 assert 1 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(1) }'
-assert 10 'fn id(n: i32) -> i32 { n } fn main() -> i32 { id(4) + id(6) }'
-# recursive call
-assert 8 'fn fib(n: i32) -> i32 { if n == 0 { 1 } else if n == 1 { 1 } else { fib(n-1) + fib(n-2) } } fn main() -> i32 { fib(5) }'
 # array
-assert 10 'fn main() -> i32 { let arr: [i32; 10]; arr[4] = 10; arr[4] }'
-assert 6 'fn main() -> i32 { let arr: [i32; 5]; let arr2: [i32; 6]; arr[1 + 2] = 4; arr2[arr[3] + 1] = 6; arr2[5] }'
-# empty func body
-assert 0 'fn emp() -> () { } fn main() -> i32 { 0 }'
-# multi-dimension array
-assert 10 'fn main() -> i32 { let a: [[i32; 2]; 2]; a[1][1] = 10; a[1][1] }'
-assert 10 'fn main() -> i32 { let a: [[i32; 3]; 4]; a[3][2] = 10; a[3][2] }'
+assert 0 'fn main() -> i32 { let arr: [i32; 10]; 0 }'
+assert 0 'fn main() -> i32 { let arr: [[i32; 4]; 8]; 0 }'
+assert 5 'fn main() -> i32 { let arr: [i32; 8]; arr[1] = 5; arr[1] }'
+assert 10 'fn main() -> i32 { let arr: [[i32; 4]; 8]; arr[7][3] = 10; arr[7][3] }'
+# unit
+assert 0 'fn main() -> i32 { (); 0 }'
+assert 100 'fn main() -> i32 { (); (); 100 }'
+assert 0 'fn main() -> i32 { let u: () = (); 0 }'
+assert 0 'fn ret_unit() -> () { return (); } fn main() -> i32 { ret_unit(); 0 }'
+assert 0 'fn ret_unit() -> () { () } fn main() -> i32 { ret_unit(); 0 }'
+assert 0 'fn ret_unit() -> () { {} } fn main() -> i32 { ret_unit(); 0 }'
 # struct
-assert 0 'struct Empty {} fn main() -> i32 { Empty {}; let e: Empty; e = Empty {}; 0 }'
-assert 0 'struct S { n: i32, b: bool, arr: [i32; 10], } fn main() -> i32 { 0 }'
-assert 0 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { P { x: 0, y: 1, z: 2 }; 0 }'
-assert 3 'struct P { x: i32, y: i32, z: i32 } fn main() -> i32 { let p: P; p = P { x: 0, y: 1, z: 2 }; p.y + p.z }'
-# nested struct
-assert 31 'struct Pt { x: i32, y: i32, z: i32 } struct Edge { p1: Pt, p2: Pt }
-fn main() -> i32 { let e: Edge; e.p1 = Pt { x: 10, y: 20, z: 0 }; e.p2.x = 1; e.p2.y = 2; e.p1.x + e.p1.y + e.p2.x }'
-# array expr
-assert 3 'fn main() -> i32 { let a:[i32; 4]; a = [1, 2, 3, 4]; a[2] }'
-# TODO: assert 0 'fn main() -> () { [()][0] }'
+assert 0 'struct Empty { } fn main() -> i32 { let s: Empty; 0 }'
+assert 0 'struct Point { x: i32, y: i32, } fn main() -> i32 { let p: Point; 0 }'
+assert 0 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; 0 }'
+assert 1 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.x = 1; p.x }'
+assert 3 'struct Pt { x: i32, y: i32 } fn main() -> i32 { let p: Pt; p.y = 5; p.x = 2; p.y - p.x }'
+assert 46 'struct Point { x: i32, y: i32 }
+struct Line { p1: Point, p2: Point, }
+fn main() -> i32 { let l: Line; l.p1.x = 2; l.p1.y = 3; l.p2.x = 4; l.p2.y = 10; l.p1.x * l.p1.y + l.p2.x * l.p2.y }'
+# parameter passing
+assert 1 'struct Pt { x: i32, y: i32 } fn x(p: Pt) -> i32 { p.x } fn main() -> i32 { let p: Pt; p.x = 1; x(p) }'
+assert 200 'fn fourth(l: [i32; 10]) -> i32 { l[4] } fn main() -> i32 { let arr: [i32; 10]; arr[4] = 200; fourth(arr) }'
+assert 0 'fn unit(u: ()) -> () { } fn main() -> i32 { let _: () = unit(()); 0 }'
+# struct expression
+assert 100 'struct Point { x: i32, y: i32 }
+fn main() -> i32 { let p: Point = Point { x: 100, y: 200 }; p.x }'
+assert 3 'struct Point { x: i32, y: i32 }
+struct Line { p1: Point, p2: Point, }
+fn main() -> i32 { let l: Line = Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }; Point { x: 5, y: 6 }; l.p2.x }'
+assert 200 'struct Point { x: i32, y: i32, z: i32 }
+fn main() -> i32 { Point { x: 100, y: 200, z: 300 }.y }'
+assert 3 'struct Point { x: i32, y: i32 }
+struct Line { p1: Point, p2: Point, }
+fn main() -> i32 { Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }.p2.x }'

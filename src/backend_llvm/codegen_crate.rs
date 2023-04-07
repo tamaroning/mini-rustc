@@ -1,13 +1,12 @@
-use super::{llvm::LLReg, Codegen, LLValue};
+use super::{Codegen, LLValue};
 use crate::{
-    ast::{Block, Crate, Expr, ExprKind, Func, ItemKind, LetStmt, Stmt, StmtKind},
+    ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{
         frame::{compute_frame, LocalKind},
         LLImm,
     },
     resolve::BindingKind,
 };
-use std::rc::Rc;
 
 impl<'a> Codegen<'a> {
     pub fn gen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {

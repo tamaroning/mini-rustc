@@ -1,8 +1,11 @@
 use std::rc::Rc;
 
-use crate::{ast::{ExprKind, Ident, Expr}, backend_llvm::llvm::LLTy};
+use crate::{
+    ast::{Expr, ExprKind, Ident},
+    backend_llvm::llvm::LLTy,
+};
 
-use super::{Codegen, frame::LocalKind, llvm::LLReg};
+use super::{frame::LocalKind, llvm::LLReg, Codegen};
 
 impl<'a> Codegen<'a> {
     pub fn is_allocated(&self, expr: &'a Expr) -> bool {

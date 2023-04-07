@@ -2,7 +2,7 @@
 
 **NOTE: This compiler is under development now**
 
-mini-rustc a toy Rust compiler written in Rust from scratch.
+mini-rustc a toy Rust compiler written in Rust from scratch which outputs [LLVM IR](https://llvm.org/).
 This compiler implements typecheck but not other static analyses like lifetime, mutability, or unsafety.
 If you find a bug, feel free to open an issue to report it!
 
@@ -12,8 +12,8 @@ Big thanks to these wonderful materials/software.
 ## Requirement
 
 - Cargo
-- toolchains for x86-64 processor
-  - necessary to generate executables
+
+Also, [llc](https://llvm.org/docs/CommandGuide/llc.html) is required to compile [LLVM IR](https://llvm.org/) to executables.
 
 # Build & Run
 
@@ -37,6 +37,8 @@ or
 $ cargo run <source>
 ```
 
+Generated LLVM IR is output to stdout.
+
 ## Test
 
 Run the following command:
@@ -51,12 +53,12 @@ $ ./test.sh
 
 ```rust
 extern "C" {
-    fn printf(s: &str) -> i32;
+    fn puts(s: &str) -> i32;
 }
 
 fn main() -> () {
     unsafe {
-        printf("Hello world!\n");
+        puts("Hello mini-rustc!");
     };
 }
 ```
@@ -64,10 +66,11 @@ fn main() -> () {
 Run the follwoing commands:
 
 ```sh
-$ cargo run examples/hello.rs > tmp.s
+$ cargo run examples/hello.rs > tmp.ll
+$ llc tmp.ll -o tmp.s -opaque-pointers
 $ gcc tmp.s -o a.out
 $ ./a.out
-Hello world!
+Hello mini-rustc!
 ```
 
 # Status

@@ -106,6 +106,8 @@ impl<'a> Codegen<'a> {
     fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
         println!(r#"target triple = "x86_64-unknown-linux-gnu""#);
         println!();
+        println!("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #1");
+        println!();
 
         // register all ADTs
         let mut lladts = vec![];
@@ -139,5 +141,64 @@ impl<'a> Codegen<'a> {
         }
 
         Ok(())
+    }
+
+    pub fn get_size(&self, llty: &LLTy) -> usize {
+        match llty {
+            LLTy::I32 => 4,
+            LLTy::I8 => 1,
+            LLTy::Ptr(_) => 1,
+            LLTy::Array(elem_llty, n) => self.get_align(elem_llty) * n,
+            LLTy::Void => panic!(),
+            LLTy::Adt(name) => {
+                let lladt = self.get_lladt(name).unwrap();
+                self.get_lladt_size(&lladt)
+            }
+        }
+    }
+
+    pub fn get_lladt_size(&self, lladt: &LLAdtDef) -> usize {
+        let mut ofs = 0;
+        for (_, fd_llty) in &lladt.fields {
+            let fd_align = self.get_align(fd_llty);
+            ofs += padding_size(ofs, fd_align);
+            ofs += self.get_size(fd_llty);
+        }
+        ofs += padding_size(ofs, self.get_lladt_align(lladt));
+        ofs
+    }
+
+    pub fn get_align(&self, llty: &LLTy) -> usize {
+        match llty {
+            LLTy::I32 => 4,
+            LLTy::I8 => 1,
+            LLTy::Ptr(_) => 1,
+            LLTy::Array(elem_llty, _) => self.get_align(elem_llty),
+            LLTy::Void => panic!(),
+            LLTy::Adt(name) => {
+                let lladt = self.get_lladt(name).unwrap();
+                self.get_lladt_align(&lladt)
+            }
+        }
+    }
+
+    pub fn get_lladt_align(&self, lladt: &LLAdtDef) -> usize {
+        let mut max_align = 1;
+        for (_, fd_llty) in &lladt.fields {
+            let fd_align = self.get_align(fd_llty);
+            if fd_align > max_align {
+                max_align = fd_align;
+            }
+        }
+        max_align
+    }
+}
+
+// e.g. ofs: 1, align: 4 => 3
+fn padding_size(ofs: usize, align: usize) -> usize {
+    if ofs % align == 0 {
+        0
+    } else {
+        align - (ofs % align)
     }
 }

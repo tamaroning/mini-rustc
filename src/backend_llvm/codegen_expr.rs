@@ -150,16 +150,18 @@ impl<'a> Codegen<'a> {
                 let rhs_llty = self.ty_to_llty(&self.ctx.get_type(rhs.id));
 
                 if rhs_llty.eval_to_ptr() {
-                    todo!()
+                    let lhs_ptr = self.gen_lval(lhs)?;
+                    let rhs_ptr = self.gen_lval(rhs)?;
+                    self.memcpy(&lhs_ptr, &rhs_ptr);
                 } else {
                     let rhs_val = self.eval_expr(rhs)?;
-                    let lhs_addr_reg = self.gen_lval(lhs).unwrap();
+                    let lhs_ptr = self.gen_lval(lhs).unwrap();
 
                     println!(
                         "\tstore {}, {} {}",
                         rhs_val.to_string_with_type(),
-                        lhs_addr_reg.llty.to_string(),
-                        lhs_addr_reg.name,
+                        lhs_ptr.llty.to_string(),
+                        lhs_ptr.name,
                     );
                 }
 

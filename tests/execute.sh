@@ -18,7 +18,7 @@ assert() {
 
     rm $TMP $EXE
     $RUSTC "$input" >$TMP
-    $LLC -o $ASM $TMP
+    $LLC -o $ASM $TMP -opaque-pointers
     $CC -o $EXE $ASM
     chmod +x $EXE
     $EXE
@@ -104,3 +104,6 @@ fn main() -> i32 { Point { x: 100, y: 200, z: 300 }.y }'
 assert 3 'struct Point { x: i32, y: i32 }
 struct Line { p1: Point, p2: Point, }
 fn main() -> i32 { Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }.p2.x }'
+# memcpy
+assert 5 'struct Point { x: i32, y: i32 }
+fn main() -> i32 { let p1: Point = Point { x: 5, y: 4 }; let p2: Point; p2 = p1; p2.x }'

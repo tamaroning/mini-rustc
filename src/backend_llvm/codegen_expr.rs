@@ -1,14 +1,21 @@
-use std::rc::Rc;
-
 use super::{Codegen, LLValue};
 use crate::{
     ast::{self, Expr, ExprKind},
     backend_llvm::{LLImm, LLReg, LLTy},
 };
+use std::rc::Rc;
 
 impl<'a> Codegen<'a> {
-    pub fn gen_expr(&mut self, expr: &'a Expr) -> Result<LLValue, ()> {
+    // evaluate expression
+    // expr struct/array -> sturct*/array*
+    // otherwise: expr: LLTY -> LLTY/void
+    pub fn eval_expr(&mut self, expr: &'a Expr) -> Result<LLValue, ()> {
         println!("; Starts expr `{}`", expr.span.to_snippet());
+        let llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
+        if llty.eval_to_ptr() {
+            return Ok(LLValue::Reg(self.gen_lval(expr)?));
+        }
+
         let ret: LLValue = match &expr.kind {
             ExprKind::NumLit(n) => {
                 // FIXME: Panics in some cases
@@ -25,9 +32,9 @@ impl<'a> Codegen<'a> {
             ExprKind::Unit => LLValue::Imm(LLImm::Void),
             ExprKind::Unary(unop, inner) => match unop {
                 ast::UnOp::Minus => {
-                    let inner_val = self.gen_expr(inner)?;
+                    let inner_val = self.eval_expr(inner)?;
                     assert!(inner_val.llty().is_integer());
-                    let reg = self.get_fresh_reg();
+                    let reg = self.peek_frame_mut().get_fresh_reg();
                     println!(
                         "\t{reg} = sub {} 0, {}",
                         inner_val.llty().to_string(),
@@ -35,16 +42,16 @@ impl<'a> Codegen<'a> {
                     );
                     LLValue::Reg(LLReg::new(reg, inner_val.llty()))
                 }
-                ast::UnOp::Plus => self.gen_expr(inner)?,
+                ast::UnOp::Plus => self.eval_expr(inner)?,
             },
             ExprKind::Binary(binop, lhs, rhs) => {
-                let l = self.gen_expr(lhs)?;
-                let r = self.gen_expr(rhs)?;
+                let l = self.eval_expr(lhs)?;
+                let r = self.eval_expr(rhs)?;
                 // checks if rhs and lhs have the same type
                 assert_eq!(self.ctx.get_type(lhs.id), self.ctx.get_type(rhs.id));
                 let rhs_lhs_llty = self.ty_to_llty(&self.ctx.get_type(lhs.id));
 
-                let reg_name = self.get_fresh_reg();
+                let reg_name = self.peek_frame_mut().get_fresh_reg();
                 let llty = match binop {
                     ast::BinOp::Add => {
                         assert!(rhs_lhs_llty.is_integer());
@@ -116,31 +123,34 @@ impl<'a> Codegen<'a> {
                 LLValue::Reg(LLReg::new(reg_name, Rc::new(llty)))
             }
             ExprKind::Return(inner) => {
-                let inner_val = self.gen_expr(inner)?;
+                let inner_val = self.eval_expr(inner)?;
                 println!("\tret {}", inner_val.to_string_with_type());
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Block(block) => self.gen_block(block)?,
             // identifiers may not be allocated on memory
-            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident_if_necessary(ident)),
+            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident(ident)?),
             // arrays and structs are always allocated on memory
             ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 let lval = self.gen_lval(expr)?;
-                let rval = self.load_lval(&lval);
+                let rval = self.load_ptr(&lval)?;
                 LLValue::Reg(rval)
             }
             ExprKind::Assign(lhs, rhs) => {
-                if self.is_allocated(lhs) {
-                    let rhs_val = self.gen_expr(rhs)?;
+                let rhs_llty = self.ty_to_llty(&self.ctx.get_type(rhs.id));
+
+                if rhs_llty.eval_to_ptr() {
+                    todo!()
+                } else {
+                    let rhs_val = self.eval_expr(rhs)?;
                     let lhs_addr_reg = self.gen_lval(lhs).unwrap();
+
                     println!(
                         "\tstore {}, {} {}",
                         rhs_val.to_string_with_type(),
                         lhs_addr_reg.llty.to_string(),
                         lhs_addr_reg.name,
                     );
-                } else {
-                    todo!()
                 }
 
                 LLValue::Imm(LLImm::Void)
@@ -155,11 +165,7 @@ impl<'a> Codegen<'a> {
                     let arg_ty = &self.ctx.get_type(arg.id);
                     let llty = self.ty_to_llty(arg_ty);
                     if !llty.is_void() {
-                        let arg_val = if llty.passed_via_memory() {
-                            LLValue::Reg(self.gen_lval(arg)?)
-                        } else {
-                            self.gen_expr(arg)?
-                        };
+                        let arg_val = self.eval_expr(arg)?;
                         arg_vals.push(arg_val);
                     }
                 }
@@ -169,7 +175,7 @@ impl<'a> Codegen<'a> {
                 // instructions returning void cannot have a reg name
                 print!("\t");
                 let reg_name = if !ret_llty.is_void() {
-                    let r = self.get_fresh_reg();
+                    let r = self.peek_frame_mut().get_fresh_reg();
                     print!("{} =", r);
                     Some(r)
                 } else {

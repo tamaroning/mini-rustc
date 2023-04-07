@@ -101,7 +101,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         let Some(body) = &func.body else {
             return;
         };
+
         let body_ty = self.ctx.get_type(body.id);
+
         let expected = self.peek_return_type();
         if !body_ty.is_never() && &*body_ty != expected {
             self.error(format!(

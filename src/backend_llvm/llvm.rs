@@ -37,6 +37,13 @@ impl LLTy {
         }
     }
 
+    pub fn get_adt_name(&self) -> Option<Rc<String>> {
+        match self {
+            LLTy::Adt(name) => Some(Rc::clone(name)),
+            _ => None,
+        }
+    }
+
     pub fn get_element_type(&self) -> Option<Rc<LLTy>> {
         match self {
             LLTy::Array(elem, _) => Some(Rc::clone(elem)),
@@ -48,11 +55,8 @@ impl LLTy {
         matches!(self, LLTy::Void)
     }
 
-    pub fn passed_via_memory(&self) -> bool {
-        matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
-    }
-
-    pub fn assigned_by_memcpy(&self) -> bool {
+    // adt and array
+    pub fn eval_to_ptr(&self) -> bool {
         matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
     }
 }

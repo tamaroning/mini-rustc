@@ -4,9 +4,9 @@ mod codegen_utils;
 mod frame;
 mod llvm;
 
-use self::frame::{Frame, LocalKind, VisitFrame};
+use self::frame::Frame;
 use self::llvm::*;
-use crate::ast::{self, Crate, Expr, ExprKind, Ident, NodeId};
+use crate::ast::Crate;
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
 use std::collections::HashMap;
@@ -27,8 +27,7 @@ pub fn codegen(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
 pub struct Codegen<'a> {
     ctx: &'a mut Ctxt,
     current_frame: Option<Frame>,
-    ll_adt_defs: HashMap<Rc<String>, LLAdtDef>,
-    next_reg: usize,
+    ll_adt_defs: HashMap<Rc<String>, Rc<LLAdtDef>>,
 }
 
 impl<'a> Codegen<'a> {
@@ -37,20 +36,10 @@ impl<'a> Codegen<'a> {
             ctx,
             current_frame: None,
             ll_adt_defs: HashMap::new(),
-            next_reg: 1,
         }
     }
 
-    fn get_fresh_reg(&mut self) -> String {
-        let i = self.next_reg;
-        self.next_reg += 1;
-        format!("%{i}")
-    }
-
-    fn reset_fresh_reg(&mut self) {
-        self.next_reg = 1;
-    }
-
+    // TODO: memoize
     fn ty_to_llty(&self, ty: &Ty) -> LLTy {
         match ty {
             Ty::Unit => LLTy::Void,
@@ -58,6 +47,7 @@ impl<'a> Codegen<'a> {
             Ty::Bool => LLTy::I8,
             Ty::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
             Ty::Adt(name) => LLTy::Adt(Rc::clone(name)),
+            Ty::Never => LLTy::Void,
             _ => panic!(),
         }
     }
@@ -71,32 +61,23 @@ impl<'a> Codegen<'a> {
     }
 
     fn add_lladt(&mut self, name: &Rc<String>, lladt: LLAdtDef) {
-        self.ll_adt_defs.insert(Rc::clone(name), lladt);
+        self.ll_adt_defs.insert(Rc::clone(name), Rc::new(lladt));
     }
 
-    fn get_lladt(&self, name: &Rc<String>) -> Option<&LLAdtDef> {
-        self.ll_adt_defs.get(name)
-    }
-
-    pub fn compute_frame(&mut self, func: &'a ast::Func) -> Frame {
-        let mut frame = Frame::new();
-        let mut analyzer = VisitFrame {
-            codegen: self,
-            frame: &mut frame,
-        };
-        ast::visitor::go_func(&mut analyzer, func);
-        frame
+    fn get_lladt(&self, name: &Rc<String>) -> Option<Rc<LLAdtDef>> {
+        self.ll_adt_defs.get(name).map(Rc::clone)
     }
 
     fn push_frame(&mut self, frame: Frame) {
         self.current_frame = Some(frame);
     }
 
+    fn peek_frame_mut(&mut self) -> &mut Frame {
+        self.current_frame.as_mut().unwrap()
+    }
+
     fn peek_frame(&self) -> &Frame {
-        let Some(f) = &self.current_frame else {
-            panic!("ICE");
-        };
-        f
+        self.current_frame.as_ref().unwrap()
     }
 
     fn pop_frame(&mut self) {
@@ -114,7 +95,7 @@ impl<'a> Codegen<'a> {
         // register all ADTs
         let mut lladts = vec![];
         for (name, adt_def) in self.ctx.get_adt_defs() {
-            let lladt = self.construct_lladt(&adt_def);
+            let lladt = self.construct_lladt(adt_def);
             lladts.push((Rc::clone(name), lladt));
         }
         for (name, lladt) in lladts {

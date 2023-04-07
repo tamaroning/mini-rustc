@@ -184,7 +184,7 @@ impl<'ctx> Ctxt {
     /// Gets offset of the given field.
     pub fn get_field_offset(&mut self, adt_name: &String, field: &String) -> Option<usize> {
         let adt_info = self.get_adt_info(adt_name);
-        adt_info.field_offsets.get(field).map(|u| *u)
+        adt_info.field_offsets.get(field).copied()
     }
 
     /*

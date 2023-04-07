@@ -2,12 +2,24 @@ use super::{Codegen, LLReg, LLTy};
 use crate::{ast, middle::ty::Ty, resolve::NameBinding};
 use std::{collections::HashMap, rc::Rc};
 
+pub fn compute_frame(codegen: &mut Codegen, func: &ast::Func) -> Frame {
+    let mut frame = Frame::new();
+    let mut analyzer = VisitFrame {
+        codegen,
+        frame: &mut frame,
+    };
+    ast::visitor::go_func(&mut analyzer, func);
+    frame
+}
+
 #[derive(Debug)]
 pub struct Frame {
     locals: HashMap<NameBinding, Rc<Local>>,
     /// Registers pointing to memory for temporary variables
     /// Can be used only for non-lvalue array and structs
     temporary_regs: HashMap<ast::NodeId, Rc<LLReg>>,
+    next_reg: usize,
+    next_tmp_reg: usize,
 }
 
 #[derive(Debug)]
@@ -35,6 +47,8 @@ impl Frame {
         Frame {
             locals: HashMap::new(),
             temporary_regs: HashMap::new(),
+            next_reg: 1,
+            next_tmp_reg: 1,
         }
     }
 
@@ -52,6 +66,18 @@ impl Frame {
 
     pub fn get_ptrs_to_temporary(&self) -> &HashMap<ast::NodeId, Rc<LLReg>> {
         &self.temporary_regs
+    }
+
+    pub fn get_fresh_reg(&mut self) -> String {
+        let i = self.next_reg;
+        self.next_reg += 1;
+        format!("%{i}")
+    }
+
+    fn get_fresh_tmp_reg(&mut self) -> String {
+        let i = self.next_tmp_reg;
+        self.next_tmp_reg += 1;
+        format!("%tmp{i}")
     }
 }
 
@@ -78,7 +104,7 @@ impl VisitFrame<'_, '_, '_> {
     fn add_temporary(&mut self, node_id: ast::NodeId, ty: &Rc<Ty>) {
         // `%Struct.S` => `%Struct.S* %1`
         let llty = Rc::new(LLTy::Ptr(Rc::new(self.codegen.ty_to_llty(ty))));
-        let reg_name = self.codegen.get_fresh_reg();
+        let reg_name = self.frame.get_fresh_tmp_reg();
         let reg = LLReg::new(reg_name, llty);
         self.frame.temporary_regs.insert(node_id, reg);
     }
@@ -87,7 +113,7 @@ impl VisitFrame<'_, '_, '_> {
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         for (param, param_ty) in &func.params {
-            if self.codegen.ty_to_llty(param_ty).passed_via_memory() {
+            if self.codegen.ty_to_llty(param_ty).eval_to_ptr() {
                 // argument passed via memory (i.e. call by reference)
                 self.add_local(param, param_ty, LocalKind::Ptr);
             } else {

@@ -1,9 +1,13 @@
-use super::{Codegen, LLValue};
+use super::{llvm::LLReg, Codegen, LLValue};
 use crate::{
-    ast::{Block, Crate, ExprKind, Func, ItemKind, LetStmt, Stmt, StmtKind},
-    backend_llvm::{frame::LocalKind, LLImm},
+    ast::{Block, Crate, Expr, ExprKind, Func, ItemKind, LetStmt, Stmt, StmtKind},
+    backend_llvm::{
+        frame::{compute_frame, LocalKind},
+        LLImm,
+    },
     resolve::BindingKind,
 };
+use std::rc::Rc;
 
 impl<'a> Codegen<'a> {
     pub fn gen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
@@ -26,11 +30,8 @@ impl<'a> Codegen<'a> {
         };
 
         // collect information about all variables including parameters
-        let frame = self.compute_frame(func);
+        let frame = compute_frame(self, func);
         self.push_frame(frame);
-
-        // reset fresh registers
-        self.reset_fresh_reg();
 
         print!(
             "define {} @{}(",
@@ -67,7 +68,7 @@ impl<'a> Codegen<'a> {
         }
 
         // allocate temporary variables
-        for (_node_id, reg) in self.peek_frame().get_ptrs_to_temporary() {
+        for reg in self.peek_frame().get_ptrs_to_temporary().values() {
             println!(
                 "\t{} = alloca {}",
                 reg.name,
@@ -102,33 +103,58 @@ impl<'a> Codegen<'a> {
         println!("; Starts stmt `{}`", stmt.span.to_snippet());
         let val = match &stmt.kind {
             StmtKind::Semi(expr) => {
-                self.gen_expr(expr)?;
+                self.eval_expr(expr)?;
                 LLValue::Imm(LLImm::Void)
             }
-            StmtKind::Expr(expr) => self.gen_expr(expr)?,
+            StmtKind::Expr(expr) => self.eval_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
                 let name = self.ctx.resolver.resolve_ident(ident).unwrap();
                 let local = self.peek_frame().get_local(&name);
 
                 if let Some(init) = init && local.kind == LocalKind::Ptr {
-                    let ident_reg = self.gen_ident_lval(ident).unwrap();
-
-                    if matches!(&init.kind, ExprKind::Array(..) | ExprKind::Struct(..)) {
-                        todo!()
-                    } else {
-                        let init_val = self.gen_expr(init)?;
-                        // TODO: initializer
-                        println!(
-                            "\tstore {}, {}",
-                            init_val.to_string_with_type(),
-                            ident_reg.to_string_with_type()
-                        );
-                }
+                    let ptr = self.gen_ident_lval(ident).unwrap();
+                    // assign initializer
+                    self.initialize_memory_with_value(&ptr, init)?;
                 }
                 LLValue::Imm(LLImm::Void)
             }
         };
         println!("; Finished stmt `{}`", stmt.span.to_snippet());
         Ok(val)
+    }
+
+    /// initializer of let statement
+    fn initialize_memory_with_value(&mut self, ptr: &Rc<LLReg>, init: &'a Expr) -> Result<(), ()> {
+        let init_llty = self.ty_to_llty(&self.ctx.get_type(init.id));
+        assert_eq!(*ptr.llty.peel_ptr().unwrap(), init_llty);
+
+        match &init.kind {
+            ExprKind::Struct(name, fields) => {
+                let lladt = self.get_lladt(&name.symbol).unwrap();
+                for (field, fd_expr) in fields {
+                    if lladt.get_field_index(&field.symbol).is_none() {
+                        continue;
+                    }
+                    let fd_ptr = self.gen_field_lval(ptr, field)?;
+                    self.initialize_memory_with_value(&fd_ptr, fd_expr)?
+                }
+            }
+            ExprKind::Array(_) => {
+                todo!()
+            }
+            _ => {
+                if init_llty.eval_to_ptr() {
+                    // TODO:
+                    todo!()
+                }
+                let init_val = self.eval_expr(init)?;
+                println!(
+                    "\tstore {}, {}",
+                    init_val.to_string_with_type(),
+                    ptr.to_string_with_type()
+                );
+            }
+        }
+        Ok(())
     }
 }

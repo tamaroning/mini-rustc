@@ -67,7 +67,7 @@ Run the follwoing commands:
 
 ```sh
 $ cargo run examples/hello.rs > tmp.ll
-$ llc tmp.ll -o tmp.s -opaque-pointers
+$ llc tmp.ll -o tmp.s -opaque-pointers # this option is required!
 $ gcc tmp.s -o a.out
 $ ./a.out
 Hello mini-rustc!

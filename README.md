@@ -72,46 +72,52 @@ Hello world!
 
 # Status
 
-- [x] types
-  - `i32`, `bool`, unit(`()`), never(`!`), `str`
-  - references
+- Type system
+  - Primitives `i32`, `bool`, unit(`()`), never(`!`), `str`
+  - References
     - [x] `&'static str`
-  - [x] arrays
+  - [x] Srrays
   - ADTs
-    - [x] (nested) structs
-    - [ ] enums
-  - [x] typechecking
-  - [ ] type inference
+    - [x] (Nested) Structs
+    - [ ] Enums
+  - [x] Typechecking
+  - [ ] Type inference
 - items
-  - [x] structs
-  - [x] functions
-    - return type cannot be omitted
-    - struct params and returning structs are not supported
+  - [x] Structs
+  - [x] Functions
+    - Return type cannot be omitted
+    - Struct params and returning structs are not supported
   - [x] `extern` blocks
-  - [ ] modules
+  - [ ] Modules
+  - [ ] Global variables
 - statements
-  - [x] let statement
-    - keyword `mut` is not supported
-  - [x] expression statements
+  - [x] `let` statement
+    - Keyword `mut` is not supported
+  - [x] Expression statements
+  - [x] Expression with `;`
 - expressions
-  - [x] arithmetic operators `+`, `-`, `*`
-  - [x] comparison operators `==`, `<`, `>`
-  - [x] literals: integer, boolean, string
-  - [ ] if-else expressions
-  - [x] block expressions
-  - [x] return expressions
-  - [x] call expressions
-    - parameter passing: ZSTs and ADTs are OK
-    - return value: ADTs and arrays are not supported
-  - [ ] array expressions `[expr, expr, ...]`
-  - [ ] struct expressions `SomeName { field1: expr, .. }`
+  - [x] Arithmetic operators `+`, `-`, `*`
+  - [x] Comparison operators `==`, `<`, `>`
+  - [x] Literals: integer, boolean, string
+  - [ ] `if-else` expressions
+  - [x] Block expressions `{ ... }`
+  - [x] Return expressions `return expr`
+    - Omitting expression is not supported (i.e. Require `return ()` for `return`)
+  - [x] Call expressions `func(params...)`
+    - Parameter passing: ZSTs and ADTs are supported
+    - Return value: ADTs and arrays are not supported
+  - [ ] Array expressions `[expr, expr, ...]`
+  - [x] Struct expressions `SomeName { field1: expr, .. }`
+  - [x] Field expressions `strct.field`
+  - [x] Index expressions `array[index]`
 - misc
-  - [ ] paths
-  - [ ] patterns (matching)
-  - [x] comments `//`
+  - [ ] Paths
+  - [ ] Patterns (Pattern matching)
+  - [x] Comments `//`
 
 ## ABI
 
+mini-rustc's ABI is similar to system V ABI, but not fully compatible.
 When functions are called, arrays and ADTs are passed via memory, ZST parameters are ignored (not passed).
 
 ## Problem of ambiguous grammars

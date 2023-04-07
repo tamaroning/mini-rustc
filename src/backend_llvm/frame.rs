@@ -133,12 +133,10 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     }
 
     fn visit_expr(&mut self, expr: &'ctx ast::Expr) {
-        if !self.codegen.ctx.is_lvalue(expr.id)
-            && matches!(
-                &expr.kind,
-                ast::ExprKind::Array(_) | ast::ExprKind::Struct(_, _)
-            )
-        {
+        if matches!(
+            &expr.kind,
+            ast::ExprKind::Array(_) | ast::ExprKind::Struct(_, _)
+        ) {
             let ty = self.codegen.ctx.get_type(expr.id);
             self.add_temporary(expr.id, &ty);
         }

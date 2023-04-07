@@ -40,7 +40,9 @@ impl<'a> Codegen<'a> {
                 self.gen_field_lval(&struct_ptr, field)
             }
             ExprKind::Struct(_, _) | ExprKind::Array(_) => {
-                Ok(self.peek_frame().get_ptr_to_temporary(expr.id).unwrap())
+                let ptr = self.peek_frame().get_ptr_to_temporary(expr.id).unwrap();
+                self.initialize_memory_with_value(&ptr, expr)?;
+                Ok(ptr)
             }
             _ => todo!(),
         }
@@ -111,6 +113,45 @@ impl<'a> Codegen<'a> {
             ptr.name
         );
         Ok(LLReg::new(new_reg, derefed_ty))
+    }
+
+    /// initializer of let statement
+    pub fn initialize_memory_with_value(
+        &mut self,
+        ptr: &Rc<LLReg>,
+        init: &'a Expr,
+    ) -> Result<(), ()> {
+        let init_llty = self.ty_to_llty(&self.ctx.get_type(init.id));
+        assert_eq!(*ptr.llty.peel_ptr().unwrap(), init_llty);
+
+        match &init.kind {
+            ExprKind::Struct(name, fields) => {
+                let lladt = self.get_lladt(&name.symbol).unwrap();
+                for (field, fd_expr) in fields {
+                    if lladt.get_field_index(&field.symbol).is_none() {
+                        continue;
+                    }
+                    let fd_ptr = self.gen_field_lval(ptr, field)?;
+                    self.initialize_memory_with_value(&fd_ptr, fd_expr)?
+                }
+            }
+            ExprKind::Array(_) => {
+                todo!()
+            }
+            _ => {
+                if init_llty.eval_to_ptr() {
+                    // TODO:
+                    todo!()
+                }
+                let init_val = self.eval_expr(init)?;
+                println!(
+                    "\tstore {}, {}",
+                    init_val.to_string_with_type(),
+                    ptr.to_string_with_type()
+                );
+            }
+        }
+        Ok(())
     }
 
     // TODO:

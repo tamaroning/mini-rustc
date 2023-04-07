@@ -122,39 +122,4 @@ impl<'a> Codegen<'a> {
         println!("; Finished stmt `{}`", stmt.span.to_snippet());
         Ok(val)
     }
-
-    /// initializer of let statement
-    fn initialize_memory_with_value(&mut self, ptr: &Rc<LLReg>, init: &'a Expr) -> Result<(), ()> {
-        let init_llty = self.ty_to_llty(&self.ctx.get_type(init.id));
-        assert_eq!(*ptr.llty.peel_ptr().unwrap(), init_llty);
-
-        match &init.kind {
-            ExprKind::Struct(name, fields) => {
-                let lladt = self.get_lladt(&name.symbol).unwrap();
-                for (field, fd_expr) in fields {
-                    if lladt.get_field_index(&field.symbol).is_none() {
-                        continue;
-                    }
-                    let fd_ptr = self.gen_field_lval(ptr, field)?;
-                    self.initialize_memory_with_value(&fd_ptr, fd_expr)?
-                }
-            }
-            ExprKind::Array(_) => {
-                todo!()
-            }
-            _ => {
-                if init_llty.eval_to_ptr() {
-                    // TODO:
-                    todo!()
-                }
-                let init_val = self.eval_expr(init)?;
-                println!(
-                    "\tstore {}, {}",
-                    init_val.to_string_with_type(),
-                    ptr.to_string_with_type()
-                );
-            }
-        }
-        Ok(())
-    }
 }

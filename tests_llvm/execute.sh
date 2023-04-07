@@ -97,10 +97,14 @@ fn main() -> i32 { let l: Line; l.p1.x = 2; l.p1.y = 3; l.p2.x = 4; l.p2.y = 10;
 assert 1 'struct Pt { x: i32, y: i32 } fn x(p: Pt) -> i32 { p.x } fn main() -> i32 { let p: Pt; p.x = 1; x(p) }'
 assert 200 'fn fourth(l: [i32; 10]) -> i32 { l[4] } fn main() -> i32 { let arr: [i32; 10]; arr[4] = 200; fourth(arr) }'
 assert 0 'fn unit(u: ()) -> () { } fn main() -> i32 { let _: () = unit(()); 0 }'
-
 # struct expression
 assert 100 'struct Point { x: i32, y: i32 }
 fn main() -> i32 { let p: Point = Point { x: 100, y: 200 }; p.x }'
 assert 3 'struct Point { x: i32, y: i32 }
 struct Line { p1: Point, p2: Point, }
 fn main() -> i32 { let l: Line = Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }; Point { x: 5, y: 6 }; l.p2.x }'
+assert 200 'struct Point { x: i32, y: i32, z: i32 }
+fn main() -> i32 { Point { x: 100, y: 200, z: 300 }.y }'
+assert 3 'struct Point { x: i32, y: i32 }
+struct Line { p1: Point, p2: Point, }
+fn main() -> i32 { Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }.p2.x }'

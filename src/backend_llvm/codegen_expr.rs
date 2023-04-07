@@ -199,6 +199,7 @@ impl<'a> Codegen<'a> {
                     LLValue::Imm(LLImm::Void)
                 }
             }
+
             _ => panic!(),
         };
 

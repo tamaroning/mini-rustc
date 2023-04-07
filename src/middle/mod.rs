@@ -4,24 +4,25 @@ use crate::ast::{self, Crate, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::Resolver;
 use std::cmp::max;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Ctxt {
     pub dump_enabled: bool,
-    // TODO: In order to get scopes from variable names during codegen, we need to
-    // save information about scopes instead of popping and discarding them during
-    // typeck
-    // To deal with this, add the following fields to Ctxt
-    //  node_id_to_def_id_mappings: HashMap<NodeId, DefId>,
-    //  def_id_to_local_info_mappings: HashMap<DefId, LocalInfo>,
+    // Set during name resolution stage
     pub resolver: Resolver,
-    /// ExprOrStmtOrBlock to type mappings, which is set by typechecker
+
+    // Set during typecheck stage
+    /// ExprOrStmtOrBlock to type mappings
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
-    // move to tyctxt?
     fn_types: HashMap<Rc<String>, Rc<Ty>>,
     adt_defs: HashMap<Rc<String>, Rc<AdtDef>>,
+
+    // Set during rvalue anlaysis stage
+    /// all node ids of place expressions
+    /// ref: https://doc.rust-lang.org/reference/expressions.html?highlight=rvalue#place-expressions-and-value-expressions
+    lvalues: HashSet<NodeId>,
 
     // codegen
     /// cache
@@ -37,6 +38,7 @@ impl<'ctx> Ctxt {
             ty_mappings: HashMap::new(),
             fn_types: HashMap::new(),
             adt_defs: HashMap::new(),
+            lvalues: HashSet::new(),
             adt_info_cache: HashMap::new(),
         }
     }
@@ -75,6 +77,15 @@ impl<'ctx> Ctxt {
 
     pub fn get_adt_defs(&self) -> &HashMap<Rc<String>, Rc<AdtDef>> {
         &self.adt_defs
+    }
+
+    // Rvalue analysis stage
+    pub fn register_lvalue(&mut self, node_id: NodeId) {
+        self.lvalues.insert(node_id);
+    }
+
+    pub fn is_lvalue(&mut self, node_id: NodeId) -> bool {
+        self.lvalues.contains(&node_id)
     }
 
     // Codegen stage

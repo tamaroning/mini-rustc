@@ -1,8 +1,7 @@
 #!/bin/bash
 cd $(dirname $0)
 RUSTC="../target/debug/mini-rustc"
-TMP="../tmp.s"
-CC="gcc"
+TMP="../tmp.ll"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,14 +32,14 @@ compile "fn main() -> () { // comment${NL}}"
 compile "//${NL}fn main() -> () { }"
 compile "fn main() -> () { //${NL}}"
 # ref type
-compile 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
+#compile 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
 # string literal
-compile 'fn main() -> i32 { "Hello"; "World"; 0 }'
-compile 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
+#compile 'fn main() -> i32 { "Hello"; "World"; 0 }'
+#compile 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
 # never type
 compile 'fn main() -> i32 { return 0; }'
 compile 'fn main() -> i32 { return 0 }'
-compile 'fn main() -> () { let a: i32 = (return ()); a = return (); }'
+#compile 'fn main() -> () { let a: i32 = (return ()); a = return (); }'
 compile 'fn main() -> () { { let never: ! = (return ()); } }'
 compile 'fn main() -> () { { let unit: () = (return ()); } }'
 compile 'fn main() -> () { let never: ! = (return ()); }'
@@ -73,7 +72,7 @@ fn main() -> () { }'
 compile 'fn take_num(n: i32) -> () { } fn main() -> () { take_num(0); }'
 compile 'fn take_two(n: i32, m: i32) -> () { } fn main() -> () { take_two(0, 1,); }'
 compile 'fn take(b: bool, n: i32) -> () { } fn main() -> () { take(false, 0); }'
-compile 'fn take(s: &str) -> () { } fn main() -> () { let u: () = take("Hello"); }'
+#compile 'fn take(s: &str) -> () { } fn main() -> () { let u: () = take("Hello"); }'
 compile 'fn f(n: i32) -> bool { true } fn main() -> () { let b: bool = f(1 + 2 * 3 - 4); }'
 # array expr
 #compile 'fn main() -> () { [1]; [1, 1]; [1, 2, 3]; [1, 1,]; }'

@@ -17,7 +17,7 @@ assert() {
     input="$2"
 
     rm $TMP $EXE
-    $RUSTC "$input" --llvm >$TMP
+    $RUSTC "$input" >$TMP
     $LLC -o $ASM $TMP
     $CC -o $EXE $ASM
     chmod +x $EXE
@@ -33,10 +33,6 @@ assert() {
 }
 
 QT="'"
-
-cd ..
-cargo build
-cd tests_llvm
 
 echo "===== Execute Tests ====="
 # return

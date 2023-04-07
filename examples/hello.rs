@@ -4,7 +4,6 @@ extern "C" {
 
 fn main() -> () {
     unsafe {
-        ();
-        puts("Hello world!");
+        puts("Hello mini-rustc!");
     };
 }

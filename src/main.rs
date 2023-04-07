@@ -1,7 +1,8 @@
 #![feature(let_chains)]
 mod ast;
-mod backend;
+mod backend_llvm;
 mod lexer;
+mod lvalue;
 mod middle;
 mod parse;
 mod resolve;
@@ -32,6 +33,7 @@ fn main() {
         path_or_src
     };
 
+    // Parse stage
     let lexer = lexer::Lexer::new(src);
     let mut parser = parse::Parser::new(lexer);
     let parse_result = parser.parse_crate();
@@ -47,12 +49,14 @@ fn main() {
         dbg!(&krate);
     }
 
+    // Name resolution stage
     ctx.resolve(&krate);
 
     if ctx.dump_enabled {
         dbg!(&ctx);
     }
 
+    // Typecheck stage
     let typeck_result = typeck::typeck(&mut ctx, &krate);
     let Ok(()) = typeck_result else {
         if let Err(errors) = typeck_result {
@@ -64,7 +68,12 @@ fn main() {
         std::process::exit(1);
     };
 
-    let codegen_result = backend::compile(&mut ctx, &krate);
+    // Lvalue analysis stage
+    lvalue::analyze(&mut ctx, &krate);
+
+    // Codegen stage
+    let codegen_result = backend_llvm::compile(&mut ctx, &krate);
+
     let Ok(()) = codegen_result else {
         eprintln!("ICE: Failed to generate assembly");
         std::process::exit(1);

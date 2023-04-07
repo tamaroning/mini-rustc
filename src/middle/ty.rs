@@ -8,7 +8,7 @@ pub enum Ty {
     Str,
     Array(Rc<Ty>, usize),
     Fn(Vec<Rc<Ty>>, Rc<Ty>),
-    Adt(String),
+    Adt(Rc<String>),
     Ref(Region, Rc<Ty>),
     Never,
     Error,
@@ -17,7 +17,7 @@ pub enum Ty {
 pub type Region = String;
 
 impl Ty {
-    pub fn get_adt_name(&self) -> Option<&String> {
+    pub fn get_adt_name(&self) -> Option<&Rc<String>> {
         if let Ty::Adt(name) = self {
             Some(name)
         } else {
@@ -25,9 +25,11 @@ impl Ty {
         }
     }
 
+    /*
     pub fn is_adt(&self) -> bool {
         matches!(self, Ty::Adt(_))
     }
+    */
 
     pub fn is_never(&self) -> bool {
         matches!(self, Ty::Never)
@@ -36,5 +38,5 @@ impl Ty {
 
 #[derive(Debug)]
 pub struct AdtDef {
-    pub fields: Vec<(String, Rc<Ty>)>,
+    pub fields: Vec<(Rc<String>, Rc<Ty>)>,
 }

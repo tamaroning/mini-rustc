@@ -57,6 +57,16 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn pop_return_type(&mut self) {
         self.current_return_type = None;
     }
+
+    fn get_block_type(&self, block: &ast::Block) -> Rc<Ty> {
+        if let Some(stmt) = block.stmts.last() {
+            let last_stmt_ty = &self.ctx.get_type(stmt.id);
+            Rc::clone(last_stmt_ty)
+        } else {
+            // no statement. Unit type
+            Rc::new(Ty::Unit)
+        }
+    }
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
@@ -88,15 +98,18 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.push_return_type(&func.ret_ty);
     }
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
-        if let Some(body) = &func.body {
-            let body_ty = self.ctx.get_block_type(body);
-            let expected = self.peek_return_type();
-            if !body_ty.is_never() && &*body_ty != expected {
-                self.error(format!(
-                    "Expected type {:?} for func body, but found {:?}",
-                    expected, body_ty
-                ));
-            }
+        let Some(body) = &func.body else {
+            return;
+        };
+
+        let body_ty = self.ctx.get_type(body.id);
+
+        let expected = self.peek_return_type();
+        if !body_ty.is_never() && &*body_ty != expected {
+            self.error(format!(
+                "Expected type {:?} for func body, but found {:?}",
+                expected, body_ty
+            ));
         }
         // pop return type
         self.pop_return_type();
@@ -107,7 +120,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             fields: strct
                 .fields
                 .iter()
-                .map(|(s, ty)| (s.symbol.clone(), Rc::clone(ty)))
+                .map(|(s, ty)| (Rc::clone(&s.symbol), Rc::clone(ty)))
                 .collect(),
         };
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
@@ -204,7 +217,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                         }
                     }
                     BinOp::Eq | BinOp::Ne => {
-                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
+                        // TODO: other types?
+                        if (**lhs_ty == Ty::I32 && **rhs_ty == Ty::I32)
+                            || (**lhs_ty == Ty::Bool && **rhs_ty == Ty::Bool)
+                        {
                             Rc::new(Ty::Bool)
                         } else {
                             self.error("Both lhs and rhs must have the same type".to_string());
@@ -292,7 +308,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::Error)
                 }
             }
-            ExprKind::Block(block) => self.ctx.get_block_type(block),
+            ExprKind::Block(block) => self.ctx.get_type(block.id),
             ExprKind::If(_cond, then, _els) => {
                 // TODO: typecheck cond and els
                 self.ctx.get_type(then.id)
@@ -334,7 +350,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 let adt_name = &ident.symbol;
                 if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
                     // TODO: typecheck fields
-                    Rc::new(Ty::Adt(adt_name.clone()))
+                    Rc::new(Ty::Adt(Rc::clone(adt_name)))
                 } else {
                     self.error(format!("Cannot find type {}", adt_name));
                     Rc::new(Ty::Error)
@@ -380,5 +396,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             }
         };
         self.ctx.insert_type(expr.id, ty);
+    }
+
+    fn visit_block_post(&mut self, block: &'ctx ast::Block) {
+        let block_ty = self.get_block_type(block);
+        self.ctx.insert_type(block.id, block_ty);
     }
 }

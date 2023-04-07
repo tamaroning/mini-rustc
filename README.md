@@ -2,7 +2,7 @@
 
 **NOTE: This compiler is under development now**
 
-mini-rustc a toy Rust compiler written in Rust from scratch.
+mini-rustc a toy Rust compiler written in Rust from scratch which outputs [LLVM IR](https://llvm.org/).
 This compiler implements typecheck but not other static analyses like lifetime, mutability, or unsafety.
 If you find a bug, feel free to open an issue to report it!
 
@@ -12,8 +12,8 @@ Big thanks to these wonderful materials/software.
 ## Requirement
 
 - Cargo
-- toolchains for x86-64 processor
-  - necessary to generate executables
+
+Also, [llc](https://llvm.org/docs/CommandGuide/llc.html) is required to compile [LLVM IR](https://llvm.org/) to executables.
 
 # Build & Run
 
@@ -37,6 +37,8 @@ or
 $ cargo run <source>
 ```
 
+Generated LLVM IR is output to stdout.
+
 ## Test
 
 Run the following command:
@@ -51,12 +53,12 @@ $ ./test.sh
 
 ```rust
 extern "C" {
-    fn printf(s: &str) -> i32;
+    fn puts(s: &str) -> i32;
 }
 
 fn main() -> () {
     unsafe {
-        printf("Hello world!\n");
+        puts("Hello mini-rustc!");
     };
 }
 ```
@@ -64,51 +66,62 @@ fn main() -> () {
 Run the follwoing commands:
 
 ```sh
-$ cargo run examples/hello.rs > tmp.s
+$ cargo run examples/hello.rs > tmp.ll
+$ llc tmp.ll -o tmp.s -opaque-pointers # this option is required!
 $ gcc tmp.s -o a.out
 $ ./a.out
-Hello world!
+Hello mini-rustc!
 ```
 
 # Status
 
-- [x] types
-  - `i32`, `bool`, unit(`()`), never(`!`), `str`
-  - references
+- Type system
+  - Primitives `i32`, `bool`, unit(`()`), never(`!`), `str`
+  - References
     - [x] `&'static str`
-  - [x] arrays
+  - [x] Srrays
   - ADTs
-    - [x] (nested) structs
-    - [ ] enums
-  - [x] typechecking
-  - [ ] type inference
+    - [x] (Nested) Structs
+    - [ ] Enums
+  - [x] Typechecking
+  - [ ] Type inference
 - items
-  - [x] structs
-  - [x] functions
-    - return type cannot be omitted
-    - struct params and returning structs are not supported
+  - [x] Structs
+  - [x] Functions
+    - Return type cannot be omitted
+    - Struct params and returning structs are not supported
   - [x] `extern` blocks
-  - [ ] modules
+  - [ ] Modules
+  - [ ] Global variables
 - statements
-  - [x] let statement
-    - keyword `mut` is not supported
-  - [x] expression statements
+  - [x] `let` statement
+    - Keyword `mut` is not supported
+  - [x] Expression statements
+  - [x] Expression with `;`
 - expressions
-  - [x] arithmetic operators `+`, `-`, `*`
-  - [x] comparison operators `==`
-  - [x] literals: integer, boolean, string
-  - [x] if-else expressions
-  - [x] block expressions
-  - [x] return expressions
-  - [x] call expressions
-    - parameter passing: ZSTs and ADTs and arrays are not supported
-    - return value: ADTs and arrays are not supported
-  - [ ] array expressions `[expr, expr, ...]`
-  - [ ] struct expressions `SomeName { field1: expr, .. }`
+  - [x] Arithmetic operators `+`, `-`, `*`
+  - [x] Comparison operators `==`, `<`, `>`
+  - [x] Literals: integer, boolean, string
+  - [ ] `if-else` expressions
+  - [x] Block expressions `{ ... }`
+  - [x] Return expressions `return expr`
+    - Omitting expression is not supported (i.e. Require `return ()` for `return`)
+  - [x] Call expressions `func(params...)`
+    - Parameter passing: ZSTs and ADTs are supported
+    - Return value: ADTs and arrays are not supported
+  - [ ] Array expressions `[expr, expr, ...]`
+  - [x] Struct expressions `SomeName { field1: expr, .. }`
+  - [x] Field expressions `strct.field`
+  - [x] Index expressions `array[index]`
 - misc
-  - [ ] paths
-  - [ ] patterns (matching)
-  - [x] comments `//`
+  - [ ] Paths
+  - [ ] Patterns (Pattern matching)
+  - [x] Comments `//`
+
+## ABI
+
+mini-rustc's ABI is similar to system V ABI, but not fully compatible.
+When functions are called, arrays and ADTs are passed via memory, ZST parameters are ignored (not passed).
 
 ## Problem of ambiguous grammars
 

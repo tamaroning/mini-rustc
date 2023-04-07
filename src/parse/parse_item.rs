@@ -282,7 +282,7 @@ impl Parser {
                 // u32 is safely converted to usize
                 Some(Ty::Array(Rc::new(elem_ty), n.try_into().unwrap()))
             }
-            TokenKind::Ident(s) => Some(Ty::Adt(s)),
+            TokenKind::Ident(s) => Some(Ty::Adt(Rc::new(s))),
             TokenKind::BinOp(lexer::BinOp::And) => {
                 let t = self.peek_token();
                 let region = if let TokenKind::Lifetime(_) = t.kind {

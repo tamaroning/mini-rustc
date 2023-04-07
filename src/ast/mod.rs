@@ -71,7 +71,7 @@ pub struct LetStmt {
 pub struct Ident {
     // TODO: remove symbol and span
     // add ident: crate::span::Ident
-    pub symbol: String,
+    pub symbol: Rc<String>,
     pub span: Span,
     pub id: NodeId,
 }

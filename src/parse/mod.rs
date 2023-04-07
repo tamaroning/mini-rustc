@@ -2,6 +2,8 @@ mod parse_expr;
 mod parse_item;
 mod parse_stmt;
 
+use std::rc::Rc;
+
 use self::parse_item::is_item_start;
 use crate::ast::{Crate, Ident, Item};
 use crate::lexer::{Lexer, Token, TokenKind};
@@ -80,7 +82,7 @@ impl Parser {
         let t = self.skip_token();
         if let TokenKind::Ident(symbol) = t.kind {
             Some(Ident {
-                symbol,
+                symbol: Rc::new(symbol),
                 span: t.span,
                 id: self.get_next_id(),
             })

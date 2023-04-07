@@ -1,5 +1,5 @@
 use crate::ast::{self, Ident, NodeId, StmtKind};
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -22,7 +22,7 @@ impl Resolver {
         }
     }
 
-    pub fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
+    fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
         self.ribs.insert(block_or_func_node_id, rib);
     }
 
@@ -131,7 +131,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 pub struct Rib {
     id: u32,
     kind: RibKind,
-    bindings: HashMap<String, NodeId>,
+    bindings: HashMap<Rc<String>, NodeId>,
 }
 
 #[derive(Debug, Clone)]

@@ -51,6 +51,10 @@ impl LLTy {
     pub fn passed_via_memory(&self) -> bool {
         matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
     }
+
+    pub fn assigned_by_memcpy(&self) -> bool {
+        matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
+    }
 }
 
 pub enum LLValue {

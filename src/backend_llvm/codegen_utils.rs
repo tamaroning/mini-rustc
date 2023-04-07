@@ -70,6 +70,9 @@ impl<'a> Codegen<'a> {
 
                 Ok(LLReg::new(new_reg, Rc::new(ret_llty)))
             }
+            ExprKind::Struct(_, _) | ExprKind::Array(_) => {
+                Ok(self.peek_frame().get_ptr_to_temporary(expr.id).unwrap())
+            }
             _ => todo!(),
         }
     }
@@ -116,5 +119,18 @@ impl<'a> Codegen<'a> {
             reg.name
         );
         LLReg::new(new_reg, derefed_ty)
+    }
+
+    pub fn mem_copy(&mut self, dist: &Rc<LLReg>, src: &Rc<LLReg>) {
+        assert_eq!(dist.llty, src.llty);
+        match &*src.llty {
+            LLTy::Adt(name) => {
+                let lladt = self.get_lladt(name).unwrap();
+                for (i, (_, fd_llty)) in lladt.fields.iter().enumerate() {
+                    todo!()
+                }
+            }
+            _ => todo!(),
+        }
     }
 }

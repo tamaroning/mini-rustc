@@ -130,9 +130,8 @@ impl<'a> Codegen<'a> {
                 LLValue::Reg(rval)
             }
             ExprKind::Assign(lhs, rhs) => {
-                let rhs_val = self.gen_expr(rhs)?;
-
                 if self.is_allocated(lhs) {
+                    let rhs_val = self.gen_expr(rhs)?;
                     let lhs_addr_reg = self.gen_lval(lhs).unwrap();
                     println!(
                         "\tstore {}, {} {}",

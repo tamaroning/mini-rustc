@@ -5,6 +5,9 @@ use std::{collections::HashMap, rc::Rc};
 #[derive(Debug)]
 pub struct Frame {
     locals: HashMap<NameBinding, Rc<Local>>,
+    /// Registers pointing to memory for temporary variables
+    /// Can be used only for non-lvalue array and structs
+    temporary_regs: HashMap<ast::NodeId, Rc<LLReg>>,
 }
 
 #[derive(Debug)]
@@ -31,6 +34,7 @@ impl Frame {
     pub fn new() -> Self {
         Frame {
             locals: HashMap::new(),
+            temporary_regs: HashMap::new(),
         }
     }
 
@@ -40,6 +44,14 @@ impl Frame {
 
     pub fn get_locals(&self) -> &HashMap<NameBinding, Rc<Local>> {
         &self.locals
+    }
+
+    pub fn get_ptr_to_temporary(&self, node_id: ast::NodeId) -> Option<Rc<LLReg>> {
+        self.temporary_regs.get(&node_id).map(Rc::clone)
+    }
+
+    pub fn get_ptrs_to_temporary(&self) -> &HashMap<ast::NodeId, Rc<LLReg>> {
+        &self.temporary_regs
     }
 }
 
@@ -51,7 +63,6 @@ pub struct VisitFrame<'a, 'b, 'c> {
 impl VisitFrame<'_, '_, '_> {
     fn add_local(&mut self, ident: &ast::Ident, ty: &Rc<Ty>, local_kind: LocalKind) {
         // TODO: align
-        // let align = self.codegen.ctx.get_align(ty);
         let mut reg_ty = self.codegen.ty_to_llty(ty);
         if local_kind == LocalKind::Ptr {
             reg_ty = LLTy::Ptr(Rc::new(reg_ty));
@@ -62,6 +73,14 @@ impl VisitFrame<'_, '_, '_> {
         self.frame
             .locals
             .insert(name_binding, Rc::new(Local::new(local_kind, reg)));
+    }
+
+    fn add_temporary(&mut self, node_id: ast::NodeId, ty: &Rc<Ty>) {
+        // `%Struct.S` => `%Struct.S* %1`
+        let llty = Rc::new(LLTy::Ptr(Rc::new(self.codegen.ty_to_llty(ty))));
+        let reg_name = self.codegen.get_fresh_reg();
+        let reg = LLReg::new(reg_name, llty);
+        self.frame.temporary_regs.insert(node_id, reg);
     }
 }
 
@@ -84,6 +103,18 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
             self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Value);
         } else {
             self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Ptr);
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &'ctx ast::Expr) {
+        if !self.codegen.ctx.is_lvalue(expr.id)
+            && matches!(
+                &expr.kind,
+                ast::ExprKind::Array(_) | ast::ExprKind::Struct(_, _)
+            )
+        {
+            let ty = self.codegen.ctx.get_type(expr.id);
+            self.add_temporary(expr.id, &ty);
         }
     }
 }

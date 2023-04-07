@@ -6,7 +6,7 @@ mod llvm;
 
 use self::frame::{Frame, LocalKind, VisitFrame};
 use self::llvm::*;
-use crate::ast::{self, Crate, Expr, ExprKind, Ident};
+use crate::ast::{self, Crate, Expr, ExprKind, Ident, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::middle::Ctxt;
 use std::collections::HashMap;
@@ -70,6 +70,14 @@ impl<'a> Codegen<'a> {
         LLAdtDef { fields }
     }
 
+    fn add_lladt(&mut self, name: &Rc<String>, lladt: LLAdtDef) {
+        self.ll_adt_defs.insert(Rc::clone(name), lladt);
+    }
+
+    fn get_lladt(&self, name: &Rc<String>) -> Option<&LLAdtDef> {
+        self.ll_adt_defs.get(name)
+    }
+
     pub fn compute_frame(&mut self, func: &'a ast::Func) -> Frame {
         let mut frame = Frame::new();
         let mut analyzer = VisitFrame {
@@ -104,8 +112,12 @@ impl<'a> Codegen<'a> {
         println!();
 
         // register all ADTs
+        let mut lladts = vec![];
         for (name, adt_def) in self.ctx.get_adt_defs() {
-            let lladt = self.construct_lladt(adt_def);
+            let lladt = self.construct_lladt(&adt_def);
+            lladts.push((Rc::clone(name), lladt));
+        }
+        for (name, lladt) in lladts {
             print!("%Struct.{} = type {{", name);
             for (i, (_, fd_llty)) in lladt.fields.iter().enumerate() {
                 print!(" {}", fd_llty.to_string());
@@ -114,8 +126,7 @@ impl<'a> Codegen<'a> {
                 }
             }
             println!(" }}");
-            //%struct.Empty = type {}
-            self.ll_adt_defs.insert(Rc::clone(name), lladt);
+            self.add_lladt(&name, lladt);
         }
 
         println!();

@@ -1,6 +1,6 @@
 use super::{Codegen, LLValue};
 use crate::{
-    ast::{Block, Crate, Func, ItemKind, LetStmt, Stmt, StmtKind},
+    ast::{Block, Crate, ExprKind, Func, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{frame::LocalKind, LLImm},
     resolve::BindingKind,
 };
@@ -54,6 +54,7 @@ impl<'a> Codegen<'a> {
 
         println!(") {{");
 
+        // allocate local variables
         for (name_binding, local) in self.peek_frame().get_locals() {
             if name_binding.kind == BindingKind::Let && !local.reg.llty.is_void() {
                 assert!(local.kind == LocalKind::Ptr);
@@ -63,6 +64,15 @@ impl<'a> Codegen<'a> {
                     local.reg.llty.peel_ptr().unwrap().to_string()
                 );
             }
+        }
+
+        // allocate temporary variables
+        for (_node_id, reg) in self.peek_frame().get_ptrs_to_temporary() {
+            println!(
+                "\t{} = alloca {}",
+                reg.name,
+                reg.llty.peel_ptr().unwrap().to_string()
+            );
         }
 
         let body_val = self.gen_block(body)?;
@@ -102,13 +112,18 @@ impl<'a> Codegen<'a> {
 
                 if let Some(init) = init && local.kind == LocalKind::Ptr {
                     let ident_reg = self.gen_ident_lval(ident).unwrap();
-                    let init_val = self.gen_expr(init)?;
-                    // TODO: initializer
-                    println!(
-                        "\tstore {}, {}",
-                        init_val.to_string_with_type(),
-                        ident_reg.to_string_with_type()
-                    );
+
+                    if matches!(&init.kind, ExprKind::Array(..) | ExprKind::Struct(..)) {
+                        todo!()
+                    } else {
+                        let init_val = self.gen_expr(init)?;
+                        // TODO: initializer
+                        println!(
+                            "\tstore {}, {}",
+                            init_val.to_string_with_type(),
+                            ident_reg.to_string_with_type()
+                        );
+                }
                 }
                 LLValue::Imm(LLImm::Void)
             }

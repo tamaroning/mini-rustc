@@ -52,3 +52,5 @@ compile_fail 'fn main() -> () { []; }'
 compile_fail 'fn main() -> () { let a: [i32; 1] = [1, 2]; }'
 compile_fail 'fn main() -> () { let a: [i32; 1] = [true]; }'
 compile_fail 'fn main() -> () { let a: [i32; 1]; a[0] = true; }'
+# if
+compile_fail 'fn main() -> () { if (true) { } else { 1 } }'

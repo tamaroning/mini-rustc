@@ -322,9 +322,32 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 }
             }
             ExprKind::Block(block) => self.ctx.get_type(block.id),
-            ExprKind::If(_cond, then, _els) => {
-                // TODO: typecheck cond and els
-                self.ctx.get_type(then.id)
+            ExprKind::If(cond, then, els) => {
+                let cond_ty = self.ctx.get_type(cond.id);
+                let then_ty = self.ctx.get_type(then.id);
+                if cond_ty.is_never() || cond_ty.kind == TyKind::Bool {
+                    let els_ty = if let Some(els) = els {
+                        self.ctx.get_type(els.id)
+                    } else {
+                        Rc::new(Ty::unit())
+                    };
+
+                    if then_ty.is_never() || then_ty.kind == els_ty.kind {
+                        then_ty
+                    } else {
+                        self.error(format!(
+                            "Type mismatch then block has `{:?}`, but else block has `{:?}`",
+                            then_ty, els_ty
+                        ));
+                        Rc::new(Ty::error())
+                    }
+                } else {
+                    self.error(format!(
+                        "Expected bool for conditional, but found {:?}",
+                        cond_ty
+                    ));
+                    Rc::new(Ty::error())
+                }
             }
             ExprKind::Index(array, _index) => {
                 let maybe_array_ty = self.ctx.get_type(array.id);

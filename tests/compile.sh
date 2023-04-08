@@ -81,3 +81,7 @@ compile 'fn f(n: i32) -> bool { true } fn main() -> () { let b: bool = f(1 + 2 *
 #compile 'fn main() -> () { [[[0]]]; }'
 #compile 'fn main() -> () { [1, return (), ]; }'
 # TODO: compile 'fn main() -> () { [()][0] }'
+# if
+#compile 'fn main() -> () { if (true) { } else { } }'
+#compile 'fn main() -> () { if (1 == 1) { } else { } }'
+#compile 'fn main() -> () { if (true) { } }'

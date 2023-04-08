@@ -79,19 +79,22 @@ Hello mini-rustc!
   - Primitives `i32`, `bool`, unit(`()`), never(`!`), `str`
   - References
     - [x] `&'static str`
+      - But represented as just a pointer, not as a fat pointer.
   - [x] Srrays
   - ADTs
     - [x] (Nested) Structs
     - [ ] Enums
   - [x] Typechecking
   - [ ] Type inference
+  - [ ] Generics
 - items
   - [x] Structs
   - [x] Functions
     - Return type cannot be omitted
     - Struct params and returning structs are not supported
-  - [x] `extern` blocks
-  - [ ] Modules
+  - [x] `extern` blocks (e.g. `extern "C" { ... }`)
+    - Only `"C"` is available
+  - [x] Modules `mod`
   - [ ] Global variables
 - statements
   - [x] `let` statement
@@ -113,10 +116,14 @@ Hello mini-rustc!
   - [x] Struct expressions `SomeName { field1: expr, .. }`
   - [x] Field expressions `strct.field`
   - [x] Index expressions `array[index]`
-- misc
+- Others
   - [ ] Paths
   - [ ] Patterns (Pattern matching)
   - [x] Comments `//`
+- Internal
+  - [ ] HIR
+  - [ ] Name Resolution
+  - [ ] Type Resolution
 
 ## ABI
 
@@ -139,6 +146,9 @@ fn main() -> i32 { () () }
 
 ## References
 
-- https://github.com/Rust-GCC/gccrs
-- https://www.sigbus.info/compilerbook
-- https://github.com/rui314/chibicc/
+- gccrs: https://github.com/Rust-GCC/gccrs
+- Rui Ueyama's compiler book: https://www.sigbus.info/compilerbook
+- chibicc: https://github.com/rui314/chibicc/
+- Rustc Dev Guide: https://rustc-dev-guide.rust-lang.org/
+- The Rust Reference: https://doc.rust-lang.org/reference/
+- Rust Compiler: https://github.com/rust-lang/rust

@@ -66,7 +66,10 @@ impl Parser {
             );
             return None;
         }
-        Some(Crate { items })
+        Some(Crate {
+            items,
+            id: self.get_next_id(),
+        })
     }
 
     fn parse_items(&mut self) -> Option<Vec<Item>> {

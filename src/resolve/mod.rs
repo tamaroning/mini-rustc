@@ -4,12 +4,13 @@ use std::{collections::HashMap, rc::Rc};
 #[derive(Debug)]
 pub struct Resolver {
     /// Crate/Func/Block to rib mappings, which is set by resovler
-    ribs: HashMap<NodeId, Rib>,
+    ribs: HashMap<NodeId, RibId>,
     // all ident node to ribs mappings
-    ident_to_ribs: HashMap<NodeId, Vec<Rib>>,
-
+    ident_to_ribs: HashMap<NodeId, Vec<RibId>>,
     // current name ribs
-    name_ribs: Vec<Rib>,
+    name_ribs: Vec<RibId>,
+    // interned ribs
+    interned: HashMap<RibId, Rib>,
     next_rib_id: u32,
 }
 
@@ -19,29 +20,47 @@ impl Resolver {
             ribs: HashMap::new(),
             ident_to_ribs: HashMap::new(),
             name_ribs: vec![],
+            interned: HashMap::new(),
             next_rib_id: 0,
         }
     }
 
-    fn insert_rib(&mut self, block_or_func_node_id: NodeId, rib: Rib) {
-        self.ribs.insert(block_or_func_node_id, rib);
+    fn get_current_rib_mut(&mut self) -> &mut Rib {
+        let current_rib_id = self.name_ribs.last().unwrap();
+        self.interned.get_mut(&current_rib_id).unwrap()
     }
 
-    /// Resolve ident
+    fn get_rib(&self, rib_id: RibId) -> &Rib {
+        self.interned.get(&rib_id).unwrap()
+    }
+
+    fn push_rib(&mut self, rib_kind: RibKind, node_id: NodeId) {
+        let rib = Rib::new(self.get_next_id(), rib_kind);
+        self.name_ribs.push(rib.id);
+        self.ribs.insert(node_id, rib.id);
+        self.interned.insert(rib.id, rib);
+    }
+
+    fn pop_rib(&mut self) {
+        self.name_ribs.pop().unwrap();
+    }
+
+    /// Resolve identifier (local variable, parameters, function name)
     pub fn resolve_ident(&self, ident: &Ident) -> Option<NameBinding> {
         let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
-        Resolver::resolve_ident_from_ribs(ident, ribs)
+        self.resolve_ident_from_ribs(ident, ribs)
     }
 
     // just utility function of resolve_ident
-    fn resolve_ident_from_ribs(ident: &Ident, ribs: &[Rib]) -> Option<NameBinding> {
-        for r in ribs.iter().rev() {
-            let binding_kind = match &r.kind {
+    fn resolve_ident_from_ribs(&self, ident: &Ident, ribs: &[RibId]) -> Option<NameBinding> {
+        for rib_id in ribs.iter().rev() {
+            let rib = self.get_rib(*rib_id);
+            let binding_kind = match &rib.kind {
                 RibKind::Block => BindingKind::Let,
                 RibKind::Func => BindingKind::Arg,
                 RibKind::Crate => BindingKind::Item,
             };
-            if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
+            if let Some(defined_ident_node_id) = rib.bindings.get(&ident.symbol) {
                 return Some(NameBinding::new(*defined_ident_node_id, binding_kind));
             }
         }
@@ -52,10 +71,6 @@ impl Resolver {
         let id = self.next_rib_id;
         self.next_rib_id += 1;
         id
-    }
-
-    fn new_rib(&mut self, kind: RibKind) -> Rib {
-        Rib::new(self.get_next_id(), kind)
     }
 
     fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
@@ -90,52 +105,47 @@ pub enum BindingKind {
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
-    fn visit_crate(&mut self, _krate: &'ctx ast::Crate) {
-        let r = self.new_rib(RibKind::Crate);
-        self.name_ribs.push(r);
+    fn visit_crate(&mut self, krate: &'ctx ast::Crate) {
+        // push new rib
+        self.push_rib(RibKind::Crate, krate.id);
     }
 
     fn visit_crate_post(&mut self, _krate: &'ctx ast::Crate) {
-        self.name_ribs.pop();
-        assert_eq!(self.name_ribs.len(), 0);
+        self.pop_rib();
     }
 
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // insert func name
-        self.name_ribs
-            .last_mut()
-            .unwrap()
-            .insert_binding(func.name.clone());
+        self.get_current_rib_mut().insert_binding(&func.name);
 
-        let mut r = self.new_rib(RibKind::Func);
+        // push new rib
+        self.push_rib(RibKind::Func, func.id);
+
+        // insert parameters
         for (param, _) in &func.params {
-            r.insert_binding(param.clone())
+            self.get_current_rib_mut().insert_binding(&param)
         }
-        self.name_ribs.push(r);
     }
 
-    fn visit_func_post(&mut self, func: &'ctx ast::Func) {
-        let r = self.name_ribs.pop().unwrap();
-        self.insert_rib(func.id, r);
+    fn visit_func_post(&mut self, _: &'ctx ast::Func) {
+        // pop current rib
+        self.pop_rib();
     }
 
-    fn visit_block(&mut self, _block: &'ctx ast::Block) {
-        let r = self.new_rib(RibKind::Block);
-        self.name_ribs.push(r);
+    fn visit_block(&mut self, block: &'ctx ast::Block) {
+        // push new rib
+        self.push_rib(RibKind::Block, block.id);
     }
 
-    fn visit_block_post(&mut self, block: &'ctx ast::Block) {
-        let r = self.name_ribs.pop().unwrap();
-        self.insert_rib(block.id, r)
+    fn visit_block_post(&mut self, _: &'ctx ast::Block) {
+        // pop current rib
+        self.pop_rib();
     }
 
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
         if let StmtKind::Let(let_stmt) = &stmt.kind {
-            // TODO: node id of statement
-            self.name_ribs
-                .last_mut()
-                .unwrap()
-                .insert_binding(let_stmt.ident.clone())
+            // insert local variables
+            self.get_current_rib_mut().insert_binding(&let_stmt.ident)
         }
     }
 
@@ -158,6 +168,8 @@ pub struct Rib {
     bindings: HashMap<Rc<String>, NodeId>,
 }
 
+type RibId = u32;
+
 #[derive(Debug, Clone)]
 enum RibKind {
     Func,
@@ -175,8 +187,8 @@ impl Rib {
     }
 
     // TODO: shadowing
-    pub fn insert_binding(&mut self, ident: Ident) {
+    pub fn insert_binding(&mut self, ident: &Ident) {
         // FIXME: duplicate symbol?
-        let _ = self.bindings.insert(ident.symbol, ident.id);
+        self.bindings.insert(ident.symbol.clone(), ident.id);
     }
 }

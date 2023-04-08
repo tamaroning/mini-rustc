@@ -1,7 +1,6 @@
 use crate::ast::{self, BinOp, Crate, ExprKind, LetStmt, StmtKind};
 use crate::middle::ty::{self, AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
-use crate::resolve::NameBinding;
 use std::rc::Rc;
 
 pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<String>> {

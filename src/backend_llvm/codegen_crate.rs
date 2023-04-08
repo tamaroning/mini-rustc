@@ -41,9 +41,17 @@ impl<'a> Codegen<'a> {
         let frame = compute_frame(self, func);
         self.push_frame(frame);
 
+        let name = self.ctx.resolver.resolve_ident(&func.name).unwrap();
+        let (_param_tys, ret_ty) = self
+            .ctx
+            .lookup_name_type(&name)
+            .unwrap()
+            .get_func_type()
+            .unwrap();
+
         print!(
             "{} @{}(",
-            self.ty_to_llty(&func.ret_ty).to_string(),
+            self.ty_to_llty(&ret_ty).to_string(),
             func.name.symbol
         );
 

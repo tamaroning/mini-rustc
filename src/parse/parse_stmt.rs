@@ -2,7 +2,6 @@ use super::parse_expr::is_expr_start;
 use super::Parser;
 use crate::ast::{Block, LetStmt, Stmt, StmtKind};
 use crate::lexer::{Token, TokenKind};
-use std::rc::Rc;
 
 pub fn is_stmt_start(t: &Token) -> bool {
     is_expr_start(t) || matches!(t.kind, TokenKind::Let)
@@ -46,6 +45,7 @@ impl Parser {
         }
     }
 
+    /// letStmt ::= "let" ident (: type)? ("=" expr)? ";"
     /// https://doc.rust-lang.org/reference/statements.html#let-statements
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
         // skip "let"
@@ -85,7 +85,7 @@ impl Parser {
         Some(Stmt {
             kind: StmtKind::Let(LetStmt {
                 ident,
-                ty: Rc::new(ty),
+                ty: Some(ty),
                 init,
             }),
             id: self.get_next_id(),

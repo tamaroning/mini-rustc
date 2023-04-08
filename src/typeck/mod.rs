@@ -1,8 +1,7 @@
 use crate::ast::{self, BinOp, Crate, ExprKind, LetStmt, StmtKind};
-use crate::middle::ty::{AdtDef, Ty};
+use crate::middle::ty::{self, AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
 use crate::resolve::NameBinding;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<String>> {
@@ -17,10 +16,7 @@ pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<S
 
 struct TypeChecker<'chk> {
     ctx: &'chk mut Ctxt,
-    // TODO: use stacks respresenting the current scope
-    /// local variables, paramters to type mappings
-    name_ty_mappings: HashMap<NameBinding, Rc<Ty>>,
-    current_return_type: Option<&'chk Ty>,
+    current_return_type: Option<Ty>,
     errors: Vec<String>,
 }
 
@@ -28,7 +24,6 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     fn new(ctx: &'ctx mut Ctxt) -> Self {
         TypeChecker {
             ctx,
-            name_ty_mappings: HashMap::new(),
             current_return_type: None,
             errors: vec![],
         }
@@ -38,19 +33,11 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
         self.errors.push(e);
     }
 
-    fn insert_name_type(&mut self, name: NameBinding, ty: Rc<Ty>) {
-        self.name_ty_mappings.insert(name, Rc::clone(&ty));
-    }
-
-    fn get_name_type(&mut self, name: &NameBinding) -> Option<Rc<Ty>> {
-        self.name_ty_mappings.get(name).map(Rc::clone)
-    }
-
     fn peek_return_type(&self) -> &Ty {
         self.current_return_type.as_ref().unwrap()
     }
 
-    fn push_return_type(&mut self, ty: &'chk Ty) {
+    fn push_return_type(&mut self, ty: Ty) {
         self.current_return_type = Some(ty);
     }
 
@@ -64,8 +51,25 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
             Rc::clone(last_stmt_ty)
         } else {
             // no statement. Unit type
-            Rc::new(Ty::Unit)
+            Rc::new(Ty::unit())
         }
+    }
+    fn ast_ty_to_ty(&self, ast_ty: &ast::Ty) -> self::Ty {
+        let kind = match &ast_ty.kind {
+            ast::TyKind::I32 => ty::TyKind::I32,
+            ast::TyKind::Never => ty::TyKind::Never,
+            ast::TyKind::Bool => ty::TyKind::Bool,
+            ast::TyKind::Unit => ty::TyKind::Unit,
+            ast::TyKind::Str => ty::TyKind::Str,
+            ast::TyKind::Ref(_region, referent) => {
+                ty::TyKind::Ref(Rc::new(self.ast_ty_to_ty(&referent)))
+            }
+            ast::TyKind::Array(elem_ty, n) => {
+                ty::TyKind::Array(Rc::new(self.ast_ty_to_ty(elem_ty)), *n)
+            }
+            ast::TyKind::Adt(name) => ty::TyKind::Adt(Rc::clone(name)),
+        };
+        Ty::new(kind)
     }
 }
 
@@ -82,21 +86,27 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         let param_tys = func
             .params
             .iter()
-            .map(|(_ident, ty)| Rc::clone(ty))
+            .map(|(_ident, ty)| Rc::new(self.ast_ty_to_ty(ty)))
             .collect();
-        let func_ty = Rc::new(Ty::Fn(param_tys, Rc::clone(&func.ret_ty)));
+        let func_ty = Rc::new(Ty::new(TyKind::Fn(
+            Rc::new(param_tys),
+            Rc::new(self.ast_ty_to_ty(&func.ret_ty)),
+        )));
 
-        self.ctx
-            .set_fn_type(func.name.symbol.clone(), Rc::clone(&func_ty));
+        let name = self.ctx.resolver.resolve_ident(&func.name).unwrap();
+        self.ctx.set_name_type(name, func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
             let name_binding = self.ctx.resolver.resolve_ident(param).unwrap();
-            self.insert_name_type(name_binding, Rc::clone(param_ty));
+            self.ctx
+                .set_name_type(name_binding, Rc::new(self.ast_ty_to_ty(param_ty)));
         }
         // push return type
-        self.push_return_type(&func.ret_ty);
+        let ret_ty = self.ast_ty_to_ty(&func.ret_ty);
+        self.push_return_type(ret_ty);
     }
+
     fn visit_func_post(&mut self, func: &'ctx ast::Func) {
         let Some(body) = &func.body else {
             return;
@@ -105,7 +115,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         let body_ty = self.ctx.get_type(body.id);
 
         let expected = self.peek_return_type();
-        if !body_ty.is_never() && &*body_ty != expected {
+        if !body_ty.is_never() && *body_ty != *expected {
             self.error(format!(
                 "Expected type {:?} for func body, but found {:?}",
                 expected, body_ty
@@ -116,13 +126,12 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     }
 
     fn visit_struct_item(&mut self, strct: &'ctx ast::StructItem) {
-        let adt = AdtDef {
-            fields: strct
-                .fields
-                .iter()
-                .map(|(s, ty)| (Rc::clone(&s.symbol), Rc::clone(ty)))
-                .collect(),
-        };
+        let field_tys: Vec<(Rc<String>, Rc<Ty>)> = strct
+            .fields
+            .iter()
+            .map(|(s, ty)| (Rc::clone(&s.symbol), Rc::new(self.ast_ty_to_ty(ty))))
+            .collect();
+        let adt = AdtDef { fields: field_tys };
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
     }
 
@@ -131,21 +140,21 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             StmtKind::Semi(expr) => {
                 let expr_ty = self.ctx.get_type(expr.id);
                 if expr_ty.is_never() {
-                    Rc::new(Ty::Never)
+                    Rc::new(Ty::never())
                 } else {
-                    Rc::new(Ty::Unit)
+                    Rc::new(Ty::unit())
                 }
             }
             StmtKind::Let(LetStmt { init, .. }) => {
                 if let Some(init) = init {
                     let init_ty = self.ctx.get_type(init.id);
                     if init_ty.is_never() {
-                        Rc::new(Ty::Never)
+                        Rc::new(Ty::never())
                     } else {
-                        Rc::new(Ty::Unit)
+                        Rc::new(Ty::unit())
                     }
                 } else {
-                    Rc::new(Ty::Unit)
+                    Rc::new(Ty::unit())
                 }
             }
             StmtKind::Expr(expr) => self.ctx.get_type(expr.id),
@@ -159,17 +168,26 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         // set local variable type
         let name_binding = self.ctx.resolver.resolve_ident(&let_stmt.ident).unwrap();
         // set type of local variable
-        self.insert_name_type(name_binding, Rc::clone(&let_stmt.ty));
+        // TODO: unwrap
+        self.ctx.set_name_type(
+            name_binding,
+            Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
+        );
         // set type of statement
-        self.ctx
-            .insert_type(let_stmt.ident.id, Rc::clone(&let_stmt.ty));
+        // TODO: unwrap
+        self.ctx.insert_type(
+            let_stmt.ident.id,
+            Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
+        );
     }
 
     fn visit_let_stmt_post(&mut self, let_stmt: &'ctx LetStmt) {
         // checks if type of initalizer matches with the annotated type
         if let Some(init) = &let_stmt.init {
             let init_ty = self.ctx.get_type(init.id);
-            if !init_ty.is_never() && let_stmt.ty != init_ty {
+            // FIXME:
+            let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
+            if !init_ty.is_never() && annotated_ty != *init_ty {
                 self.error(format!(
                     "Expected `{:?}` type, but found `{:?}`",
                     let_stmt.ty, init_ty
@@ -181,18 +199,18 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     // use post order
     fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
         let ty: Rc<Ty> = match &expr.kind {
-            ExprKind::NumLit(_) => Rc::new(Ty::I32),
-            ExprKind::BoolLit(_) => Rc::new(Ty::Bool),
-            ExprKind::StrLit(_) => Rc::new(Ty::Ref("static".to_string(), Rc::new(Ty::Str))),
-            ExprKind::Unit => Rc::new(Ty::Unit),
+            ExprKind::NumLit(_) => Rc::new(Ty::new(TyKind::I32)),
+            ExprKind::BoolLit(_) => Rc::new(Ty::new(TyKind::Bool)),
+            ExprKind::StrLit(_) => Rc::new(Ty::new(TyKind::Ref(Rc::new(Ty::new(TyKind::Str))))),
+            ExprKind::Unit => Rc::new(Ty::unit()),
             ExprKind::Assign(l, r) => {
                 let lhs_ty = &self.ctx.get_type(l.id);
                 let rhs_ty = &self.ctx.get_type(r.id);
                 if rhs_ty.is_never() || **lhs_ty == **rhs_ty {
-                    Rc::new(Ty::Unit)
+                    Rc::new(Ty::unit())
                 } else {
                     self.error(format!("Cannot assign {:?} to {:?}", rhs_ty, lhs_ty));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             // TODO: deal with never type
@@ -201,30 +219,30 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 let rhs_ty = &self.ctx.get_type(r.id);
                 match op {
                     BinOp::Add | BinOp::Sub | BinOp::Mul => {
-                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
-                            Rc::new(Ty::I32)
+                        if lhs_ty.kind == TyKind::I32 && rhs_ty.kind == TyKind::I32 {
+                            Rc::new(Ty::new(TyKind::I32))
                         } else {
                             self.error("Both lhs and rhs must be type of i32".to_string());
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         }
                     }
                     BinOp::Gt | BinOp::Lt => {
-                        if **lhs_ty == Ty::I32 && **rhs_ty == Ty::I32 {
-                            Rc::new(Ty::Bool)
+                        if lhs_ty.kind == TyKind::I32 && rhs_ty.kind == TyKind::I32 {
+                            Rc::new(Ty::new(TyKind::I32))
                         } else {
                             self.error("Both lhs and rhs must be type of i32".to_string());
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         }
                     }
                     BinOp::Eq | BinOp::Ne => {
                         // TODO: other types?
-                        if (**lhs_ty == Ty::I32 && **rhs_ty == Ty::I32)
-                            || (**lhs_ty == Ty::Bool && **rhs_ty == Ty::Bool)
+                        if (lhs_ty.kind == TyKind::I32 && rhs_ty.kind == TyKind::I32)
+                            || (lhs_ty.kind == TyKind::Bool && rhs_ty.kind == TyKind::Bool)
                         {
-                            Rc::new(Ty::Bool)
+                            Rc::new(Ty::new(TyKind::Bool))
                         } else {
                             self.error("Both lhs and rhs must have the same type".to_string());
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         }
                     }
                 }
@@ -232,32 +250,28 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             // TODO: deal with never type
             ExprKind::Unary(_op, inner) => {
                 let inner_ty = &self.ctx.get_type(inner.id);
-                if **inner_ty == Ty::I32 {
-                    Rc::new(Ty::I32)
+                if inner_ty.kind == TyKind::I32 {
+                    Rc::new(Ty::new(TyKind::I32))
                 } else {
                     self.error("inner expr of unary must be type of i32".to_string());
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             ExprKind::Ident(ident) => {
-                // lookup function name at first
-                if let Some(ty) = self.ctx.lookup_fn_type(&ident.symbol) {
-                    ty
-                }
-                // then find symbols in local variables and in parameters
-                else if let Some(name_binding) = self.ctx.resolver.resolve_ident(ident) {
-                    if let Some(ty) = self.get_name_type(&name_binding) {
+                // find symbols in local variables, parameters, and in functions
+                if let Some(name_binding) = self.ctx.resolver.resolve_ident(ident) {
+                    if let Some(ty) = self.ctx.lookup_name_type(&name_binding) {
                         ty
                     } else {
                         self.error(format!(
                             "Cannot use varaible `{}` before declaration",
                             ident.symbol
                         ));
-                        Rc::new(Ty::Error)
+                        Rc::new(Ty::error())
                     }
                 } else {
                     self.error(format!("Could not resolve ident `{}`", ident.symbol));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
 
@@ -265,19 +279,19 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                 let actual_ret_ty = self.ctx.get_type(expr.id);
                 let expected_ret_ty = self.peek_return_type();
                 if *actual_ret_ty == *expected_ret_ty {
-                    Rc::new(Ty::Never)
+                    Rc::new(Ty::never())
                 } else {
                     self.error(format!(
                         "Expected {:?} type, but {:?} returned",
                         expected_ret_ty, actual_ret_ty
                     ));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             // TODO: deal with never type params
             ExprKind::Call(expr, args) => {
                 let maybe_func_ty = self.ctx.get_type(expr.id);
-                if let Ty::Fn(param_ty, ret_ty) = &*maybe_func_ty {
+                if let TyKind::Fn(param_ty, ret_ty) = &maybe_func_ty.kind {
                     if param_ty.len() == args.len() {
                         let mut ok = true;
                         for (arg, param_ty) in args.iter().zip(param_ty.iter()) {
@@ -293,7 +307,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                         if ok {
                             Rc::clone(ret_ty)
                         } else {
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         }
                     } else {
                         self.error(format!(
@@ -301,11 +315,11 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                             param_ty.len(),
                             args.len()
                         ));
-                        Rc::new(Ty::Error)
+                        Rc::new(Ty::error())
                     }
                 } else {
                     self.error(format!("Expected fn type, but found {:?}", maybe_func_ty));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             ExprKind::Block(block) => self.ctx.get_type(block.id),
@@ -316,11 +330,11 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             ExprKind::Index(array, _index) => {
                 let maybe_array_ty = self.ctx.get_type(array.id);
                 // TODO: typecheck index
-                if let Ty::Array(elem_ty, _) = &*maybe_array_ty {
+                if let TyKind::Array(elem_ty, _) = &maybe_array_ty.kind {
                     Rc::clone(elem_ty)
                 } else {
                     self.error(format!("type {:?} cannot be indexed", maybe_array_ty));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             ExprKind::Field(receiver, field) => {
@@ -335,32 +349,32 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                                 "Type {} does not have field `{}`",
                                 adt_name, field.symbol
                             ));
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         }
                     } else {
                         self.error(format!("Cannot find type {}", adt_name));
-                        Rc::new(Ty::Error)
+                        Rc::new(Ty::error())
                     }
                 } else {
                     self.error("field access can used only for ADT".to_string());
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             ExprKind::Struct(ident, _fds) => {
                 let adt_name = &ident.symbol;
                 if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
                     // TODO: typecheck fields
-                    Rc::new(Ty::Adt(Rc::clone(adt_name)))
+                    Rc::new(Ty::new(TyKind::Adt(Rc::clone(adt_name))))
                 } else {
                     self.error(format!("Cannot find type {}", adt_name));
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 }
             }
             ExprKind::Array(elems) => {
                 if elems.is_empty() {
                     // TODO: type inference: typecheck arary with zero element
                     self.error("Array with zero element is not supported".to_string());
-                    Rc::new(Ty::Error)
+                    Rc::new(Ty::error())
                 } else {
                     let first_elem = elems.first().unwrap();
                     let first_elem_ty = self.ctx.get_type(first_elem.id);
@@ -371,7 +385,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                             first_elem.span.to_snippet(),
                             expr.span.to_snippet(),
                         ));
-                        Rc::new(Ty::Error)
+                        Rc::new(Ty::error())
                     } else {
                         let mut saw_error = false;
                         for elem in elems {
@@ -387,9 +401,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                             }
                         }
                         if saw_error {
-                            Rc::new(Ty::Error)
+                            Rc::new(Ty::error())
                         } else {
-                            Rc::new(Ty::Array(first_elem_ty, elems.len()))
+                            Rc::new(Ty::new(TyKind::Array(first_elem_ty, elems.len())))
                         }
                     }
                 }

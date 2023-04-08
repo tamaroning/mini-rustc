@@ -3,11 +3,12 @@ use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug)]
 pub struct Resolver {
-    /// BlockOrFunc to rib mappings, which is set by resovler
+    /// Crate/Func/Block to rib mappings, which is set by resovler
     ribs: HashMap<NodeId, Rib>,
-    // ident node to ribs mappings
+    // all ident node to ribs mappings
     ident_to_ribs: HashMap<NodeId, Vec<Rib>>,
 
+    // current name ribs
     name_ribs: Vec<Rib>,
     next_rib_id: u32,
 }
@@ -38,6 +39,7 @@ impl Resolver {
             let binding_kind = match &r.kind {
                 RibKind::Block => BindingKind::Let,
                 RibKind::Func => BindingKind::Arg,
+                RibKind::Crate => BindingKind::Item,
             };
             if let Some(defined_ident_node_id) = r.bindings.get(&ident.symbol) {
                 return Some(NameBinding::new(*defined_ident_node_id, binding_kind));
@@ -84,10 +86,27 @@ impl NameBinding {
 pub enum BindingKind {
     Arg,
     Let,
+    Item,
 }
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
+    fn visit_crate(&mut self, _krate: &'ctx ast::Crate) {
+        let r = self.new_rib(RibKind::Crate);
+        self.name_ribs.push(r);
+    }
+
+    fn visit_crate_post(&mut self, _krate: &'ctx ast::Crate) {
+        self.name_ribs.pop();
+        assert_eq!(self.name_ribs.len(), 0);
+    }
+
     fn visit_func(&mut self, func: &'ctx ast::Func) {
+        // insert func name
+        self.name_ribs
+            .last_mut()
+            .unwrap()
+            .insert_binding(func.name.clone());
+
         let mut r = self.new_rib(RibKind::Func);
         for (param, _) in &func.params {
             r.insert_binding(param.clone())
@@ -131,6 +150,11 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 pub struct Rib {
     id: u32,
     kind: RibKind,
+    // let a = 0; a
+    //            ^
+    // ↓
+    // let a = 0; a
+    //     ^
     bindings: HashMap<Rc<String>, NodeId>,
 }
 
@@ -138,6 +162,7 @@ pub struct Rib {
 enum RibKind {
     Func,
     Block,
+    Crate,
 }
 
 impl Rib {

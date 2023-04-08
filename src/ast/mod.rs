@@ -1,4 +1,4 @@
-use crate::{middle::ty::Ty, span::Span};
+use crate::span::Span;
 use std::rc::Rc;
 
 pub mod visitor;
@@ -63,7 +63,7 @@ pub enum StmtKind {
 #[derive(Debug)]
 pub struct LetStmt {
     pub ident: Ident,
-    pub ty: Rc<Ty>,
+    pub ty: Option<Ty>,
     pub init: Option<Expr>,
 }
 
@@ -127,3 +127,23 @@ pub enum UnOp {
     Plus,
     Minus,
 }
+
+#[derive(Debug)]
+pub struct Ty {
+    pub kind: TyKind,
+    pub span: Span,
+}
+
+#[derive(Debug)]
+pub enum TyKind {
+    Unit,
+    Bool,
+    I32,
+    Str,
+    Array(Rc<Ty>, usize),
+    Adt(Rc<String>),
+    Ref(Option<Region>, Rc<Ty>),
+    Never,
+}
+
+pub type Region = String;

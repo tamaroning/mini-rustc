@@ -112,7 +112,16 @@ impl VisitFrame<'_, '_, '_> {
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        for (param, param_ty) in &func.params {
+        let name = self.codegen.ctx.resolver.resolve_ident(&func.name).unwrap();
+        let (param_tys, _ret_ty) = self
+            .codegen
+            .ctx
+            .lookup_name_type(&name)
+            .unwrap()
+            .get_func_type()
+            .unwrap();
+
+        for ((param, _), param_ty) in func.params.iter().zip(param_tys.iter()) {
             if self.codegen.ty_to_llty(param_ty).eval_to_ptr() {
                 // argument passed via memory (i.e. call by reference)
                 self.add_local(param, param_ty, LocalKind::Ptr);
@@ -124,11 +133,19 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     }
 
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        if self.codegen.ty_to_llty(&let_stmt.ty).is_void() {
+        let name = self
+            .codegen
+            .ctx
+            .resolver
+            .resolve_ident(&let_stmt.ident)
+            .unwrap();
+        let var_ty = self.codegen.ctx.lookup_name_type(&name).unwrap();
+
+        if self.codegen.ty_to_llty(&var_ty).is_void() {
             // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`
-            self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Value);
+            self.add_local(&let_stmt.ident, &var_ty, LocalKind::Value);
         } else {
-            self.add_local(&let_stmt.ident, &let_stmt.ty, LocalKind::Ptr);
+            self.add_local(&let_stmt.ident, &var_ty, LocalKind::Ptr);
         }
     }
 

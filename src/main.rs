@@ -52,10 +52,6 @@ fn main() {
     // Name resolution stage
     ctx.resolve(&krate);
 
-    if ctx.dump_enabled {
-        dbg!(&ctx);
-    }
-
     // Typecheck stage
     let typeck_result = typeck::typeck(&mut ctx, &krate);
     let Ok(()) = typeck_result else {
@@ -67,6 +63,10 @@ fn main() {
         eprintln!("Failed to typecheck crate");
         std::process::exit(1);
     };
+
+    if ctx.dump_enabled {
+        dbg!(&ctx);
+    }
 
     // Lvalue analysis stage
     lvalue::analyze(&mut ctx, &krate);

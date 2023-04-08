@@ -1,7 +1,6 @@
 use super::Parser;
-use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem};
+use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem, Ty, TyKind};
 use crate::lexer::{self, Token, TokenKind};
-use crate::middle::ty::Ty;
 use std::rc::Rc;
 
 pub fn is_item_start(token: &Token) -> bool {
@@ -237,6 +236,7 @@ impl Parser {
 
     pub fn parse_type(&mut self) -> Option<Ty> {
         let t = self.skip_token();
+        let span = t.span;
         match t.kind {
             // Unit type: ()
             TokenKind::OpenParen => {
@@ -247,17 +247,32 @@ impl Parser {
                     );
                     None
                 } else {
-                    Some(Ty::Unit)
+                    Some(Ty {
+                        kind: TyKind::Unit,
+                        span,
+                    })
                 }
             }
             // Never type: !
-            TokenKind::Bang => Some(Ty::Never),
+            TokenKind::Bang => Some(Ty {
+                kind: TyKind::Never,
+                span,
+            }),
             // i32
-            TokenKind::I32 => Some(Ty::I32),
+            TokenKind::I32 => Some(Ty {
+                kind: TyKind::I32,
+                span,
+            }),
             // str
-            TokenKind::Str => Some(Ty::Str),
+            TokenKind::Str => Some(Ty {
+                kind: TyKind::Str,
+                span,
+            }),
             // bool
-            TokenKind::Bool => Some(Ty::Bool),
+            TokenKind::Bool => Some(Ty {
+                kind: TyKind::Bool,
+                span,
+            }),
             // [type; n]
             TokenKind::OpenBracket => {
                 let elem_ty = self.parse_type()?;
@@ -272,6 +287,7 @@ impl Parser {
                 let TokenKind::NumLit(n) = t.kind else {
                     return None;
                 };
+                let span = span.concat(&self.peek_token().span);
                 if !self.skip_expected_token(TokenKind::CloseBracket) {
                     eprintln!(
                         "Expected ']', but found `{}`",
@@ -280,23 +296,32 @@ impl Parser {
                     return None;
                 }
                 // u32 is safely converted to usize
-                Some(Ty::Array(Rc::new(elem_ty), n.try_into().unwrap()))
+                Some(Ty {
+                    kind: TyKind::Array(Rc::new(elem_ty), n.try_into().unwrap()),
+                    span,
+                })
             }
-            TokenKind::Ident(s) => Some(Ty::Adt(Rc::new(s))),
+            TokenKind::Ident(s) => Some(Ty {
+                kind: TyKind::Adt(Rc::new(s)),
+                span,
+            }),
             TokenKind::BinOp(lexer::BinOp::And) => {
                 let t = self.peek_token();
                 let region = if let TokenKind::Lifetime(_) = t.kind {
                     let TokenKind::Lifetime(r) = self.skip_token().kind else { unreachable!() };
-                    r
+                    Some(r)
                 } else {
-                    // FIXME: infer?
-                    "static".to_string()
+                    None
                 };
                 let referent = self.parse_type()?;
-                Some(Ty::Ref(region, Rc::new(referent)))
+                let span = span.concat(&referent.span);
+                Some(Ty {
+                    kind: TyKind::Ref(region, Rc::new(referent)),
+                    span,
+                })
             }
             _ => {
-                eprintln!("Expected type, but found `{}`", t.span.to_snippet());
+                eprintln!("Expected type, but found `{}`", span.to_snippet());
                 None
             }
         }

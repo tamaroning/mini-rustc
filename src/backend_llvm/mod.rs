@@ -7,7 +7,7 @@ mod llvm;
 use self::frame::Frame;
 use self::llvm::*;
 use crate::ast::Crate;
-use crate::middle::ty::{AdtDef, Ty};
+use crate::middle::ty::{AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -51,16 +51,16 @@ impl<'a> Codegen<'a> {
 
     // TODO: memoize
     fn ty_to_llty(&self, ty: &Ty) -> LLTy {
-        match ty {
-            Ty::Unit => LLTy::Void,
-            Ty::I32 => LLTy::I32,
-            Ty::Bool => LLTy::I8,
-            Ty::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
-            Ty::Adt(name) => LLTy::Adt(Rc::clone(name)),
-            Ty::Never => LLTy::Void,
-            Ty::Ref(_, inner) => match &**inner {
+        match &ty.kind {
+            TyKind::Unit => LLTy::Void,
+            TyKind::I32 => LLTy::I32,
+            TyKind::Bool => LLTy::I8,
+            TyKind::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
+            TyKind::Adt(name) => LLTy::Adt(Rc::clone(name)),
+            TyKind::Never => LLTy::Void,
+            TyKind::Ref(inner) => match &inner.kind {
                 // FIXME: should be [N x i8]
-                Ty::Str => LLTy::Ptr(Rc::new(LLTy::I8)),
+                TyKind::Str => LLTy::Ptr(Rc::new(LLTy::I8)),
                 _ => todo!(),
             },
             _ => panic!(),

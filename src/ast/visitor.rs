@@ -96,7 +96,9 @@ fn walk_let_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, let_stmt: &'ctx LetStmt) {
     v.visit_let_stmt(let_stmt);
     let LetStmt { ident, ty, init } = let_stmt;
     walk_ident(v, ident);
-    walk_type(v, ty);
+    if let Some(ty) = ty {
+        walk_type(v, ty);
+    }
     if let Some(init) = init {
         walk_expr(v, init);
     }

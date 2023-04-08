@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Span {
     lo: usize,
     hi: usize,
@@ -50,4 +50,10 @@ impl Span {
         Rc::clone(&self.src)
     }
     */
+}
+
+impl std::fmt::Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}, \"{}\"", self.lo, self.hi, self.to_snippet())
+    }
 }

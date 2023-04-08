@@ -2,7 +2,7 @@ pub mod ty;
 
 use crate::ast::{self, Crate, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::Resolver;
+use crate::resolve::{NameBinding, Resolver};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -13,9 +13,11 @@ pub struct Ctxt {
     pub resolver: Resolver,
 
     // Set during typecheck stage
-    /// ExprOrStmtOrBlock to type mappings
+    /// Expr/Stmt/Block to type mappings
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
-    fn_types: HashMap<Rc<String>, Rc<Ty>>,
+    /// local variables, paramters, function-name to type mappings
+    pub name_ty_mappings: HashMap<NameBinding, Rc<Ty>>,
+    // TODO: use NameBinding
     adt_defs: HashMap<Rc<String>, Rc<AdtDef>>,
 
     // Set during rvalue anlaysis stage
@@ -30,7 +32,7 @@ impl<'ctx> Ctxt {
             dump_enabled,
             resolver: Resolver::new(),
             ty_mappings: HashMap::new(),
-            fn_types: HashMap::new(),
+            name_ty_mappings: HashMap::new(),
             adt_defs: HashMap::new(),
             lvalues: HashSet::new(),
         }
@@ -52,12 +54,12 @@ impl<'ctx> Ctxt {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
     }
 
-    pub fn lookup_fn_type(&self, func_name: &String) -> Option<Rc<Ty>> {
-        self.fn_types.get(func_name).map(Rc::clone)
+    pub fn lookup_name_type(&self, name: &NameBinding) -> Option<Rc<Ty>> {
+        self.name_ty_mappings.get(name).map(Rc::clone)
     }
 
-    pub fn set_fn_type(&mut self, func_name: Rc<String>, fn_ty: Rc<Ty>) {
-        self.fn_types.insert(func_name, fn_ty);
+    pub fn set_name_type(&mut self, name: NameBinding, fn_ty: Rc<Ty>) {
+        self.name_ty_mappings.insert(name, fn_ty);
     }
 
     pub fn lookup_adt_def(&self, adt_name: &String) -> Option<Rc<AdtDef>> {

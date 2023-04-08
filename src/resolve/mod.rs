@@ -4,7 +4,7 @@ use crate::ast::Ident;
 use crate::ast::NodeId;
 use std::{collections::HashMap, rc::Rc};
 
-#[derive(Clone, Eq, Hash)]
+#[derive(Clone, Eq)]
 pub struct CanonicalPath {
     pub res: Res,
     // `mod_a::func_f::var_a` => ["mod_a", "func_f", "var_a"]
@@ -53,6 +53,12 @@ impl std::fmt::Display for CanonicalPath {
 impl std::fmt::Debug for CanonicalPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {:?}", self, self.res)
+    }
+}
+
+impl std::hash::Hash for CanonicalPath {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.res.hash(state);
     }
 }
 

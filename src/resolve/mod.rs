@@ -1,4 +1,7 @@
-use crate::ast::{self, Ident, NodeId, StmtKind};
+mod resolve_crate;
+
+use crate::ast::Ident;
+use crate::ast::NodeId;
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug)]
@@ -72,12 +75,51 @@ impl Resolver {
         id
     }
 
-    fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
+    pub fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
         // FIXME: this `clone()` might be very slow.
         //   register all identifiers to name_ribs and after doing so, make it
         //   shared immutable using `Rc`
         self.ident_to_ribs
             .insert(ident_node_id, self.name_ribs.clone());
+    }
+}
+
+/// Struct representing a scope
+/// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
+#[derive(Debug, Clone)]
+pub struct Rib {
+    id: u32,
+    kind: RibKind,
+    // let a = 0; a
+    //            ^
+    // ↓
+    // let a = 0; a
+    //     ^
+    bindings: HashMap<Rc<String>, NodeId>,
+}
+
+type RibId = u32;
+
+#[derive(Debug, Clone)]
+pub enum RibKind {
+    Func,
+    Block,
+    Crate,
+}
+
+impl Rib {
+    fn new(rib_id: u32, kind: RibKind) -> Self {
+        Rib {
+            id: rib_id,
+            kind,
+            bindings: HashMap::new(),
+        }
+    }
+
+    // TODO: shadowing
+    pub fn insert_binding(&mut self, ident: &Ident) {
+        // FIXME: duplicate symbol?
+        self.bindings.insert(ident.symbol.clone(), ident.id);
     }
 }
 
@@ -101,93 +143,4 @@ pub enum BindingKind {
     Arg,
     Let,
     Item,
-}
-
-impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
-    fn visit_crate(&mut self, krate: &'ctx ast::Crate) {
-        // push new rib
-        self.push_rib(RibKind::Crate, krate.id);
-    }
-
-    fn visit_crate_post(&mut self, _krate: &'ctx ast::Crate) {
-        self.pop_rib();
-    }
-
-    fn visit_func(&mut self, func: &'ctx ast::Func) {
-        // insert func name
-        self.get_current_rib_mut().insert_binding(&func.name);
-
-        // push new rib
-        self.push_rib(RibKind::Func, func.id);
-
-        // insert parameters
-        for (param, _) in &func.params {
-            self.get_current_rib_mut().insert_binding(&param)
-        }
-    }
-
-    fn visit_func_post(&mut self, _: &'ctx ast::Func) {
-        // pop current rib
-        self.pop_rib();
-    }
-
-    fn visit_block(&mut self, block: &'ctx ast::Block) {
-        // push new rib
-        self.push_rib(RibKind::Block, block.id);
-    }
-
-    fn visit_block_post(&mut self, _: &'ctx ast::Block) {
-        // pop current rib
-        self.pop_rib();
-    }
-
-    fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
-        if let StmtKind::Let(let_stmt) = &stmt.kind {
-            // insert local variables
-            self.get_current_rib_mut().insert_binding(&let_stmt.ident)
-        }
-    }
-
-    fn visit_ident(&mut self, ident: &'ctx ast::Ident) {
-        self.set_ribs_to_ident_node(ident.id);
-    }
-}
-
-/// Struct representing a scope
-/// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
-#[derive(Debug, Clone)]
-pub struct Rib {
-    id: u32,
-    kind: RibKind,
-    // let a = 0; a
-    //            ^
-    // ↓
-    // let a = 0; a
-    //     ^
-    bindings: HashMap<Rc<String>, NodeId>,
-}
-
-type RibId = u32;
-
-#[derive(Debug, Clone)]
-enum RibKind {
-    Func,
-    Block,
-    Crate,
-}
-
-impl Rib {
-    fn new(rib_id: u32, kind: RibKind) -> Self {
-        Rib {
-            id: rib_id,
-            kind,
-            bindings: HashMap::new(),
-        }
-    }
-
-    // TODO: shadowing
-    pub fn insert_binding(&mut self, ident: &Ident) {
-        // FIXME: duplicate symbol?
-        self.bindings.insert(ident.symbol.clone(), ident.id);
-    }
 }

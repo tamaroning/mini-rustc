@@ -1,6 +1,6 @@
 pub mod ty;
 
-use crate::ast::{self, Crate, NodeId};
+use crate::ast::{self, Crate, Ident, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::{NameBinding, Resolver};
 use std::collections::{HashMap, HashSet};
@@ -10,7 +10,7 @@ use std::rc::Rc;
 pub struct Ctxt {
     pub dump_enabled: bool,
     // Set during name resolution stage
-    pub resolver: Resolver,
+    resolver: Resolver,
 
     // Set during typecheck stage
     /// Expr/Stmt/Block to type mappings
@@ -42,6 +42,11 @@ impl<'ctx> Ctxt {
 
     pub fn resolve(&mut self, krate: &'ctx Crate) {
         ast::visitor::go(&mut self.resolver, krate);
+    }
+
+    /// Resolve identifier (local variable, parameters, function name)
+    pub fn resolve_ident(&self, ident: &Ident) -> Option<NameBinding> {
+        self.resolver.resolve_ident(ident)
     }
 
     // Typecheck Stage

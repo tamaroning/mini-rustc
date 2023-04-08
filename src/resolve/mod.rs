@@ -45,7 +45,6 @@ impl Resolver {
         self.name_ribs.pop().unwrap();
     }
 
-    /// Resolve identifier (local variable, parameters, function name)
     pub fn resolve_ident(&self, ident: &Ident) -> Option<NameBinding> {
         let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
         self.resolve_ident_from_ribs(ident, ribs)

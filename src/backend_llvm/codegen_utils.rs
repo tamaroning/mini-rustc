@@ -80,7 +80,7 @@ impl<'a> Codegen<'a> {
     // ident: LLTY* (i.e. LocalKind::Ptr) -> LLTY*
     // ident: LLTY  (i.e. LocalKind::Val)  -> Err
     pub fn gen_ident_lval(&mut self, ident: &'a Ident) -> Result<Rc<LLReg>, ()> {
-        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        let name = self.ctx.resolve_ident(ident).unwrap();
         let local = self.peek_frame().get_local(&name);
         match &local.kind {
             LocalKind::Value => Err(()),
@@ -92,7 +92,7 @@ impl<'a> Codegen<'a> {
     /// ident is not allocated => returns its reg
     /// ident: LLTY -> returns LLTY*
     pub fn load_ident(&mut self, ident: &'a Ident) -> Result<Rc<LLReg>, ()> {
-        let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+        let name = self.ctx.resolve_ident(ident).unwrap();
         let local = &self.peek_frame().get_local(&name);
         match &local.kind {
             LocalKind::Value => Ok(Rc::clone(&local.reg)),

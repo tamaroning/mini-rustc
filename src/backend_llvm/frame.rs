@@ -93,7 +93,7 @@ impl VisitFrame<'_, '_, '_> {
         if local_kind == LocalKind::Ptr {
             reg_ty = LLTy::Ptr(Rc::new(reg_ty));
         }
-        let name_binding = self.codegen.ctx.resolver.resolve_ident(ident).unwrap();
+        let name_binding = self.codegen.ctx.resolve_ident(ident).unwrap();
         let reg_name = format!("%{}", ident.symbol);
         let reg = LLReg::new(reg_name, Rc::new(reg_ty));
         self.frame
@@ -112,7 +112,7 @@ impl VisitFrame<'_, '_, '_> {
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        let name = self.codegen.ctx.resolver.resolve_ident(&func.name).unwrap();
+        let name = self.codegen.ctx.resolve_ident(&func.name).unwrap();
         let (param_tys, _ret_ty) = self
             .codegen
             .ctx
@@ -133,12 +133,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     }
 
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let name = self
-            .codegen
-            .ctx
-            .resolver
-            .resolve_ident(&let_stmt.ident)
-            .unwrap();
+        let name = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
         let var_ty = self.codegen.ctx.lookup_name_type(&name).unwrap();
 
         if self.codegen.ty_to_llty(&var_ty).is_void() {

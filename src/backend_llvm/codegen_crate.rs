@@ -41,7 +41,7 @@ impl<'a> Codegen<'a> {
         let frame = compute_frame(self, func);
         self.push_frame(frame);
 
-        let name = self.ctx.resolver.resolve_ident(&func.name).unwrap();
+        let name = self.ctx.resolve_ident(&func.name).unwrap();
         let (_param_tys, ret_ty) = self
             .ctx
             .lookup_name_type(&name)
@@ -131,7 +131,7 @@ impl<'a> Codegen<'a> {
             }
             StmtKind::Expr(expr) => self.eval_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
-                let name = self.ctx.resolver.resolve_ident(ident).unwrap();
+                let name = self.ctx.resolve_ident(ident).unwrap();
                 let local = self.peek_frame().get_local(&name);
 
                 if let Some(init) = init && local.kind == LocalKind::Ptr {

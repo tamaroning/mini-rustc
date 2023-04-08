@@ -55,7 +55,8 @@ impl LLTy {
         matches!(self, LLTy::Void)
     }
 
-    // adt and array
+    // ADTs and arrays
+    // parameters of these types are passed by pointer
     pub fn eval_to_ptr(&self) -> bool {
         matches!(*self, LLTy::Adt(_) | LLTy::Array(_, _))
     }

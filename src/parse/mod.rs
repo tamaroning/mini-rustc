@@ -2,11 +2,10 @@ mod parse_expr;
 mod parse_item;
 mod parse_stmt;
 
-use std::rc::Rc;
-
 use self::parse_item::is_item_start;
 use crate::ast::{Crate, Ident, Item};
 use crate::lexer::{Lexer, Token, TokenKind};
+use std::rc::Rc;
 
 pub struct Parser {
     lexer: Lexer,
@@ -66,10 +65,8 @@ impl Parser {
             );
             return None;
         }
-        Some(Crate {
-            items,
-            id: self.get_next_id(),
-        })
+        let id = self.get_next_id();
+        Some(Crate { items, id })
     }
 
     fn parse_items(&mut self) -> Option<Vec<Item>> {

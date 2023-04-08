@@ -1,5 +1,5 @@
 use super::{Codegen, LLReg, LLTy};
-use crate::{ast, middle::ty::Ty, resolve::NameBinding};
+use crate::{ast, middle::ty::Ty, resolve::CanonicalPath};
 use std::{collections::HashMap, rc::Rc};
 
 pub fn compute_frame(codegen: &mut Codegen, func: &ast::Func) -> Frame {
@@ -14,7 +14,7 @@ pub fn compute_frame(codegen: &mut Codegen, func: &ast::Func) -> Frame {
 
 #[derive(Debug)]
 pub struct Frame {
-    locals: HashMap<NameBinding, Rc<Local>>,
+    locals: HashMap<Rc<CanonicalPath>, Rc<Local>>,
     /// Registers pointing to memory for temporary variables
     /// Can be used only for non-lvalue array and structs
     temporary_regs: HashMap<ast::NodeId, Rc<LLReg>>,
@@ -52,11 +52,11 @@ impl Frame {
         }
     }
 
-    pub fn get_local(&self, name: &NameBinding) -> Rc<Local> {
+    pub fn get_local(&self, name: &Rc<CanonicalPath>) -> Rc<Local> {
         Rc::clone(self.locals.get(name).unwrap())
     }
 
-    pub fn get_locals(&self) -> &HashMap<NameBinding, Rc<Local>> {
+    pub fn get_locals(&self) -> &HashMap<Rc<CanonicalPath>, Rc<Local>> {
         &self.locals
     }
 
@@ -116,7 +116,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         let (param_tys, _ret_ty) = self
             .codegen
             .ctx
-            .lookup_name_type(&name)
+            .lookup_cpath_type(&name)
             .unwrap()
             .get_func_type()
             .unwrap();
@@ -134,7 +134,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
 
     fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
         let name = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
-        let var_ty = self.codegen.ctx.lookup_name_type(&name).unwrap();
+        let var_ty = self.codegen.ctx.lookup_cpath_type(&name).unwrap();
 
         if self.codegen.ty_to_llty(&var_ty).is_void() {
             // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`

@@ -4,17 +4,72 @@ use crate::ast::Ident;
 use crate::ast::NodeId;
 use std::{collections::HashMap, rc::Rc};
 
+#[derive(Clone, Eq, Hash)]
+pub struct CanonicalPath {
+    pub res: Res,
+    // `mod_a::func_f::var_a` => ["mod_a", "func_f", "var_a"]
+    pub segments: Vec<Rc<String>>,
+}
+
+impl CanonicalPath {
+    pub fn empty() -> Self {
+        CanonicalPath {
+            res: Res::Error,
+            segments: vec![],
+        }
+    }
+    pub fn push_segment(&mut self, seg: Rc<String>, res: Res) {
+        self.segments.push(seg);
+        self.res = res;
+    }
+
+    pub fn pop_segment(&mut self) -> Option<Rc<String>> {
+        self.segments.pop()
+    }
+}
+
+impl std::cmp::PartialEq for CanonicalPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.res == other.res
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.res != other.res
+    }
+}
+
+impl std::fmt::Display for CanonicalPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, seg) in self.segments.iter().enumerate() {
+            if i != 0 {
+                write!(f, "::")?;
+            }
+            write!(f, "{}", *seg)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for CanonicalPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {:?}", self, self.res)
+    }
+}
+
 #[derive(Debug)]
 pub struct Resolver {
     /// Crate/Func/Block to rib mappings, which is set by resovler
     ribs: HashMap<NodeId, RibId>,
     // all ident node to ribs mappings
     ident_to_ribs: HashMap<NodeId, Vec<RibId>>,
-    // current name ribs
-    name_ribs: Vec<RibId>,
+    // stack of urrent name ribs
+    current_ribs: Vec<RibId>,
+    // current canonical path
+    current_cpath: CanonicalPath,
+    next_rib_id: u32,
     // interned ribs
     interned: HashMap<RibId, Rib>,
-    next_rib_id: u32,
+    cpath_cache: HashMap<NodeId, Rc<CanonicalPath>>,
 }
 
 impl Resolver {
@@ -22,125 +77,93 @@ impl Resolver {
         Resolver {
             ribs: HashMap::new(),
             ident_to_ribs: HashMap::new(),
-            name_ribs: vec![],
+            current_ribs: vec![],
+            current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
             next_rib_id: 0,
+            cpath_cache: HashMap::new(),
         }
     }
 
-    fn get_current_rib_mut(&mut self) -> &mut Rib {
-        let current_rib_id = self.name_ribs.last().unwrap();
-        self.interned.get_mut(&current_rib_id).unwrap()
-    }
-
-    fn get_rib(&self, rib_id: RibId) -> &Rib {
-        self.interned.get(&rib_id).unwrap()
-    }
-
-    fn push_rib(&mut self, rib_kind: RibKind, node_id: NodeId) {
-        let rib = Rib::new(self.get_next_id(), rib_kind);
-        self.name_ribs.push(rib.id);
-        self.ribs.insert(node_id, rib.id);
-        self.interned.insert(rib.id, rib);
-    }
-
-    fn pop_rib(&mut self) {
-        self.name_ribs.pop().unwrap();
-    }
-
-    pub fn resolve_ident(&self, ident: &Ident) -> Option<NameBinding> {
-        let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
-        self.resolve_ident_from_ribs(ident, ribs)
+    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<CanonicalPath>> {
+        if let Some(cpath) = self.cpath_cache.get(&ident.id) {
+            Some(Rc::clone(cpath))
+        } else {
+            let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
+            let cpath = Rc::new(self.resolve_segment_from_ribs(&ident.symbol, ribs)?);
+            self.cpath_cache.insert(ident.id, Rc::clone(&cpath));
+            Some(cpath)
+        }
     }
 
     // just utility function of resolve_ident
-    fn resolve_ident_from_ribs(&self, ident: &Ident, ribs: &[RibId]) -> Option<NameBinding> {
+    fn resolve_segment_from_ribs(&self, seg: &Rc<String>, ribs: &[RibId]) -> Option<CanonicalPath> {
         for rib_id in ribs.iter().rev() {
             let rib = self.get_rib(*rib_id);
-            let binding_kind = match &rib.kind {
-                RibKind::Block => BindingKind::Let,
-                RibKind::Func => BindingKind::Arg,
-                RibKind::Crate => BindingKind::Item,
-            };
-            if let Some(defined_ident_node_id) = rib.bindings.get(&ident.symbol) {
-                return Some(NameBinding::new(*defined_ident_node_id, binding_kind));
+            if let Some(res) = rib.bindings.get(seg) {
+                let mut cpath = rib.cpath.clone();
+                cpath.push_segment(Rc::clone(seg), *res);
+                return Some(cpath);
             }
         }
         None
     }
 
-    fn get_next_id(&mut self) -> u32 {
-        let id = self.next_rib_id;
-        self.next_rib_id += 1;
-        id
-    }
-
-    pub fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
-        // FIXME: this `clone()` might be very slow.
-        //   register all identifiers to name_ribs and after doing so, make it
-        //   shared immutable using `Rc`
-        self.ident_to_ribs
-            .insert(ident_node_id, self.name_ribs.clone());
+    fn get_rib(&self, rib_id: RibId) -> &Rib {
+        self.interned.get(&rib_id).unwrap()
     }
 }
 
 /// Struct representing a scope
 /// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Rib {
-    id: u32,
-    kind: RibKind,
+    id: RibId,
+    // optional name
+    cpath: CanonicalPath,
     // let a = 0; a
     //            ^
     // ↓
     // let a = 0; a
     //     ^
-    bindings: HashMap<Rc<String>, NodeId>,
+    bindings: HashMap<Rc<String>, Res>,
 }
 
 type RibId = u32;
 
-#[derive(Debug, Clone)]
-pub enum RibKind {
-    Func,
-    Block,
-    Crate,
+// link to NodeId of ast::Ident
+// https://doc.rust-lang.org/stable/nightly-rustc/rustc_hir/def/enum.Res.html
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Res {
+    Crate(NodeId),
+    Func(NodeId),
+    Let(NodeId),
+    Param(NodeId),
+    Error,
+}
+
+impl Res {
+    pub fn is_param(&self) -> bool {
+        matches!(self, Res::Param(_))
+    }
+
+    pub fn is_let(&self) -> bool {
+        matches!(self, Res::Let(_))
+    }
 }
 
 impl Rib {
-    fn new(rib_id: u32, kind: RibKind) -> Self {
+    fn new(rib_id: u32, cpath: CanonicalPath) -> Self {
         Rib {
             id: rib_id,
-            kind,
+            cpath,
             bindings: HashMap::new(),
         }
     }
 
     // TODO: shadowing
-    pub fn insert_binding(&mut self, ident: &Ident) {
+    pub fn insert_binding(&mut self, symbol: Rc<String>, res: Res) {
         // FIXME: duplicate symbol?
-        self.bindings.insert(ident.symbol.clone(), ident.id);
+        self.bindings.insert(symbol, res);
     }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct NameBinding {
-    pub kind: BindingKind,
-    defined_ident_node_id: NodeId,
-}
-
-impl NameBinding {
-    fn new(defined_ident_node_id: NodeId, kind: BindingKind) -> Self {
-        NameBinding {
-            kind,
-            defined_ident_node_id,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum BindingKind {
-    Arg,
-    Let,
-    Item,
 }

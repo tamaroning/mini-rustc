@@ -93,13 +93,13 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         )));
 
         let name = self.ctx.resolve_ident(&func.name).unwrap();
-        self.ctx.set_name_type(name, func_ty);
+        self.ctx.set_cpath_type(name, func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
             let name_binding = self.ctx.resolve_ident(param).unwrap();
             self.ctx
-                .set_name_type(name_binding, Rc::new(self.ast_ty_to_ty(param_ty)));
+                .set_cpath_type(name_binding, Rc::new(self.ast_ty_to_ty(param_ty)));
         }
         // push return type
         let ret_ty = self.ast_ty_to_ty(&func.ret_ty);
@@ -168,7 +168,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         let name_binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
         // set type of local variable
         // TODO: unwrap
-        self.ctx.set_name_type(
+        self.ctx.set_cpath_type(
             name_binding,
             Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
         );
@@ -259,7 +259,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
             ExprKind::Ident(ident) => {
                 // find symbols in local variables, parameters, and in functions
                 if let Some(name_binding) = self.ctx.resolve_ident(ident) {
-                    if let Some(ty) = self.ctx.lookup_name_type(&name_binding) {
+                    if let Some(ty) = self.ctx.lookup_cpath_type(&name_binding) {
                         ty
                     } else {
                         self.error(format!(

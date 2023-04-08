@@ -5,7 +5,6 @@ use crate::{
         frame::{compute_frame, LocalKind},
         LLImm,
     },
-    resolve::BindingKind,
 };
 
 impl<'a> Codegen<'a> {
@@ -44,7 +43,7 @@ impl<'a> Codegen<'a> {
         let name = self.ctx.resolve_ident(&func.name).unwrap();
         let (_param_tys, ret_ty) = self
             .ctx
-            .lookup_name_type(&name)
+            .lookup_cpath_type(&name)
             .unwrap()
             .get_func_type()
             .unwrap();
@@ -60,7 +59,7 @@ impl<'a> Codegen<'a> {
             .peek_frame()
             .get_locals()
             .iter()
-            .filter(|(b, l)| b.kind == BindingKind::Arg && !l.reg.llty.is_void())
+            .filter(|(cpath, l)| cpath.res.is_param() && !l.reg.llty.is_void())
             .peekable();
         while let Some((_, local)) = it.next() {
             print!("{}", local.reg.to_string_with_type());
@@ -79,8 +78,8 @@ impl<'a> Codegen<'a> {
         println!(" {{");
 
         // allocate local variables
-        for (name_binding, local) in self.peek_frame().get_locals() {
-            if name_binding.kind == BindingKind::Let && !local.reg.llty.is_void() {
+        for (cpath, local) in self.peek_frame().get_locals() {
+            if cpath.res.is_let() && !local.reg.llty.is_void() {
                 assert!(local.kind == LocalKind::Ptr);
                 println!(
                     "\t{} = alloca {}",

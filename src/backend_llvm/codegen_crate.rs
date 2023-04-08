@@ -1,6 +1,6 @@
 use super::{Codegen, LLValue};
 use crate::{
-    ast::{Block, Crate, ExternBlock, Func, ItemKind, LetStmt, Stmt, StmtKind},
+    ast::{Block, Crate, ExternBlock, Func, Item, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{
         frame::{compute_frame, LocalKind},
         LLImm,
@@ -10,12 +10,22 @@ use crate::{
 impl<'a> Codegen<'a> {
     pub fn gen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
         for item in &krate.items {
-            match &item.kind {
-                ItemKind::Func(func) => {
-                    self.gen_func(func)?;
+            self.gen_item(item)?;
+        }
+        Ok(())
+    }
+
+    pub fn gen_item(&mut self, item: &'a Item) -> Result<(), ()> {
+        match &item.kind {
+            ItemKind::Func(func) => {
+                self.gen_func(func)?;
+            }
+            ItemKind::Struct(_) => (),
+            ItemKind::ExternBlock(ext_block) => self.gen_external_block(ext_block)?,
+            ItemKind::Mod(module) => {
+                for inner_item in &module.items {
+                    self.gen_item(inner_item)?;
                 }
-                ItemKind::Struct(_) => (),
-                ItemKind::ExternBlock(ext_block) => self.gen_external_block(ext_block)?,
             }
         }
         Ok(())

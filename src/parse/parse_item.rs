@@ -1,17 +1,17 @@
 use super::Parser;
-use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, StructItem, Ty, TyKind};
+use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, Module, StructItem, Ty, TyKind};
 use crate::lexer::{self, Token, TokenKind};
 use std::rc::Rc;
 
 pub fn is_item_start(token: &Token) -> bool {
     matches!(
         token.kind,
-        TokenKind::Fn | TokenKind::Extern | TokenKind::Struct
+        TokenKind::Fn | TokenKind::Extern | TokenKind::Struct | TokenKind::Mod
     )
 }
 
 impl Parser {
-    /// item ::= func | structItem | externBlock
+    /// item ::= func | structItem | externBlock | module
     pub fn parse_item(&mut self) -> Option<Item> {
         let t = self.peek_token();
         match &t.kind {
@@ -24,6 +24,9 @@ impl Parser {
             TokenKind::Extern => Some(Item {
                 kind: ItemKind::ExternBlock(self.parse_extern_block()?),
             }),
+            TokenKind::Mod => Some(Item {
+                kind: ItemKind::Mod(self.parse_module()?),
+            }),
             _ => {
                 eprintln!(
                     "Expected item, but found `{}`",
@@ -32,6 +35,41 @@ impl Parser {
                 None
             }
         }
+    }
+
+    /// module ::= "mod" ident "{" item* "}"
+    /// https://doc.rust-lang.org/reference/items/modules.html
+    fn parse_module(&mut self) -> Option<Module> {
+        // skip `mod`
+        self.skip_token();
+
+        let name = self.parse_ident()?;
+
+        // `{`
+        if !self.skip_expected_token(TokenKind::OpenBrace) {
+            eprintln!(
+                "Expected '{{' for extern block, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
+            return None;
+        }
+
+        let items = self.parse_items()?;
+
+        // `{`
+        if !self.skip_expected_token(TokenKind::CloseBrace) {
+            eprintln!(
+                "Expected '}}' for extern block, but found `{}`",
+                self.peek_token().span.to_snippet()
+            );
+            return None;
+        }
+
+        Some(Module {
+            name,
+            items,
+            id: self.get_next_id(),
+        })
     }
 
     /// externBlock ::= "extern" abi "{" externalItem* "}"

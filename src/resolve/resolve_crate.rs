@@ -60,6 +60,24 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.pop_rib();
     }
 
+    fn visit_module_item(&mut self, module: &'ctx ast::Module) {
+        // push func name to cpath
+        self.push_segment_to_current_cpath(
+            Rc::clone(&module.name.symbol),
+            Res::Func(module.name.id),
+        );
+        // push new rib
+        self.push_rib(module.id);
+    }
+
+    fn visit_module_item_post(&mut self, _module: &'ctx ast::Module) {
+        // pop mod name from cpath
+        self.pop_segment_from_current_cpath().unwrap();
+
+        // pop current rib
+        self.pop_rib();
+    }
+
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // push func name to cpath
         self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol), Res::Func(func.name.id));

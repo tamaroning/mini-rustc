@@ -142,6 +142,7 @@ type RibId = u32;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Res {
     Crate(NodeId),
+    Mod(NodeId),
     Func(NodeId),
     Let(NodeId),
     Param(NodeId),

@@ -21,6 +21,14 @@ pub enum ItemKind {
     Func(Func),
     Struct(StructItem),
     ExternBlock(ExternBlock),
+    Mod(Module),
+}
+
+#[derive(Debug)]
+pub struct Module {
+    pub name: Ident,
+    pub items: Vec<Item>,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

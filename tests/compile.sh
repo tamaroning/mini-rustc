@@ -27,6 +27,7 @@ QT="'"
 NL=$'\n'
 
 echo "===== Compile Tests ====="
+compile 'fn main() -> () { }'
 # comments
 compile "fn main() -> () { // comment${NL}}"
 compile "//${NL}fn main() -> () { }"
@@ -57,7 +58,6 @@ compile 'fn main() -> () { { let unit: () = (); } }'
 compile 'fn main() -> () { let a: i32 = 1; }'
 # typeck func body
 compile 'fn main() -> () { () }'
-compile 'fn main() -> () { }'
 compile 'fn main() -> i32 { 0 }'
 # extern
 compile 'extern "C" { }
@@ -85,3 +85,9 @@ compile 'fn f(n: i32) -> bool { true } fn main() -> () { let b: bool = f(1 + 2 *
 #compile 'fn main() -> () { if (true) { } else { } }'
 #compile 'fn main() -> () { if (1 == 1) { } else { } }'
 #compile 'fn main() -> () { if (true) { } }'
+# mod
+compile 'fn main() -> () { } mod emp { }'
+compile 'fn main() -> () { } mod a { fn f() -> () { } }'
+compile 'fn main() -> () { } mod a { mod b { mod c { } } }'
+compile 'fn main() -> () { } mod a { mod a { mod a { } } }'
+compile 'fn main() -> () { } mod a { mod a { mod a { fn a() -> () { }  } } }'

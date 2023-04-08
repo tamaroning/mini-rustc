@@ -4,6 +4,10 @@ use super::*;
 pub trait Visitor<'ctx>: Sized {
     fn visit_crate(&mut self, _krate: &'ctx Crate) {}
     fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
+    fn visit_item(&mut self, _item: &'ctx Item) {}
+    fn visit_item_post(&mut self, _item: &'ctx Item) {}
+    fn visit_module_item(&mut self, _module: &'ctx Module) {}
+    fn visit_module_item_post(&mut self, _module: &'ctx Module) {}
     fn visit_func(&mut self, _func: &'ctx Func) {}
     fn visit_func_post(&mut self, _func: &'ctx Func) {}
     fn visit_struct_item(&mut self, _struct: &'ctx StructItem) {}
@@ -33,21 +37,28 @@ pub fn go_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
 fn walk_crate<'ctx, V: Visitor<'ctx>>(v: &mut V, krate: &'ctx Crate) {
     v.visit_crate(krate);
     for item in &krate.items {
-        {
-            match &item.kind {
-                ItemKind::Func(func) => {
-                    walk_func(v, func);
-                }
-                ItemKind::Struct(struct_item) => {
-                    walk_struct_item(v, struct_item);
-                }
-                ItemKind::ExternBlock(extern_block) => {
-                    walk_extern_block(v, extern_block);
-                }
-            }
-        }
+        walk_item(v, item);
     }
     v.visit_crate_post(krate);
+}
+
+fn walk_item<'ctx, V: Visitor<'ctx>>(v: &mut V, item: &'ctx Item) {
+    v.visit_item(item);
+    match &item.kind {
+        ItemKind::Func(func) => {
+            walk_func(v, func);
+        }
+        ItemKind::Struct(struct_item) => {
+            walk_struct_item(v, struct_item);
+        }
+        ItemKind::ExternBlock(extern_block) => {
+            walk_extern_block(v, extern_block);
+        }
+        ItemKind::Mod(module) => {
+            walk_module_item(v, module);
+        }
+    }
+    v.visit_item_post(item);
 }
 
 fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
@@ -80,6 +91,14 @@ fn walk_extern_block<'ctx, V: Visitor<'ctx>>(v: &mut V, block: &'ctx ExternBlock
         walk_func(v, func);
     }
     v.visit_extern_block_post(block);
+}
+
+fn walk_module_item<'ctx, V: Visitor<'ctx>>(v: &mut V, module: &'ctx Module) {
+    v.visit_module_item(module);
+    for item in &module.items {
+        walk_item(v, item);
+    }
+    v.visit_module_item_post(module);
 }
 
 fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {

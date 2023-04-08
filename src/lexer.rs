@@ -23,6 +23,7 @@ pub enum TokenKind {
     Struct,
     Extern,
     Unsafe,
+    Mod,
     /// ->
     Arrow,
     /// !
@@ -294,6 +295,7 @@ impl Lexer {
             "struct" => self.new_token(TokenKind::Struct),
             "extern" => self.new_token(TokenKind::Extern),
             "unsafe" => self.new_token(TokenKind::Unsafe),
+            "mod" => self.new_token(TokenKind::Mod),
             _ => self.new_token(TokenKind::Ident(s)),
         }
     }

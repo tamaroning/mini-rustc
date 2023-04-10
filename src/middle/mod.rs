@@ -2,7 +2,7 @@ pub mod ty;
 
 use crate::ast::{self, Crate, Ident, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::{CanonicalPath, Resolver};
+use crate::resolve::{Binding, CanonicalPath, Resolver};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -16,7 +16,7 @@ pub struct Ctxt {
     /// Expr/Stmt/Block to type mappings
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     /// local variables, paramters, function-name to type mappings
-    pub name_ty_mappings: HashMap<Rc<CanonicalPath>, Rc<Ty>>,
+    pub name_ty_mappings: HashMap<Rc<Binding>, Rc<Ty>>,
     // TODO: use NameBinding
     adt_defs: HashMap<Rc<String>, Rc<AdtDef>>,
 
@@ -45,7 +45,7 @@ impl<'ctx> Ctxt {
     }
 
     /// Resolve identifier (local variable, parameters, function name)
-    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<CanonicalPath>> {
+    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
         self.resolver.resolve_ident(ident)
     }
 
@@ -59,11 +59,11 @@ impl<'ctx> Ctxt {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
     }
 
-    pub fn lookup_cpath_type(&self, name: &Rc<CanonicalPath>) -> Option<Rc<Ty>> {
+    pub fn lookup_cpath_type(&self, name: &Rc<Binding>) -> Option<Rc<Ty>> {
         self.name_ty_mappings.get(name).map(Rc::clone)
     }
 
-    pub fn set_cpath_type(&mut self, name: Rc<CanonicalPath>, fn_ty: Rc<Ty>) {
+    pub fn set_cpath_type(&mut self, name: Rc<Binding>, fn_ty: Rc<Ty>) {
         self.name_ty_mappings.insert(name, fn_ty);
     }
 

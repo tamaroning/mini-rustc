@@ -69,7 +69,7 @@ impl<'a> Codegen<'a> {
             .peek_frame()
             .get_locals()
             .iter()
-            .filter(|(cpath, l)| cpath.res.is_param() && !l.reg.llty.is_void())
+            .filter(|(bind, l)| bind.kind.is_param() && !l.reg.llty.is_void())
             .peekable();
         while let Some((_, local)) = it.next() {
             print!("{}", local.reg.to_string_with_type());
@@ -88,8 +88,8 @@ impl<'a> Codegen<'a> {
         println!(" {{");
 
         // allocate local variables
-        for (cpath, local) in self.peek_frame().get_locals() {
-            if cpath.res.is_let() && !local.reg.llty.is_void() {
+        for (bind, local) in self.peek_frame().get_locals() {
+            if bind.kind.is_let() && !local.reg.llty.is_void() {
                 assert!(local.kind == LocalKind::Ptr);
                 println!(
                     "\t{} = alloca {}",

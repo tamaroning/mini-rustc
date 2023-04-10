@@ -1,44 +1,57 @@
 mod resolve_crate;
+mod resolve_toplevel;
 
+use self::resolve_toplevel::ResolveTopLevel;
 use crate::ast::Ident;
 use crate::ast::NodeId;
 use std::{collections::HashMap, rc::Rc};
 
-#[derive(Clone, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Binding {
+    pub cpath: CanonicalPath,
+    pub kind: BindingKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BindingKind {
+    Crate,
+    Mod,
+    Func,
+    Struct,
+    Let,
+    Param,
+}
+
+impl BindingKind {
+    pub fn is_param(&self) -> bool {
+        matches!(self, BindingKind::Param)
+    }
+
+    pub fn is_let(&self) -> bool {
+        matches!(self, BindingKind::Let)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct CanonicalPath {
-    pub res: Res,
-    // `mod_a::func_f::var_a` => ["mod_a", "func_f", "var_a"]
-    pub segments: Vec<Rc<String>>,
+    segments: Vec<Rc<String>>,
 }
 
 impl CanonicalPath {
-    pub fn empty() -> Self {
-        CanonicalPath {
-            res: Res::Error,
-            segments: vec![],
-        }
-    }
-    pub fn push_segment(&mut self, seg: Rc<String>, res: Res) {
-        self.segments.push(seg);
-        self.res = res;
+    fn empty() -> Self {
+        CanonicalPath { segments: vec![] }
     }
 
-    pub fn pop_segment(&mut self) -> Option<Rc<String>> {
+    fn push_seg(&mut self, seg: Rc<String>) {
+        self.segments.push(seg);
+    }
+
+    fn pop_seg(&mut self) -> Option<Rc<String>> {
         self.segments.pop()
     }
 }
 
-impl std::cmp::PartialEq for CanonicalPath {
-    fn eq(&self, other: &Self) -> bool {
-        self.res == other.res
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.res != other.res
-    }
-}
-
-impl std::fmt::Display for CanonicalPath {
+impl std::fmt::Debug for CanonicalPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, seg) in self.segments.iter().enumerate() {
             if i != 0 {
@@ -50,20 +63,10 @@ impl std::fmt::Display for CanonicalPath {
     }
 }
 
-impl std::fmt::Debug for CanonicalPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self, self.res)
-    }
-}
-
-impl std::hash::Hash for CanonicalPath {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.res.hash(state);
-    }
-}
-
 #[derive(Debug)]
 pub struct Resolver {
+    resolve_toplevel: ResolveTopLevel,
+
     /// Crate/Func/Block to rib mappings, which is set by resovler
     ribs: HashMap<NodeId, RibId>,
     // all ident node to ribs mappings
@@ -75,41 +78,38 @@ pub struct Resolver {
     next_rib_id: u32,
     // interned ribs
     interned: HashMap<RibId, Rib>,
-    cpath_cache: HashMap<NodeId, Rc<CanonicalPath>>,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         Resolver {
+            resolve_toplevel: ResolveTopLevel::new(),
             ribs: HashMap::new(),
             ident_to_ribs: HashMap::new(),
             current_ribs: vec![],
             current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
             next_rib_id: 0,
-            cpath_cache: HashMap::new(),
         }
     }
 
-    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<CanonicalPath>> {
-        if let Some(cpath) = self.cpath_cache.get(&ident.id) {
-            Some(Rc::clone(cpath))
+    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
+        if let Some(b) = self.resolve_toplevel.search_ident(&ident.symbol) {
+            Some(b)
+        } else if let Some(ribs) = self.ident_to_ribs.get(&ident.id) {
+            let binding = Rc::new(self.resolve_segment_from_ribs(&ident.symbol, ribs)?);
+            Some(binding)
         } else {
-            let ribs = self.ident_to_ribs.get(&ident.id).unwrap();
-            let cpath = Rc::new(self.resolve_segment_from_ribs(&ident.symbol, ribs)?);
-            self.cpath_cache.insert(ident.id, Rc::clone(&cpath));
-            Some(cpath)
+            None
         }
     }
 
     // just utility function of resolve_ident
-    fn resolve_segment_from_ribs(&self, seg: &Rc<String>, ribs: &[RibId]) -> Option<CanonicalPath> {
+    fn resolve_segment_from_ribs(&self, seg: &Rc<String>, ribs: &[RibId]) -> Option<Binding> {
         for rib_id in ribs.iter().rev() {
             let rib = self.get_rib(*rib_id);
-            if let Some(res) = rib.bindings.get(seg) {
-                let mut cpath = rib.cpath.clone();
-                cpath.push_segment(Rc::clone(seg), *res);
-                return Some(cpath);
+            if let Some(binding) = rib.bindings.get(seg) {
+                return Some(binding.clone());
             }
         }
         None
@@ -132,32 +132,10 @@ pub struct Rib {
     // ↓
     // let a = 0; a
     //     ^
-    bindings: HashMap<Rc<String>, Res>,
+    bindings: HashMap<Rc<String>, Binding>,
 }
 
 type RibId = u32;
-
-// link to NodeId of ast::Ident
-// https://doc.rust-lang.org/stable/nightly-rustc/rustc_hir/def/enum.Res.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Res {
-    Crate(NodeId),
-    Mod(NodeId),
-    Func(NodeId),
-    Let(NodeId),
-    Param(NodeId),
-    Error,
-}
-
-impl Res {
-    pub fn is_param(&self) -> bool {
-        matches!(self, Res::Param(_))
-    }
-
-    pub fn is_let(&self) -> bool {
-        matches!(self, Res::Let(_))
-    }
-}
 
 impl Rib {
     fn new(rib_id: u32, cpath: CanonicalPath) -> Self {
@@ -169,8 +147,8 @@ impl Rib {
     }
 
     // TODO: shadowing
-    pub fn insert_binding(&mut self, symbol: Rc<String>, res: Res) {
+    pub fn insert_binding(&mut self, symbol: Rc<String>, binding: Binding) {
         // FIXME: duplicate symbol?
-        self.bindings.insert(symbol, res);
+        self.bindings.insert(symbol, binding);
     }
 }

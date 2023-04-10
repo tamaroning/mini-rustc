@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{Res, Resolver, Rib};
+use super::{resolve_toplevel::ResolveTopLevel, Binding, BindingKind, Resolver, Rib};
 use crate::ast::{self, NodeId, StmtKind};
 
 impl Resolver {
@@ -26,12 +26,12 @@ impl Resolver {
         id
     }
 
-    fn push_segment_to_current_cpath(&mut self, seg: Rc<String>, res: Res) {
-        self.current_cpath.push_segment(seg, res);
+    fn push_segment_to_current_cpath(&mut self, seg: Rc<String>) {
+        self.current_cpath.push_seg(seg);
     }
 
     fn pop_segment_from_current_cpath(&mut self) -> Option<Rc<String>> {
-        self.current_cpath.pop_segment()
+        self.current_cpath.pop_seg()
     }
 
     pub fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
@@ -44,8 +44,11 @@ impl Resolver {
 
 impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_crate(&mut self, krate: &'ctx ast::Crate) {
+        // To resolve items, first collect all of them
+        self.resolve_toplevel.go(krate);
+
         // push "crate" to cpath
-        self.push_segment_to_current_cpath(Rc::new("crate".to_string()), Res::Crate(krate.id));
+        self.push_segment_to_current_cpath(Rc::new("crate".to_string()));
 
         // push new rib
         self.push_rib(krate.id);
@@ -62,10 +65,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
     fn visit_module_item(&mut self, module: &'ctx ast::Module) {
         // push func name to cpath
-        self.push_segment_to_current_cpath(
-            Rc::clone(&module.name.symbol),
-            Res::Func(module.name.id),
-        );
+        self.push_segment_to_current_cpath(Rc::clone(&module.name.symbol));
         // push new rib
         self.push_rib(module.id);
     }
@@ -80,19 +80,22 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // push func name to cpath
-        self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol), Res::Func(func.name.id));
-
-        // insert func name
-        self.get_current_rib_mut()
-            .insert_binding(Rc::clone(&func.name.symbol), Res::Func(func.name.id));
+        self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol));
 
         // push new rib
         self.push_rib(func.id);
 
         // insert parameters
         for (param, _) in &func.params {
-            self.get_current_rib_mut()
-                .insert_binding(Rc::clone(&param.symbol), Res::Param(param.id))
+            let mut var_name_cpath = self.current_cpath.clone();
+            var_name_cpath.push_seg(Rc::clone(&param.symbol));
+            self.get_current_rib_mut().insert_binding(
+                Rc::clone(&param.symbol),
+                Binding {
+                    kind: BindingKind::Param,
+                    cpath: var_name_cpath,
+                },
+            );
         }
     }
 
@@ -117,9 +120,14 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
         if let StmtKind::Let(let_stmt) = &stmt.kind {
             // insert local variables
+            let mut var_name_cpath = self.current_cpath.clone();
+            var_name_cpath.push_seg(Rc::clone(&let_stmt.ident.symbol));
             self.get_current_rib_mut().insert_binding(
                 Rc::clone(&let_stmt.ident.symbol),
-                Res::Let(let_stmt.ident.id),
+                Binding {
+                    kind: BindingKind::Let,
+                    cpath: var_name_cpath,
+                },
             )
         }
     }

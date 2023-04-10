@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 mod ast;
+mod ast_lower;
 mod backend_llvm;
 mod lexer;
 mod lvalue;

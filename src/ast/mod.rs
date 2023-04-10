@@ -40,6 +40,7 @@ pub struct ExternBlock {
 pub struct StructItem {
     pub ident: Ident,
     pub fields: Vec<(Ident, Rc<Ty>)>,
+    pub id: NodeId,
 }
 
 #[derive(Debug)]

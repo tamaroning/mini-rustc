@@ -242,7 +242,11 @@ impl Parser {
             return None;
         }
 
-        Some(StructItem { ident, fields })
+        Some(StructItem {
+            ident,
+            fields,
+            id: self.get_next_id(),
+        })
     }
 
     fn parse_struct_fields(&mut self) -> Option<Vec<(Ident, Rc<Ty>)>> {

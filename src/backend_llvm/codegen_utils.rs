@@ -1,10 +1,9 @@
+use super::{frame::LocalKind, llvm::LLReg, Codegen};
 use crate::{
     ast::{Expr, ExprKind, Ident},
     backend_llvm::llvm::LLTy,
 };
 use std::rc::Rc;
-
-use super::{frame::LocalKind, llvm::LLReg, Codegen};
 
 impl<'a> Codegen<'a> {
     // expr: LLTY -> LLTY*

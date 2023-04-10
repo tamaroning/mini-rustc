@@ -116,13 +116,14 @@ pub enum ExprKind {
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
     Index(Box<Expr>, Box<Expr>),
     Field(Box<Expr>, Ident),
-    Struct(Ident, Vec<(Ident, Box<Expr>)>),
+    Struct(Path, Vec<(Ident, Box<Expr>)>),
     Array(Vec<Expr>),
 }
 
 #[derive(Debug)]
 pub struct Path {
     pub ident: Ident,
+    pub span: Span,
 }
 
 #[derive(Debug)]

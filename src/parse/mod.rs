@@ -3,7 +3,7 @@ mod parse_item;
 mod parse_stmt;
 
 use self::parse_item::is_item_start;
-use crate::ast::{Crate, Item, NodeId};
+use crate::ast::{Crate, Item, NodeId, Path};
 use crate::lexer::{Lexer, Token, TokenKind};
 use crate::span::Ident;
 use std::rc::Rc;
@@ -90,5 +90,13 @@ impl Parser {
             eprintln!("Expected ident, but found `{}`", t.span.to_snippet());
             None
         }
+    }
+
+    fn parse_path(&mut self) -> Option<Path> {
+        let ident = self.parse_ident()?;
+        Some(Path {
+            span: ident.span.clone(),
+            ident,
+        })
     }
 }

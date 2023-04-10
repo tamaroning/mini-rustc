@@ -125,8 +125,8 @@ impl<'a> Codegen<'a> {
         assert_eq!(*ptr.llty.peel_ptr().unwrap(), init_llty);
 
         match &init.kind {
-            ExprKind::Struct(name, fields) => {
-                let lladt = self.get_lladt(&name.symbol).unwrap();
+            ExprKind::Struct(path, fields) => {
+                let lladt = self.get_lladt(&path.ident.symbol).unwrap();
                 for (field, fd_expr) in fields {
                     if lladt.get_field_index(&field.symbol).is_none() {
                         continue;

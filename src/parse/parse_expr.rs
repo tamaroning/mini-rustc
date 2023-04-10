@@ -341,14 +341,14 @@ impl Parser {
 
     /// ident | structExpr
     fn parse_ident_or_struct_expr(&mut self) -> Option<Expr> {
-        let ident = self.parse_ident().unwrap();
+        let path = self.parse_path()?;
         let t = self.peek_token();
         if let TokenKind::OpenBrace = t.kind {
-            self.parse_struct_expr(ident)
+            self.parse_struct_expr(path)
         } else {
             Some(Expr {
-                span: ident.span.clone(),
-                kind: ExprKind::Path(Path { ident }),
+                span: path.span.clone(),
+                kind: ExprKind::Path(path),
                 id: self.get_next_id(),
             })
         }
@@ -356,7 +356,7 @@ impl Parser {
 
     /// structExpr ::= ident "{" structExprFields? "}"
     /// NOTE: first ident is already parsed
-    fn parse_struct_expr(&mut self, ident: Ident) -> Option<Expr> {
+    fn parse_struct_expr(&mut self, path: Path) -> Option<Expr> {
         let mut span = self.peek_token().span.clone();
 
         if !self.skip_expected_token(TokenKind::OpenBrace) {
@@ -382,7 +382,7 @@ impl Parser {
             return None;
         }
         Some(Expr {
-            kind: ExprKind::Struct(ident, fields),
+            kind: ExprKind::Struct(path, fields),
             id: self.get_next_id(),
             span,
         })

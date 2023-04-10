@@ -2,9 +2,9 @@ pub mod ty;
 
 use crate::ast::{self, Crate, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
-use crate::resolve::{Binding, CanonicalPath, Resolver};
+use crate::resolve::{Binding, Resolver};
 use crate::span::Ident;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -20,11 +20,10 @@ pub struct Ctxt {
     pub name_ty_mappings: HashMap<Rc<Binding>, Rc<Ty>>,
     // TODO: use NameBinding
     adt_defs: HashMap<Rc<String>, Rc<AdtDef>>,
-
     // Set during rvalue anlaysis stage
-    /// all node ids of place expressions
-    /// ref: https://doc.rust-lang.org/reference/expressions.html?highlight=rvalue#place-expressions-and-value-expressions
-    lvalues: HashSet<NodeId>,
+    // all node ids of place expressions
+    // ref: https://doc.rust-lang.org/reference/expressions.html?highlight=rvalue#place-expressions-and-value-expressions
+    // lvalues: HashSet<NodeId>,
 }
 
 impl<'ctx> Ctxt {
@@ -35,7 +34,7 @@ impl<'ctx> Ctxt {
             ty_mappings: HashMap::new(),
             name_ty_mappings: HashMap::new(),
             adt_defs: HashMap::new(),
-            lvalues: HashSet::new(),
+            // lvalues: HashSet::new(),
         }
     }
 
@@ -81,6 +80,7 @@ impl<'ctx> Ctxt {
     }
 
     // Rvalue analysis stage
+    /*
     pub fn register_lvalue(&mut self, node_id: NodeId) {
         self.lvalues.insert(node_id);
     }
@@ -88,6 +88,7 @@ impl<'ctx> Ctxt {
     pub fn is_lvalue(&mut self, node_id: NodeId) -> bool {
         self.lvalues.contains(&node_id)
     }
+    */
 
     // Codegen stage
 }

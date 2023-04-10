@@ -2,7 +2,7 @@ mod resolve_crate;
 mod resolve_toplevel;
 
 use self::resolve_toplevel::ResolveTopLevel;
-use crate::{ast::NodeId, span::Ident};
+use crate::span::Ident;
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -13,10 +13,8 @@ pub struct Binding {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BindingKind {
-    Crate,
     Mod,
-    Func,
-    Struct,
+    Item,
     Let,
     Param,
 }
@@ -98,9 +96,7 @@ impl Rib {
 pub struct Resolver {
     resolve_toplevel: ResolveTopLevel,
 
-    /// Crate/Func/Block to rib mappings, which is set by resovler
-    ribs: HashMap<NodeId, RibId>,
-    // local and param node to ribs mappings
+    // local and param node to ribs mappings (use-use)
     ident_to_rib: HashMap<Ident, RibId>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
@@ -115,7 +111,6 @@ impl Resolver {
     pub fn new() -> Self {
         Resolver {
             resolve_toplevel: ResolveTopLevel::new(),
-            ribs: HashMap::new(),
             ident_to_rib: HashMap::new(),
             current_ribs: vec![],
             current_cpath: CanonicalPath::empty(),

@@ -1,6 +1,6 @@
 use super::{Codegen, LLReg, LLTy};
 use crate::{
-    ast::{self, LetStmt, StmtKind},
+    ast::{self, StmtKind},
     middle::ty::Ty,
     resolve::Binding,
     span::Ident,

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::{Binding, BindingKind, Resolver, Rib};
 use crate::{
-    ast::{self, ExprKind, NodeId, Path, StmtKind},
+    ast::{self, ExprKind, Path, StmtKind},
     span::Ident,
 };
 
@@ -12,11 +12,10 @@ impl Resolver {
         self.interned.get_mut(&current_rib_id).unwrap()
     }
 
-    fn push_rib(&mut self, node_id: NodeId) {
+    fn push_rib(&mut self) {
         let parent = self.current_ribs.last().copied();
         let rib = Rib::new(self.get_next_rib_id(), parent);
         self.current_ribs.push(rib.id);
-        self.ribs.insert(node_id, rib.id);
         self.interned.insert(rib.id, rib);
     }
 
@@ -58,7 +57,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.push_segment_to_current_cpath(Rc::new("crate".to_string()));
 
         // push new rib
-        self.push_rib(krate.id);
+        self.push_rib();
     }
 
     fn visit_crate_post(&mut self, _krate: &'ctx ast::Crate) {
@@ -74,7 +73,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         // push func name to cpath
         self.push_segment_to_current_cpath(Rc::clone(&module.name.symbol));
         // push new rib
-        self.push_rib(module.id);
+        self.push_rib();
     }
 
     fn visit_module_item_post(&mut self, _module: &'ctx ast::Module) {
@@ -90,7 +89,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol));
 
         // push new rib
-        self.push_rib(func.id);
+        self.push_rib();
 
         // insert parameters
         for (param, _) in &func.params {
@@ -115,9 +114,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.pop_rib();
     }
 
-    fn visit_block(&mut self, block: &'ctx ast::Block) {
+    fn visit_block(&mut self, _block: &'ctx ast::Block) {
         // push new rib
-        self.push_rib(block.id);
+        self.push_rib();
     }
 
     fn visit_block_post(&mut self, _: &'ctx ast::Block) {

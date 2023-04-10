@@ -73,7 +73,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for ResolveTopLevel {
             krate.id,
             Rc::new(Binding {
                 cpath: self.current_cpath.clone(),
-                kind: BindingKind::Crate,
+                kind: BindingKind::Mod,
             }),
         );
     }
@@ -110,7 +110,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for ResolveTopLevel {
             func.id,
             Rc::new(Binding {
                 cpath: self.current_cpath.clone(),
-                kind: BindingKind::Func,
+                kind: BindingKind::Item,
             }),
         );
         self.insert_child(func.id);
@@ -123,7 +123,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for ResolveTopLevel {
             strct.id,
             Rc::new(Binding {
                 cpath: self.current_cpath.clone(),
-                kind: BindingKind::Struct,
+                kind: BindingKind::Item,
             }),
         );
         self.insert_child(strct.id);

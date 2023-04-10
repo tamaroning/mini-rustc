@@ -61,7 +61,7 @@ fn walk_item<'ctx, V: Visitor<'ctx>>(v: &mut V, item: &'ctx Item) {
 
 fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     v.visit_func(func);
-    for (param, ty) in &func.params {
+    for (_param, ty) in &func.params {
         walk_type(v, ty);
     }
     if let Some(body) = &func.body {
@@ -72,7 +72,7 @@ fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
 
 fn walk_struct_item<'ctx, V: Visitor<'ctx>>(v: &mut V, struct_item: &'ctx StructItem) {
     v.visit_struct_item(struct_item);
-    for (ident, ty) in &struct_item.fields {
+    for (_ident, ty) in &struct_item.fields {
         {
             walk_type(v, ty);
         }
@@ -102,7 +102,7 @@ fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {
         StmtKind::Semi(expr) => walk_expr(v, expr),
         StmtKind::Expr(expr) => walk_expr(v, expr),
         StmtKind::Let(let_stmt) => {
-            let LetStmt { ident, ty, init } = let_stmt;
+            let LetStmt { ident: _, ty, init } = let_stmt;
             if let Some(ty) = ty {
                 walk_type(v, ty);
             }
@@ -129,7 +129,7 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Unary(_op, inner) => {
             walk_expr(v, inner);
         }
-        ExprKind::Path(path) => {}
+        ExprKind::Path(_path) => {}
         ExprKind::Return(inner) => {
             walk_expr(v, inner);
         }
@@ -153,11 +153,11 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
             walk_expr(v, array);
             walk_expr(v, index);
         }
-        ExprKind::Field(receiver, field) => {
+        ExprKind::Field(receiver, _field) => {
             walk_expr(v, receiver);
         }
-        ExprKind::Struct(ident, fds) => {
-            for (ident, expr) in fds {
+        ExprKind::Struct(_ident, fds) => {
+            for (_ident, expr) in fds {
                 walk_expr(v, expr);
             }
         }

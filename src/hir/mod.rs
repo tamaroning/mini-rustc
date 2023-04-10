@@ -1,29 +1,22 @@
-use crate::span::{Ident, Span};
+use crate::span::Span;
 use std::rc::Rc;
 
 pub mod visitor;
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
-pub struct NodeId {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HirId {
     private: u32,
 }
 
-impl NodeId {
-    pub fn new(id: u32) -> NodeId {
-        NodeId { private: id }
-    }
-}
-
-impl std::fmt::Debug for NodeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "#{}", self.private)
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DefId {
+    private: u32,
 }
 
 #[derive(Debug)]
 pub struct Crate {
     pub items: Vec<Item>,
-    pub id: NodeId,
+    pub id: HirId,
 }
 
 #[derive(Debug)]
@@ -35,7 +28,6 @@ pub struct Item {
 pub enum ItemKind {
     Func(Func),
     Struct(StructItem),
-    ExternBlock(ExternBlock),
     Mod(Module),
 }
 
@@ -43,11 +35,11 @@ pub enum ItemKind {
 pub struct Module {
     pub name: Ident,
     pub items: Vec<Item>,
-    pub id: NodeId,
+    pub id: HirId,
 }
 
 #[derive(Debug)]
-pub struct ExternBlock {
+pub struct ForeignMod {
     pub funcs: Vec<Func>,
 }
 
@@ -55,7 +47,7 @@ pub struct ExternBlock {
 pub struct StructItem {
     pub ident: Ident,
     pub fields: Vec<(Ident, Rc<Ty>)>,
-    pub id: NodeId,
+    pub id: HirId,
 }
 
 #[derive(Debug)]
@@ -92,10 +84,18 @@ pub struct LetStmt {
     pub init: Option<Expr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Ident {
+    // TODO: remove symbol and span
+    // add ident: crate::span::Ident
+    pub symbol: Rc<String>,
+    pub span: Span,
+}
+
 #[derive(Debug)]
 pub struct Expr {
     pub kind: ExprKind,
-    pub id: NodeId,
+    pub id: HirId,
     pub span: Span,
 }
 
@@ -107,7 +107,7 @@ pub enum ExprKind {
     BoolLit(bool),
     StrLit(String),
     Unit,
-    Path(Path),
+    Ident(Ident),
     Assign(Box<Expr>, Box<Expr>),
     Return(Box<Expr>),
     Call(Box<Expr>, Vec<Expr>),
@@ -121,15 +121,10 @@ pub enum ExprKind {
 }
 
 #[derive(Debug)]
-pub struct Path {
-    pub ident: Ident,
-}
-
-#[derive(Debug)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
-    pub id: NodeId,
+    pub id: HirId,
 }
 
 #[derive(Debug)]

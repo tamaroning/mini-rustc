@@ -1,6 +1,7 @@
 use super::Parser;
-use crate::ast::{ExternBlock, Func, Ident, Item, ItemKind, Module, StructItem, Ty, TyKind};
+use crate::ast::{ExternBlock, Func, Item, ItemKind, Module, StructItem, Ty, TyKind};
 use crate::lexer::{self, Token, TokenKind};
+use crate::span::Ident;
 use std::rc::Rc;
 
 pub fn is_item_start(token: &Token) -> bool {

@@ -3,8 +3,9 @@ mod parse_item;
 mod parse_stmt;
 
 use self::parse_item::is_item_start;
-use crate::ast::{Crate, Ident, Item};
+use crate::ast::{Crate, Item, NodeId};
 use crate::lexer::{Lexer, Token, TokenKind};
+use crate::span::Ident;
 use std::rc::Rc;
 
 pub struct Parser {
@@ -20,10 +21,10 @@ impl Parser {
         }
     }
 
-    pub fn get_next_id(&mut self) -> u32 {
+    pub fn get_next_id(&mut self) -> NodeId {
         let id = self.next_node_id;
         self.next_node_id += 1;
-        id
+        NodeId::new(id)
     }
 
     fn peek_token(&mut self) -> &Token {
@@ -84,7 +85,6 @@ impl Parser {
             Some(Ident {
                 symbol: Rc::new(symbol),
                 span: t.span,
-                id: self.get_next_id(),
             })
         } else {
             eprintln!("Expected ident, but found `{}`", t.span.to_snippet());

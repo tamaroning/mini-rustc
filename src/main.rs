@@ -1,9 +1,10 @@
 #![feature(let_chains)]
 mod ast;
-mod ast_lower;
+//mod ast_lower;
+//mod hir;
 mod backend_llvm;
 mod lexer;
-mod lvalue;
+//mod lvalue;
 mod middle;
 mod parse;
 mod resolve;
@@ -74,7 +75,7 @@ fn main() {
     }
 
     // Lvalue analysis stage
-    lvalue::analyze(&mut ctx, &krate);
+    // lvalue::analyze(&mut ctx, &krate);
 
     // Codegen stage
     let codegen_result = backend_llvm::compile(&mut ctx, &krate);

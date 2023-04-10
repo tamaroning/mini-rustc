@@ -1,5 +1,10 @@
 use super::{Codegen, LLReg, LLTy};
-use crate::{ast, middle::ty::Ty, resolve::Binding};
+use crate::{
+    ast::{self, LetStmt, StmtKind},
+    middle::ty::Ty,
+    resolve::Binding,
+    span::Ident,
+};
 use std::{collections::HashMap, rc::Rc};
 
 pub fn compute_frame(codegen: &mut Codegen, func: &ast::Func) -> Frame {
@@ -87,7 +92,7 @@ pub struct VisitFrame<'a, 'b, 'c> {
 }
 
 impl VisitFrame<'_, '_, '_> {
-    fn add_local(&mut self, ident: &ast::Ident, ty: &Rc<Ty>, local_kind: LocalKind) {
+    fn add_local(&mut self, ident: &Ident, ty: &Rc<Ty>, local_kind: LocalKind) {
         // TODO: align
         let mut reg_ty = self.codegen.ty_to_llty(ty);
         if local_kind == LocalKind::Ptr {
@@ -132,15 +137,20 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         }
     }
 
-    fn visit_let_stmt(&mut self, let_stmt: &'ctx ast::LetStmt) {
-        let name = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
-        let var_ty = self.codegen.ctx.lookup_cpath_type(&name).unwrap();
+    fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
+        match &stmt.kind {
+            StmtKind::Let(let_stmt) => {
+                let name = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
+                let var_ty = self.codegen.ctx.lookup_cpath_type(&name).unwrap();
 
-        if self.codegen.ty_to_llty(&var_ty).is_void() {
-            // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`
-            self.add_local(&let_stmt.ident, &var_ty, LocalKind::Value);
-        } else {
-            self.add_local(&let_stmt.ident, &var_ty, LocalKind::Ptr);
+                if self.codegen.ty_to_llty(&var_ty).is_void() {
+                    // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`
+                    self.add_local(&let_stmt.ident, &var_ty, LocalKind::Value);
+                } else {
+                    self.add_local(&let_stmt.ident, &var_ty, LocalKind::Ptr);
+                }
+            }
+            _ => (),
         }
     }
 

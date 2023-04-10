@@ -24,7 +24,7 @@ impl<'ctx, 'chk: 'ctx> Checker<'ctx> {
 
 // https://doc.rust-lang.org/reference/expressions.html?highlight=rvalue#place-expressions-and-value-expressions
 impl<'ctx> ast::visitor::Visitor<'ctx> for Checker<'ctx> {
-    fn visit_let_stmt(&mut self, _: &'ctx ast::LetStmt) {
+    fn visit_stmt(&mut self, _: &'ctx ast::LetStmt) {
         self.is_let_initializer = true;
     }
 

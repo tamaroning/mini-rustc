@@ -1,7 +1,10 @@
 use std::rc::Rc;
 
 use super::{resolve_toplevel::ResolveTopLevel, Binding, BindingKind, Resolver, Rib};
-use crate::ast::{self, NodeId, StmtKind};
+use crate::{
+    ast::{self, ExprKind, NodeId, Path, StmtKind},
+    span::Ident,
+};
 
 impl Resolver {
     fn get_current_rib_mut(&mut self) -> &mut Rib {
@@ -34,11 +37,18 @@ impl Resolver {
         self.current_cpath.pop_seg()
     }
 
-    pub fn set_ribs_to_ident_node(&mut self, ident_node_id: NodeId) {
+    pub fn set_ribs_to_path(&mut self, path: &Path) {
         // FIXME: To remove this clone, use tree structure
         // and chaege ident_to_ribs: HashMap<NodeId, Vec<RibId>> to HashMap<NodeId, RibId>
         self.ident_to_ribs
-            .insert(ident_node_id, self.current_ribs.clone());
+            .insert(path.ident.clone(), self.current_ribs.clone());
+    }
+
+    pub fn set_ribs_to_variable_decl(&mut self, ident: &Ident) {
+        // FIXME: To remove this clone, use tree structure
+        // and chaege ident_to_ribs: HashMap<NodeId, Vec<RibId>> to HashMap<NodeId, RibId>
+        self.ident_to_ribs
+            .insert(ident.clone(), self.current_ribs.clone());
     }
 }
 
@@ -87,6 +97,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
         // insert parameters
         for (param, _) in &func.params {
+            self.set_ribs_to_variable_decl(param);
             let mut var_name_cpath = self.current_cpath.clone();
             var_name_cpath.push_seg(Rc::clone(&param.symbol));
             self.get_current_rib_mut().insert_binding(
@@ -120,6 +131,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
         if let StmtKind::Let(let_stmt) = &stmt.kind {
             // insert local variables
+            self.set_ribs_to_variable_decl(&let_stmt.ident);
             let mut var_name_cpath = self.current_cpath.clone();
             var_name_cpath.push_seg(Rc::clone(&let_stmt.ident.symbol));
             self.get_current_rib_mut().insert_binding(
@@ -132,7 +144,10 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         }
     }
 
-    fn visit_ident(&mut self, ident: &'ctx ast::Ident) {
-        self.set_ribs_to_ident_node(ident.id);
+    fn visit_expr(&mut self, expr: &'ctx ast::Expr) {
+        match &expr.kind {
+            ExprKind::Path(path) => self.set_ribs_to_path(path),
+            _ => (),
+        }
     }
 }

@@ -1,4 +1,4 @@
-use crate::ast::{self, BinOp, Crate, ExprKind, LetStmt, StmtKind};
+use crate::ast::{self, BinOp, Crate, ExprKind, LetStmt, Stmt, StmtKind};
 use crate::middle::ty::{self, AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
 use std::rc::Rc;
@@ -144,13 +144,22 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::unit())
                 }
             }
-            StmtKind::Let(LetStmt { init, .. }) => {
+            StmtKind::Let(LetStmt { init, ty, ident: _ }) => {
                 if let Some(init) = init {
                     let init_ty = self.ctx.get_type(init.id);
+                    let annotated_ty = self.ast_ty_to_ty(ty.as_ref().unwrap());
                     if init_ty.is_never() {
                         Rc::new(Ty::never())
                     } else {
-                        Rc::new(Ty::unit())
+                        if annotated_ty != *init_ty {
+                            self.error(format!(
+                                "Expected `{:?}` type, but found `{:?}`",
+                                annotated_ty, init_ty
+                            ));
+                            Rc::new(Ty::error())
+                        } else {
+                            Rc::new(Ty::unit())
+                        }
                     }
                 } else {
                     Rc::new(Ty::unit())
@@ -163,35 +172,25 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
 
     // TODO: handling local variables properly
     // TODO: shadowing
-    fn visit_let_stmt(&mut self, let_stmt: &'ctx LetStmt) {
-        // set local variable type
-        let name_binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
-        // set type of local variable
-        // TODO: unwrap
-        self.ctx.set_cpath_type(
-            name_binding,
-            Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
-        );
-        // set type of statement
-        // TODO: unwrap
-        self.ctx.insert_type(
-            let_stmt.ident.id,
-            Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
-        );
-    }
-
-    fn visit_let_stmt_post(&mut self, let_stmt: &'ctx LetStmt) {
-        // checks if type of initalizer matches with the annotated type
-        if let Some(init) = &let_stmt.init {
-            let init_ty = self.ctx.get_type(init.id);
-            // FIXME:
-            let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
-            if !init_ty.is_never() && annotated_ty != *init_ty {
-                self.error(format!(
-                    "Expected `{:?}` type, but found `{:?}`",
-                    let_stmt.ty, init_ty
-                ));
+    fn visit_stmt(&mut self, stmt: &'ctx Stmt) {
+        match &stmt.kind {
+            StmtKind::Let(let_stmt) => {
+                // set local variable type
+                let name_binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
+                // set type of local variable
+                // TODO: unwrap
+                self.ctx.set_cpath_type(
+                    name_binding,
+                    Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
+                );
+                // set type of statement
+                // TODO: unwrap
+                self.ctx.insert_type(
+                    stmt.id,
+                    Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
+                );
             }
+            _ => {}
         }
     }
 
@@ -256,20 +255,20 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
                     Rc::new(Ty::error())
                 }
             }
-            ExprKind::Ident(ident) => {
+            ExprKind::Path(path) => {
                 // find symbols in local variables, parameters, and in functions
-                if let Some(name_binding) = self.ctx.resolve_ident(ident) {
+                if let Some(name_binding) = self.ctx.resolve_ident(&path.ident) {
                     if let Some(ty) = self.ctx.lookup_cpath_type(&name_binding) {
                         ty
                     } else {
                         self.error(format!(
                             "Cannot use varaible `{}` before declaration",
-                            ident.symbol
+                            path.ident.symbol
                         ));
                         Rc::new(Ty::error())
                     }
                 } else {
-                    self.error(format!("Could not resolve ident `{}`", ident.symbol));
+                    self.error(format!("Could not resolve ident `{}`", path.ident.symbol));
                     Rc::new(Ty::error())
                 }
             }

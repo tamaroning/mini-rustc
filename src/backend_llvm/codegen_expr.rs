@@ -139,7 +139,7 @@ impl<'a> Codegen<'a> {
             }
             ExprKind::Block(block) => self.gen_block(block)?,
             // identifiers may not be allocated on memory
-            ExprKind::Ident(ident) => LLValue::Reg(self.load_ident(ident)?),
+            ExprKind::Path(path) => LLValue::Reg(self.load_ident(&path.ident)?),
             // arrays and structs are always allocated on memory
             ExprKind::Index(_, _) | ExprKind::Field(_, _) => {
                 let lval = self.gen_lval(expr)?;
@@ -168,7 +168,7 @@ impl<'a> Codegen<'a> {
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Call(func, args) => {
-                let ExprKind::Ident(ident) = &func.kind else {
+                let ExprKind::Path(path) = &func.kind else {
                     todo!();
                 };
 
@@ -194,7 +194,7 @@ impl<'a> Codegen<'a> {
                     None
                 };
 
-                print!("call {} @{}(", ret_llty.to_string(), ident.symbol);
+                print!("call {} @{}(", ret_llty.to_string(), path.ident.symbol);
                 for (i, arg_val) in arg_vals.iter().enumerate() {
                     if !arg_val.llty().is_void() {
                         print!("{}", arg_val.to_string_with_type());

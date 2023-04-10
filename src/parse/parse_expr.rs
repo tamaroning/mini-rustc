@@ -1,6 +1,7 @@
 use super::Parser;
-use crate::ast::{self, Expr, ExprKind, Ident, UnOp};
+use crate::ast::{self, Expr, ExprKind, Path, UnOp};
 use crate::lexer::{self, Token, TokenKind};
+use crate::span::Ident;
 
 pub fn is_expr_start(token: &Token) -> bool {
     matches!(
@@ -347,7 +348,7 @@ impl Parser {
         } else {
             Some(Expr {
                 span: ident.span.clone(),
-                kind: ExprKind::Ident(ident),
+                kind: ExprKind::Path(Path { ident }),
                 id: self.get_next_id(),
             })
         }

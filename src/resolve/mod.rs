@@ -2,8 +2,7 @@ mod resolve_crate;
 mod resolve_toplevel;
 
 use self::resolve_toplevel::ResolveTopLevel;
-use crate::ast::Ident;
-use crate::ast::NodeId;
+use crate::{ast::NodeId, span::Ident};
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -69,8 +68,8 @@ pub struct Resolver {
 
     /// Crate/Func/Block to rib mappings, which is set by resovler
     ribs: HashMap<NodeId, RibId>,
-    // all ident node to ribs mappings
-    ident_to_ribs: HashMap<NodeId, Vec<RibId>>,
+    // local and param node to ribs mappings
+    ident_to_ribs: HashMap<Ident, Vec<RibId>>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
     // current canonical path
@@ -96,7 +95,7 @@ impl Resolver {
     pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
         if let Some(b) = self.resolve_toplevel.search_ident(&ident.symbol) {
             Some(b)
-        } else if let Some(ribs) = self.ident_to_ribs.get(&ident.id) {
+        } else if let Some(ribs) = self.ident_to_ribs.get(&ident) {
             let binding = Rc::new(self.resolve_segment_from_ribs(&ident.symbol, ribs)?);
             Some(binding)
         } else {

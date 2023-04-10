@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Span {
     lo: usize,
     hi: usize,
@@ -56,4 +56,12 @@ impl std::fmt::Debug for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}..{}, \"{}\"", self.lo, self.hi, self.to_snippet())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ident {
+    // TODO: remove symbol and span
+    // add ident: crate::span::Ident
+    pub symbol: Rc<String>,
+    pub span: Span,
 }

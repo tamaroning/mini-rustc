@@ -1,7 +1,8 @@
 use super::{frame::LocalKind, llvm::LLReg, Codegen};
 use crate::{
-    ast::{Expr, ExprKind, Ident},
+    ast::{Expr, ExprKind},
     backend_llvm::llvm::LLTy,
+    span::Ident,
 };
 use std::rc::Rc;
 
@@ -9,7 +10,7 @@ impl<'a> Codegen<'a> {
     // expr: LLTY -> LLTY*
     pub fn gen_lval(&mut self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
         match &expr.kind {
-            ExprKind::Ident(ident) => self.gen_ident_lval(ident),
+            ExprKind::Path(path) => self.gen_ident_lval(&path.ident),
             ExprKind::Index(arr, index) => {
                 // TODO: move to another func
                 let arr_ptr_reg = self.gen_lval(arr)?;

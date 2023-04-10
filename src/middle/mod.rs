@@ -1,8 +1,9 @@
 pub mod ty;
 
-use crate::ast::{self, Crate, Ident, NodeId};
+use crate::ast::{self, Crate, NodeId};
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::{Binding, CanonicalPath, Resolver};
+use crate::span::Ident;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 

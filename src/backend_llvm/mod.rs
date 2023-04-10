@@ -12,28 +12,22 @@ use crate::middle::Ctxt;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn compile(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
-    codegen(ctx, krate)?;
-
-    Ok(())
-}
-
-pub fn codegen(ctx: &mut Ctxt, krate: &Crate) -> Result<(), ()> {
+pub fn compile<'ctx, 'gen: 'ctx>(ctx: &'gen mut Ctxt<'ctx>, krate: &'gen Crate) -> Result<(), ()> {
     let mut codegen = Codegen::new(ctx);
     codegen.go(krate)?;
     Ok(())
 }
 
-pub struct Codegen<'a> {
-    ctx: &'a mut Ctxt,
+pub struct Codegen<'gen, 'ctx> {
+    ctx: &'gen mut Ctxt<'ctx>,
     current_frame: Option<Frame>,
     ll_adt_defs: HashMap<Rc<String>, Rc<LLAdtDef>>,
     constants: Vec<Rc<LLConst>>,
     next_str_id: usize,
 }
 
-impl<'a> Codegen<'a> {
-    fn new(ctx: &'a mut Ctxt) -> Self {
+impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
+    fn new(ctx: &'gen mut Ctxt<'ctx>) -> Self {
         Codegen {
             ctx,
             current_frame: None,
@@ -103,7 +97,7 @@ impl<'a> Codegen<'a> {
     }
 
     /// Generate code for top-level
-    fn go(&mut self, krate: &'a Crate) -> Result<(), ()> {
+    fn go(&mut self, krate: &'gen Crate) -> Result<(), ()> {
         println!(r#"target triple = "x86_64-unknown-linux-gnu""#);
         println!();
         println!("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #1");

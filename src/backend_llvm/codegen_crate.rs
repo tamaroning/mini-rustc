@@ -7,15 +7,15 @@ use crate::{
     },
 };
 
-impl<'a> Codegen<'a> {
-    pub fn gen_crate(&mut self, krate: &'a Crate) -> Result<(), ()> {
+impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
+    pub fn gen_crate(&mut self, krate: &'gen Crate) -> Result<(), ()> {
         for item in &krate.items {
             self.gen_item(item)?;
         }
         Ok(())
     }
 
-    pub fn gen_item(&mut self, item: &'a Item) -> Result<(), ()> {
+    pub fn gen_item(&mut self, item: &'gen Item) -> Result<(), ()> {
         match &item.kind {
             ItemKind::Func(func) => {
                 self.gen_func(func)?;
@@ -31,14 +31,14 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    pub fn gen_external_block(&mut self, ext_block: &'a ExternBlock) -> Result<(), ()> {
+    pub fn gen_external_block(&mut self, ext_block: &'gen ExternBlock) -> Result<(), ()> {
         for func in &ext_block.funcs {
             self.gen_func(func)?;
         }
         Ok(())
     }
 
-    fn gen_func(&mut self, func: &'a Func) -> Result<(), ()> {
+    fn gen_func(&mut self, func: &'gen Func) -> Result<(), ()> {
         // do not generate code for the func if it does not have its body
         if func.body.is_none() {
             print!("declare ")
@@ -122,7 +122,7 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    pub fn gen_block(&mut self, block: &'a Block) -> Result<LLValue, ()> {
+    pub fn gen_block(&mut self, block: &'gen Block) -> Result<LLValue, ()> {
         let mut last_stmt_val = None;
         for stmt in &block.stmts {
             last_stmt_val = Some(self.gen_stmt(stmt)?);
@@ -131,7 +131,7 @@ impl<'a> Codegen<'a> {
         Ok(ret)
     }
 
-    fn gen_stmt(&mut self, stmt: &'a Stmt) -> Result<LLValue, ()> {
+    fn gen_stmt(&mut self, stmt: &'gen Stmt) -> Result<LLValue, ()> {
         println!("; Starts stmt `{}`", stmt.span.to_snippet());
         let val = match &stmt.kind {
             StmtKind::Semi(expr) => {

@@ -4,23 +4,22 @@ use crate::hir::HirId;
 use crate::hir::LocalDefId;
 use crate::middle::Ctxt;
 
-pub fn lower_crate(ctx: &mut Ctxt, krate: Crate) -> hir::Crate {
+pub fn lower_crate(ctx: &mut Ctxt, krate: Crate) {
     let mut lower = ASTLower {
         ctx,
         next_hir_id: HirId::new(),
         next_def_id: LocalDefId::new(),
     };
     let translated = lower.lower_crate(krate);
-    translated
 }
 
-struct ASTLower<'low> {
-    ctx: &'low mut Ctxt,
+struct ASTLower<'low, 'ctx> {
+    ctx: &'low mut Ctxt<'ctx>,
     next_hir_id: HirId,
     next_def_id: LocalDefId,
 }
 
-impl ASTLower<'_> {
+impl ASTLower<'_, '_> {
     fn get_next_hir_id(&mut self) -> HirId {
         let id = self.next_hir_id;
         self.next_hir_id = self.next_hir_id.next();
@@ -34,14 +33,12 @@ impl ASTLower<'_> {
     }
 
     pub fn lower_crate(&mut self, krate: Crate) -> hir::Crate {
+        let hir_id = self.get_next_hir_id();
         let mut items = vec![];
         for item in krate.items {
-            items.push(self.lower_item(item));
+            //items.push(self.lower_item(item));
         }
-        hir::Crate {
-            items,
-            id: self.get_next_hir_id(),
-        }
+        hir::Crate { items, id: hir_id }
     }
 
     pub fn lower_item(&mut self, item: Item) -> hir::Item {

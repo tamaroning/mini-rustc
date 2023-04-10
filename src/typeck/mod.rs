@@ -3,7 +3,10 @@ use crate::middle::ty::{self, AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
 use std::rc::Rc;
 
-pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<String>> {
+pub fn typeck<'ctx, 'chk>(
+    ctx: &'chk mut Ctxt<'ctx>,
+    krate: &'chk Crate,
+) -> Result<(), Vec<String>> {
     let mut checker = TypeChecker::new(ctx);
     ast::visitor::go(&mut checker, krate);
     if checker.errors.is_empty() {
@@ -13,14 +16,14 @@ pub fn typeck<'ctx>(ctx: &'ctx mut Ctxt, krate: &'ctx Crate) -> Result<(), Vec<S
     }
 }
 
-struct TypeChecker<'chk> {
-    ctx: &'chk mut Ctxt,
+struct TypeChecker<'ctx, 'chk> {
+    ctx: &'chk mut Ctxt<'ctx>,
     current_return_type: Option<Ty>,
     errors: Vec<String>,
 }
 
-impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
-    fn new(ctx: &'ctx mut Ctxt) -> Self {
+impl<'ctx, 'chk> TypeChecker<'ctx, 'chk> {
+    fn new(ctx: &'chk mut Ctxt<'ctx>) -> Self {
         TypeChecker {
             ctx,
             current_return_type: None,
@@ -72,15 +75,15 @@ impl<'ctx, 'chk: 'ctx> TypeChecker<'ctx> {
     }
 }
 
-impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
-    fn visit_crate(&mut self, _krate: &'ctx Crate) {}
+impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
+    fn visit_crate(&mut self, _krate: &'chk Crate) {}
 
-    fn visit_crate_post(&mut self, _krate: &'ctx Crate) {}
+    fn visit_crate_post(&mut self, _krate: &'chk Crate) {}
 
     // TODO: allow func call before finding declaration of the func
     // TODO: what if typechecker does not find a body of non-external func?
     // TODO: external func must not have its body (correct?)
-    fn visit_func(&mut self, func: &'ctx ast::Func) {
+    fn visit_func(&mut self, func: &'chk ast::Func) {
         // TODO: typecheck main func
         let param_tys = func
             .params
@@ -106,7 +109,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.push_return_type(ret_ty);
     }
 
-    fn visit_func_post(&mut self, func: &'ctx ast::Func) {
+    fn visit_func_post(&mut self, func: &'chk ast::Func) {
         let Some(body) = &func.body else {
             return;
         };
@@ -124,7 +127,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.pop_return_type();
     }
 
-    fn visit_struct_item(&mut self, strct: &'ctx ast::StructItem) {
+    fn visit_struct_item(&mut self, strct: &'chk ast::StructItem) {
         let field_tys: Vec<(Rc<String>, Rc<Ty>)> = strct
             .fields
             .iter()
@@ -134,7 +137,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
     }
 
-    fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
+    fn visit_stmt_post(&mut self, stmt: &'chk ast::Stmt) {
         let ty: Rc<Ty> = match &stmt.kind {
             StmtKind::Semi(expr) => {
                 let expr_ty = self.ctx.get_type(expr.id);
@@ -172,7 +175,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
 
     // TODO: handling local variables properly
     // TODO: shadowing
-    fn visit_stmt(&mut self, stmt: &'ctx Stmt) {
+    fn visit_stmt(&mut self, stmt: &'chk Stmt) {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
                 // set local variable type
@@ -195,7 +198,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
     }
 
     // use post order
-    fn visit_expr_post(&mut self, expr: &'ctx ast::Expr) {
+    fn visit_expr_post(&mut self, expr: &'chk ast::Expr) {
         let ty: Rc<Ty> = match &expr.kind {
             ExprKind::NumLit(_) => Rc::new(Ty::new(TyKind::I32)),
             ExprKind::BoolLit(_) => Rc::new(Ty::new(TyKind::Bool)),
@@ -433,7 +436,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for TypeChecker<'ctx> {
         self.ctx.insert_type(expr.id, ty);
     }
 
-    fn visit_block_post(&mut self, block: &'ctx ast::Block) {
+    fn visit_block_post(&mut self, block: &'chk ast::Block) {
         let block_ty = self.get_block_type(block);
         self.ctx.insert_type(block.id, block_ty);
     }

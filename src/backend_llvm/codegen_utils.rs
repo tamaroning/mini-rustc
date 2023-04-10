@@ -6,9 +6,9 @@ use crate::{
 };
 use std::rc::Rc;
 
-impl<'a> Codegen<'a> {
+impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
     // expr: LLTY -> LLTY*
-    pub fn gen_lval(&mut self, expr: &'a Expr) -> Result<Rc<LLReg>, ()> {
+    pub fn gen_lval(&mut self, expr: &'gen Expr) -> Result<Rc<LLReg>, ()> {
         match &expr.kind {
             ExprKind::Path(path) => self.gen_ident_lval(&path.ident),
             ExprKind::Index(arr, index) => {
@@ -52,7 +52,7 @@ impl<'a> Codegen<'a> {
     pub fn gen_field_lval(
         &mut self,
         struct_ptr_reg: &Rc<LLReg>,
-        field: &'a Ident,
+        field: &'gen Ident,
     ) -> Result<Rc<LLReg>, ()> {
         let adt_name = struct_ptr_reg
             .llty
@@ -79,7 +79,7 @@ impl<'a> Codegen<'a> {
 
     // ident: LLTY* (i.e. LocalKind::Ptr) -> LLTY*
     // ident: LLTY  (i.e. LocalKind::Val)  -> Err
-    pub fn gen_ident_lval(&mut self, ident: &'a Ident) -> Result<Rc<LLReg>, ()> {
+    pub fn gen_ident_lval(&mut self, ident: &'gen Ident) -> Result<Rc<LLReg>, ()> {
         let name = self.ctx.resolve_ident(ident).unwrap();
         let local = self.peek_frame().get_local(&name);
         match &local.kind {
@@ -91,7 +91,7 @@ impl<'a> Codegen<'a> {
     /// ident is allocated on stack => load fromm its reg and returns the value
     /// ident is not allocated => returns its reg
     /// ident: LLTY -> returns LLTY*
-    pub fn load_ident(&mut self, ident: &'a Ident) -> Result<Rc<LLReg>, ()> {
+    pub fn load_ident(&mut self, ident: &'gen Ident) -> Result<Rc<LLReg>, ()> {
         let name = self.ctx.resolve_ident(ident).unwrap();
         let local = &self.peek_frame().get_local(&name);
         match &local.kind {
@@ -119,7 +119,7 @@ impl<'a> Codegen<'a> {
     pub fn initialize_memory_with_value(
         &mut self,
         ptr: &Rc<LLReg>,
-        init: &'a Expr,
+        init: &'gen Expr,
     ) -> Result<(), ()> {
         let init_llty = self.ty_to_llty(&self.ctx.get_type(init.id));
         assert_eq!(*ptr.llty.peel_ptr().unwrap(), init_llty);

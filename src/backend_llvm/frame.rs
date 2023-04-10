@@ -7,14 +7,13 @@ use crate::{
 };
 use std::{collections::HashMap, rc::Rc};
 
-pub fn compute_frame(codegen: &mut Codegen, func: &ast::Func) -> Frame {
-    let mut frame = Frame::new();
+pub fn compute_frame<'gen, 'ctx>(codegen: &mut Codegen<'gen, 'ctx>, func: &ast::Func) -> Frame {
     let mut analyzer = VisitFrame {
         codegen,
-        frame: &mut frame,
+        frame: Frame::new(),
     };
     ast::visitor::go_func(&mut analyzer, func);
-    frame
+    analyzer.frame
 }
 
 #[derive(Debug)]
@@ -86,9 +85,9 @@ impl Frame {
     }
 }
 
-pub struct VisitFrame<'a, 'b, 'c> {
-    pub codegen: &'a mut Codegen<'b>,
-    pub frame: &'c mut Frame,
+pub struct VisitFrame<'ctx, 'gen, 'frm> {
+    pub codegen: &'frm mut Codegen<'gen, 'ctx>,
+    pub frame: Frame,
 }
 
 impl VisitFrame<'_, '_, '_> {

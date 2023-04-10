@@ -1,6 +1,7 @@
 pub mod ty;
 
 use crate::ast::{self, Crate, NodeId};
+use crate::hir::{self, HirId};
 //use crate::hir::HirId;
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::{Binding, Resolver};
@@ -9,11 +10,12 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct Ctxt {
+pub struct Ctxt<'ctx> {
     pub dump_enabled: bool,
     // Set during name resolution stage
     resolver: Resolver,
 
+    hir: Option<hir::Crate<'ctx>>,
     //hir_item_mappings: HashMap<HirId, &'hir Item>,
 
     // Set during typecheck stage
@@ -29,11 +31,14 @@ pub struct Ctxt {
     // lvalues: HashSet<NodeId>,
 }
 
-impl<'ctx> Ctxt {
+impl<'ctx> Ctxt<'ctx> {
     pub fn new(dump_enabled: bool) -> Self {
         Ctxt {
             dump_enabled,
             resolver: Resolver::new(),
+
+            hir: None,
+
             ty_mappings: HashMap::new(),
             name_ty_mappings: HashMap::new(),
             adt_defs: HashMap::new(),

@@ -5,11 +5,11 @@ use crate::{
 };
 use std::rc::Rc;
 
-impl<'a> Codegen<'a> {
+impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
     // evaluate expression
     // expr struct/array -> sturct*/array*
     // otherwise: expr: LLTY -> LLTY/void
-    pub fn eval_expr(&mut self, expr: &'a Expr) -> Result<LLValue, ()> {
+    pub fn eval_expr(&mut self, expr: &'gen Expr) -> Result<LLValue, ()> {
         println!("; Starts expr `{}`", expr.span.to_snippet());
         let llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
         if llty.eval_to_ptr() {

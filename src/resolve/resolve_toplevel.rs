@@ -53,7 +53,7 @@ impl ResolveTopLevel {
     }
 
     // TODO: refine
-    pub fn search_ident(&self, sym: &Rc<String>) -> Option<Rc<Binding>> {
+    pub fn search_item(&self, sym: &Rc<String>) -> Option<Rc<Binding>> {
         self.res_bindings.values().find_map(|b| {
             if b.cpath.segments.last().unwrap() == sym {
                 Some(Rc::clone(&b))

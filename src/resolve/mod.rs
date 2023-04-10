@@ -62,6 +62,38 @@ impl std::fmt::Debug for CanonicalPath {
     }
 }
 
+/// Struct representing a scope
+/// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
+#[derive(Debug)]
+pub struct Rib {
+    id: RibId,
+    // let a = 0; a
+    //            ^
+    // ↓
+    // let a = 0; a
+    //     ^
+    bindings: HashMap<Rc<String>, Binding>,
+    parent: Option<RibId>,
+}
+
+type RibId = u32;
+
+impl Rib {
+    fn new(rib_id: u32, parent: Option<RibId>) -> Self {
+        Rib {
+            id: rib_id,
+            bindings: HashMap::new(),
+            parent,
+        }
+    }
+
+    // TODO: shadowing
+    pub fn insert_binding(&mut self, symbol: Rc<String>, binding: Binding) {
+        // FIXME: duplicate symbol?
+        self.bindings.insert(symbol, binding);
+    }
+}
+
 #[derive(Debug)]
 pub struct Resolver {
     resolve_toplevel: ResolveTopLevel,
@@ -69,7 +101,7 @@ pub struct Resolver {
     /// Crate/Func/Block to rib mappings, which is set by resovler
     ribs: HashMap<NodeId, RibId>,
     // local and param node to ribs mappings
-    ident_to_ribs: HashMap<Ident, Vec<RibId>>,
+    ident_to_rib: HashMap<Ident, RibId>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
     // current canonical path
@@ -84,7 +116,7 @@ impl Resolver {
         Resolver {
             resolve_toplevel: ResolveTopLevel::new(),
             ribs: HashMap::new(),
-            ident_to_ribs: HashMap::new(),
+            ident_to_rib: HashMap::new(),
             current_ribs: vec![],
             current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
@@ -93,22 +125,30 @@ impl Resolver {
     }
 
     pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        if let Some(b) = self.resolve_toplevel.search_ident(&ident.symbol) {
+        if let Some(b) = self.resolve_toplevel.search_item(&ident.symbol) {
             Some(b)
-        } else if let Some(ribs) = self.ident_to_ribs.get(&ident) {
-            let binding = Rc::new(self.resolve_segment_from_ribs(&ident.symbol, ribs)?);
+        } else if let Some(rib) = self.ident_to_rib.get(&ident) {
+            let binding = Rc::new(self.resolve_segment_from_rib(&ident.symbol, *rib)?);
             Some(binding)
         } else {
             None
         }
     }
 
-    // just utility function of resolve_ident
-    fn resolve_segment_from_ribs(&self, seg: &Rc<String>, ribs: &[RibId]) -> Option<Binding> {
-        for rib_id in ribs.iter().rev() {
-            let rib = self.get_rib(*rib_id);
-            if let Some(binding) = rib.bindings.get(seg) {
+    /// Utility function of resolve_ident
+
+    // just search in ancester ribs for now
+    // TODO: search in ribs other than ancester
+    fn resolve_segment_from_rib(&self, seg: &Rc<String>, rib_id: RibId) -> Option<Binding> {
+        let mut current_rib = self.get_rib(rib_id);
+
+        loop {
+            if let Some(binding) = current_rib.bindings.get(seg) {
                 return Some(binding.clone());
+            } else if let Some(parent_rib_id) = current_rib.parent {
+                current_rib = self.get_rib(parent_rib_id);
+            } else {
+                break;
             }
         }
         None
@@ -116,38 +156,5 @@ impl Resolver {
 
     fn get_rib(&self, rib_id: RibId) -> &Rib {
         self.interned.get(&rib_id).unwrap()
-    }
-}
-
-/// Struct representing a scope
-/// ref: https://doc.rust-lang.org/stable/nightly-rustc/rustc_resolve/late/struct.Rib.html
-#[derive(Debug)]
-pub struct Rib {
-    id: RibId,
-    // optional name
-    cpath: CanonicalPath,
-    // let a = 0; a
-    //            ^
-    // ↓
-    // let a = 0; a
-    //     ^
-    bindings: HashMap<Rc<String>, Binding>,
-}
-
-type RibId = u32;
-
-impl Rib {
-    fn new(rib_id: u32, cpath: CanonicalPath) -> Self {
-        Rib {
-            id: rib_id,
-            cpath,
-            bindings: HashMap::new(),
-        }
-    }
-
-    // TODO: shadowing
-    pub fn insert_binding(&mut self, symbol: Rc<String>, binding: Binding) {
-        // FIXME: duplicate symbol?
-        self.bindings.insert(symbol, binding);
     }
 }

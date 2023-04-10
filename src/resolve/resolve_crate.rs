@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{resolve_toplevel::ResolveTopLevel, Binding, BindingKind, Resolver, Rib};
+use super::{Binding, BindingKind, Resolver, Rib};
 use crate::{
     ast::{self, ExprKind, NodeId, Path, StmtKind},
     span::Ident,
@@ -13,7 +13,8 @@ impl Resolver {
     }
 
     fn push_rib(&mut self, node_id: NodeId) {
-        let rib = Rib::new(self.get_next_rib_id(), self.current_cpath.clone());
+        let parent = self.current_ribs.last().copied();
+        let rib = Rib::new(self.get_next_rib_id(), parent);
         self.current_ribs.push(rib.id);
         self.ribs.insert(node_id, rib.id);
         self.interned.insert(rib.id, rib);
@@ -38,17 +39,13 @@ impl Resolver {
     }
 
     pub fn set_ribs_to_path(&mut self, path: &Path) {
-        // FIXME: To remove this clone, use tree structure
-        // and chaege ident_to_ribs: HashMap<NodeId, Vec<RibId>> to HashMap<NodeId, RibId>
-        self.ident_to_ribs
-            .insert(path.ident.clone(), self.current_ribs.clone());
+        self.ident_to_rib
+            .insert(path.ident.clone(), *self.current_ribs.last().unwrap());
     }
 
     pub fn set_ribs_to_variable_decl(&mut self, ident: &Ident) {
-        // FIXME: To remove this clone, use tree structure
-        // and chaege ident_to_ribs: HashMap<NodeId, Vec<RibId>> to HashMap<NodeId, RibId>
-        self.ident_to_ribs
-            .insert(ident.clone(), self.current_ribs.clone());
+        self.ident_to_rib
+            .insert(ident.clone(), *self.current_ribs.last().unwrap());
     }
 }
 

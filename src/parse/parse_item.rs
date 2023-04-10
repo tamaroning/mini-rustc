@@ -178,7 +178,7 @@ impl Parser {
         Some(Func {
             name,
             params,
-            ret_ty: Rc::new(ret_ty),
+            ret_ty: ret_ty,
             ext,
             body,
             id: self.get_next_id(),
@@ -187,7 +187,7 @@ impl Parser {
 
     /// funcParams ::= funcParam ("," funcParam)* ","?
     /// funcParam ::= ident ":" type
-    fn parse_func_params(&mut self) -> Option<Vec<(Ident, Rc<Ty>)>> {
+    fn parse_func_params(&mut self) -> Option<Vec<(Ident, Ty)>> {
         let mut params = vec![];
         params.push(self.parse_func_param()?);
 
@@ -200,7 +200,7 @@ impl Parser {
         Some(params)
     }
 
-    fn parse_func_param(&mut self) -> Option<(Ident, Rc<Ty>)> {
+    fn parse_func_param(&mut self) -> Option<(Ident, Ty)> {
         let ident = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
             eprintln!(
@@ -210,7 +210,7 @@ impl Parser {
             return None;
         }
         let ty = self.parse_type()?;
-        Some((ident, Rc::new(ty)))
+        Some((ident, ty))
     }
 
     fn parse_struct_item(&mut self) -> Option<StructItem> {
@@ -250,7 +250,7 @@ impl Parser {
         })
     }
 
-    fn parse_struct_fields(&mut self) -> Option<Vec<(Ident, Rc<Ty>)>> {
+    fn parse_struct_fields(&mut self) -> Option<Vec<(Ident, Ty)>> {
         let mut fields = vec![];
         fields.push(self.parse_struct_field()?);
 
@@ -264,7 +264,7 @@ impl Parser {
     }
 
     /// structField ::= ident ":" type
-    fn parse_struct_field(&mut self) -> Option<(Ident, Rc<Ty>)> {
+    fn parse_struct_field(&mut self) -> Option<(Ident, Ty)> {
         let name = self.parse_ident()?;
         if !self.skip_expected_token(TokenKind::Colon) {
             eprintln!(
@@ -274,7 +274,7 @@ impl Parser {
             return None;
         }
         let ty = self.parse_type()?;
-        Some((name, Rc::new(ty)))
+        Some((name, ty))
     }
 
     pub fn parse_type(&mut self) -> Option<Ty> {
@@ -340,7 +340,7 @@ impl Parser {
                 }
                 // u32 is safely converted to usize
                 Some(Ty {
-                    kind: TyKind::Array(Rc::new(elem_ty), n.try_into().unwrap()),
+                    kind: TyKind::Array(Box::new(elem_ty), n.try_into().unwrap()),
                     span,
                 })
             }
@@ -359,7 +359,7 @@ impl Parser {
                 let referent = self.parse_type()?;
                 let span = span.concat(&referent.span);
                 Some(Ty {
-                    kind: TyKind::Ref(region, Rc::new(referent)),
+                    kind: TyKind::Ref(region, Box::new(referent)),
                     span,
                 })
             }

@@ -54,15 +54,15 @@ pub struct ExternBlock {
 #[derive(Debug)]
 pub struct StructItem {
     pub ident: Ident,
-    pub fields: Vec<(Ident, Rc<Ty>)>,
+    pub fields: Vec<(Ident, Ty)>,
     pub id: NodeId,
 }
 
 #[derive(Debug)]
 pub struct Func {
     pub name: Ident,
-    pub params: Vec<(Ident, Rc<Ty>)>,
-    pub ret_ty: Rc<Ty>,
+    pub params: Vec<(Ident, Ty)>,
+    pub ret_ty: Ty,
     /// Extern abi
     pub ext: Option<String>,
     pub body: Option<Block>,
@@ -162,9 +162,9 @@ pub enum TyKind {
     Bool,
     I32,
     Str,
-    Array(Rc<Ty>, usize),
+    Array(Box<Ty>, usize),
     Adt(Rc<String>),
-    Ref(Option<Region>, Rc<Ty>),
+    Ref(Option<Region>, Box<Ty>),
     Never,
 }
 

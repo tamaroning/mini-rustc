@@ -1,12 +1,12 @@
 #![feature(let_chains)]
 mod ast;
-//mod ast_lower;
-//mod hir;
-mod backend_llvm;
 mod lexer;
+mod parse;
+//mod ast_lower;
+// mod hir;
+mod backend_llvm;
 //mod lvalue;
 mod middle;
-mod parse;
 mod resolve;
 mod span;
 mod typeck;

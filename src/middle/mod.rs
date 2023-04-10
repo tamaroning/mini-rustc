@@ -1,6 +1,7 @@
 pub mod ty;
 
 use crate::ast::{self, Crate, NodeId};
+//use crate::hir::HirId;
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::{Binding, Resolver};
 use crate::span::Ident;
@@ -12,6 +13,8 @@ pub struct Ctxt {
     pub dump_enabled: bool,
     // Set during name resolution stage
     resolver: Resolver,
+
+    //hir_item_mappings: HashMap<HirId, &'hir Item>,
 
     // Set during typecheck stage
     /// Expr/Stmt/Block to type mappings

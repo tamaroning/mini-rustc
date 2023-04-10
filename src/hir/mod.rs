@@ -1,5 +1,7 @@
-use crate::span::Span;
-use std::rc::Rc;
+use crate::{
+    resolve::CanonicalPath,
+    span::{Ident, Span},
+};
 
 pub mod visitor;
 
@@ -8,121 +10,132 @@ pub struct HirId {
     private: u32,
 }
 
+impl HirId {
+    pub fn new() -> HirId {
+        HirId { private: 0 }
+    }
+
+    pub fn next(&self) -> HirId {
+        HirId {
+            private: self.private + 1,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DefId {
+pub struct LocalDefId {
     private: u32,
 }
 
+impl LocalDefId {
+    pub fn new() -> LocalDefId {
+        LocalDefId { private: 0 }
+    }
+
+    pub fn next(&self) -> LocalDefId {
+        LocalDefId {
+            private: self.private + 1,
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct Crate {
-    pub items: Vec<Item>,
+pub struct Crate<'hir> {
+    pub items: Vec<Item<'hir>>,
     pub id: HirId,
 }
 
 #[derive(Debug)]
-pub struct Item {
-    pub kind: ItemKind,
+pub struct Item<'hir> {
+    pub kind: ItemKind<'hir>,
 }
 
 #[derive(Debug)]
-pub enum ItemKind {
-    Func(Func),
-    Struct(StructItem),
-    Mod(Module),
+pub enum ItemKind<'hir> {
+    Func(&'hir FuncDef<'hir>),
+    Struct(&'hir StructDef<'hir>),
+    Mod(Mod<'hir>),
 }
 
 #[derive(Debug)]
-pub struct Module {
-    pub name: Ident,
-    pub items: Vec<Item>,
+pub struct Mod<'hir> {
+    pub items: Vec<&'hir Item<'hir>>,
     pub id: HirId,
 }
 
 #[derive(Debug)]
-pub struct ForeignMod {
-    pub funcs: Vec<Func>,
+pub struct ForeignMod<'hir> {
+    pub funcs: Vec<&'hir FuncDef<'hir>>,
 }
 
 #[derive(Debug)]
-pub struct StructItem {
-    pub ident: Ident,
-    pub fields: Vec<(Ident, Rc<Ty>)>,
-    pub id: HirId,
+pub struct StructDef<'hir> {
+    pub fields: Vec<(Ident, &'hir Ty<'hir>)>,
 }
 
 #[derive(Debug)]
-pub struct Func {
-    pub name: Ident,
-    pub params: Vec<(Ident, Rc<Ty>)>,
-    pub ret_ty: Rc<Ty>,
+pub struct FuncDef<'hir> {
+    pub params: Vec<(Ident, &'hir Ty<'hir>)>,
+    pub ret_ty: &'hir Ty<'hir>,
     /// Extern abi
     pub ext: Option<String>,
-    pub body: Option<Block>,
-    pub id: NodeId,
+    pub body: Option<Block<'hir>>,
 }
 
 #[derive(Debug)]
-pub struct Stmt {
-    pub kind: StmtKind,
-    pub id: NodeId,
-    pub span: Span,
-}
-
-#[derive(Debug)]
-pub enum StmtKind {
-    /// Expression without trailing semicolon
-    Expr(Box<Expr>),
-    /// Expression with trailing semicolon
-    Semi(Box<Expr>),
-    Let(LetStmt),
-}
-
-#[derive(Debug)]
-pub struct LetStmt {
-    pub ident: Ident,
-    pub ty: Option<Ty>,
-    pub init: Option<Expr>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Ident {
-    // TODO: remove symbol and span
-    // add ident: crate::span::Ident
-    pub symbol: Rc<String>,
-    pub span: Span,
-}
-
-#[derive(Debug)]
-pub struct Expr {
-    pub kind: ExprKind,
+pub struct Stmt<'hir> {
+    pub kind: StmtKind<'hir>,
     pub id: HirId,
     pub span: Span,
 }
 
 #[derive(Debug)]
-pub enum ExprKind {
-    Binary(BinOp, Box<Expr>, Box<Expr>),
-    Unary(UnOp, Box<Expr>),
+pub enum StmtKind<'hir> {
+    /// Expression without trailing semicolon
+    Expr(Box<Expr<'hir>>),
+    /// Expression with trailing semicolon
+    Semi(Box<Expr<'hir>>),
+    Let(Let<'hir>),
+}
+
+#[derive(Debug)]
+pub struct Let<'hir> {
+    pub ident: Ident,
+    pub ty: Option<&'hir Ty<'hir>>,
+    pub init: Option<Expr<'hir>>,
+}
+
+#[derive(Debug)]
+pub struct Expr<'hir> {
+    pub kind: ExprKind<'hir>,
+    pub id: HirId,
+    pub span: Span,
+}
+
+#[derive(Debug)]
+pub enum ExprKind<'hir> {
+    Binary(BinOp, Box<Expr<'hir>>, Box<Expr<'hir>>),
+    Unary(UnOp, Box<Expr<'hir>>),
     NumLit(u32),
     BoolLit(bool),
     StrLit(String),
     Unit,
-    Ident(Ident),
-    Assign(Box<Expr>, Box<Expr>),
-    Return(Box<Expr>),
-    Call(Box<Expr>, Vec<Expr>),
-    Block(Block),
+    Path(Ident),
+    Assign(Box<Expr<'hir>>, Box<Expr<'hir>>),
+    Return(Box<Expr<'hir>>),
+    Call(Box<Expr<'hir>>, Vec<Expr<'hir>>),
+    Block(Block<'hir>),
     /// cond, then (only block expr), else
-    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
-    Index(Box<Expr>, Box<Expr>),
-    Field(Box<Expr>, Ident),
-    Struct(Ident, Vec<(Ident, Box<Expr>)>),
-    Array(Vec<Expr>),
+    If(Box<Expr<'hir>>, Box<Expr<'hir>>, Option<Box<Expr<'hir>>>),
+    Index(Box<Expr<'hir>>, Box<Expr<'hir>>),
+    Field(Box<Expr<'hir>>, Ident),
+    Struct(Ident, Vec<(Ident, Box<Expr<'hir>>)>),
+    Array(Vec<Expr<'hir>>),
 }
 
 #[derive(Debug)]
-pub struct Block {
-    pub stmts: Vec<Stmt>,
+pub struct Block<'hir> {
+    pub stmts: Vec<Stmt<'hir>>,
     pub span: Span,
     pub id: HirId,
 }
@@ -145,20 +158,20 @@ pub enum UnOp {
 }
 
 #[derive(Debug)]
-pub struct Ty {
-    pub kind: TyKind,
+pub struct Ty<'hir> {
+    pub kind: TyKind<'hir>,
     pub span: Span,
 }
 
 #[derive(Debug)]
-pub enum TyKind {
+pub enum TyKind<'hir> {
     Unit,
     Bool,
     I32,
     Str,
-    Array(Rc<Ty>, usize),
-    Adt(Rc<String>),
-    Ref(Option<Region>, Rc<Ty>),
+    Array(&'hir Ty<'hir>, usize),
+    Adt(CanonicalPath),
+    Ref(Option<Region>, &'hir Ty<'hir>),
     Never,
 }
 

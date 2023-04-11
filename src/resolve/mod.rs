@@ -107,7 +107,7 @@ impl Rib {
 pub struct Resolver {
     resolve_toplevel: ResolveTopLevel,
 
-    // (nodes of definitons of idents (local var, parameter, struct)) to ribs mappings (use-use)
+    // (nodes of idents (local var, parameter, struct)) to ribs mappings (use-use)
     ident_to_rib: HashMap<Ident, RibId>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
@@ -116,6 +116,8 @@ pub struct Resolver {
     next_rib_id: u32,
     // interned ribs
     interned: HashMap<RibId, Rib>,
+
+    cache: HashMap<Ident, Rc<Binding>>,
 }
 
 impl Resolver {
@@ -127,14 +129,55 @@ impl Resolver {
             current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
             next_rib_id: 0,
+
+            cache: HashMap::new(),
         }
     }
 
+    pub fn dump_ribs_and_toplevel(&self) {
+        println!("===== Ribs in resolver =====");
+        for (rib_id, rib) in &self.interned {
+            println!("{} => [", rib_id);
+            for (s, binding) in &rib.bindings {
+                println!("\t\"{}\" => {:?}, ", s, binding);
+            }
+            println!("]");
+        }
+        for (i, (ident, rib_id)) in self.ident_to_rib.iter().enumerate() {
+            print!("{:?} =>  {}, ", ident, rib_id);
+            if i % 4 == 3 {
+                println!()
+            }
+        }
+        println!();
+        println!("============================");
+        println!("==== Toplevel resolver =====");
+        self.resolve_toplevel.dump();
+        println!("============================");
+    }
+
+    pub fn dump_resolution(&self) {
+        println!("===== Resolved names =======");
+        for (ident, binding) in &self.cache {
+            println!("{:?} => {:?}", ident, binding);
+        }
+        println!("============================");
+    }
+
+    /// Resolve identifiers to canonical paths
     pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        if let Some(b) = self.resolve_toplevel.search_item(&ident.symbol) {
-            Some(b)
-        } else if let Some(rib) = self.ident_to_rib.get(&ident) {
+        if let Some(binding) = self.cache.get(ident) {
+            Some(Rc::clone(binding))
+        }
+        // search in items
+        else if let Some(binding) = self.resolve_toplevel.search_item(&ident.symbol) {
+            self.cache.insert(ident.clone(), Rc::clone(&binding));
+            Some(binding)
+        }
+        // search in local and parameters
+        else if let Some(rib) = self.ident_to_rib.get(&ident) {
             let binding = Rc::new(self.resolve_segment_from_rib(&ident.symbol, *rib)?);
+            self.cache.insert(ident.clone(), Rc::clone(&binding));
             Some(binding)
         } else {
             None

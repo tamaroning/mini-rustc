@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{Binding, BindingKind, Resolver, Rib};
+use super::{Binding, BindingKind, Resolver, Rib, RibId};
 use crate::{
     ast::{self, Path, StmtKind},
     span::Ident,
@@ -19,8 +19,8 @@ impl Resolver {
         self.interned.insert(rib.id, rib);
     }
 
-    fn pop_rib(&mut self) {
-        self.current_ribs.pop().unwrap();
+    fn pop_rib(&mut self) -> RibId {
+        self.current_ribs.pop().unwrap()
     }
 
     fn get_next_rib_id(&mut self) -> u32 {
@@ -66,7 +66,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
         assert_eq!(*krate, "crate");
         // pop rib
-        self.pop_rib();
+        let krate_rib = self.pop_rib();
+        assert_eq!(krate_rib, 0);
     }
 
     fn visit_module_item(&mut self, module: &'ctx ast::Module) {

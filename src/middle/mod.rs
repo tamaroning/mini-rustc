@@ -63,6 +63,14 @@ impl<'ctx> Ctxt<'ctx> {
         self.resolver.resolve_ident(ident)
     }
 
+    pub fn dump_ribs(&self) {
+        self.resolver.dump_ribs_and_toplevel();
+    }
+
+    pub fn dump_resolution(&self) {
+        self.resolver.dump_resolution();
+    }
+
     // Typecheck Stage
 
     pub fn insert_type(&mut self, node_id: NodeId, ty: Rc<Ty>) {

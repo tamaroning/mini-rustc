@@ -12,7 +12,9 @@ mod typeck;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: mini-rustc (<input> or <file>)");
+        eprintln!("Usage: mini-rustc file/source [options]");
+        println!("Options:");
+        println!("  --dump\tDump compiler states for debugging");
         eprintln!("Invalid number of arguments");
         std::process::exit(1);
     }
@@ -53,7 +55,7 @@ fn main() {
     ctx.resolve(&krate);
 
     if ctx.dump_enabled {
-        dbg!(&ctx);
+        ctx.dump_ribs();
     }
 
     // Typecheck stage
@@ -69,8 +71,10 @@ fn main() {
     };
 
     if ctx.dump_enabled {
-        dbg!(&ctx);
+        ctx.dump_resolution();
     }
+
+    //dbg!(&ctx);
 
     // Lvalue analysis stage
     // lvalue::analyze(&mut ctx, &krate);

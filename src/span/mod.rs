@@ -44,24 +44,24 @@ impl Span {
     pub fn hi(&self) -> usize {
         self.hi
     }
-
-    /*
-    pub fn src(&self) -> Rc<String> {
-        Rc::clone(&self.src)
-    }
-    */
 }
 
 impl std::fmt::Debug for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}..{}, \"{}\"", self.lo, self.hi, self.to_snippet())
+        write!(f, "{}..{}", self.lo, self.hi)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Ident {
     // TODO: remove symbol and span
     // add ident: crate::span::Ident
     pub symbol: Rc<String>,
     pub span: Span,
+}
+
+impl std::fmt::Debug for Ident {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\" ({:?})", self.symbol, self.span)
+    }
 }

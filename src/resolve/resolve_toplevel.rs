@@ -25,6 +25,15 @@ impl ResolveTopLevel {
         }
     }
 
+    pub fn dump(&self) {
+        for (parent, children) in &self.module_to_children {
+            println!("{:?} => {:?}", parent, children);
+        }
+        for (node_id, binding) in &self.res_bindings {
+            println!("{:?} = {:?}", node_id, binding);
+        }
+    }
+
     pub fn go(&mut self, krate: &ast::Crate) {
         ast::visitor::go(self, krate);
     }

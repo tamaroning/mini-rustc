@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::{Binding, BindingKind, Resolver, Rib};
 use crate::{
-    ast::{self, ExprKind, Path, StmtKind},
+    ast::{self, Path, StmtKind},
     span::Ident,
 };
 
@@ -100,7 +100,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
                 Rc::clone(&param.symbol),
                 Binding {
                     kind: BindingKind::Param,
-                    cpath: var_name_cpath,
+                    cpath: Rc::new(var_name_cpath),
                 },
             );
         }
@@ -134,16 +134,13 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
                 Rc::clone(&let_stmt.ident.symbol),
                 Binding {
                     kind: BindingKind::Let,
-                    cpath: var_name_cpath,
+                    cpath: Rc::new(var_name_cpath),
                 },
             )
         }
     }
 
-    fn visit_expr(&mut self, expr: &'ctx ast::Expr) {
-        match &expr.kind {
-            ExprKind::Path(path) => self.set_ribs_to_path(path),
-            _ => (),
-        }
+    fn visit_path(&mut self, path: &'ctx ast::Path) {
+        self.set_ribs_to_path(path);
     }
 }

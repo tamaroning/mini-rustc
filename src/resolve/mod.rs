@@ -7,7 +7,7 @@ use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Binding {
-    pub cpath: CanonicalPath,
+    pub cpath: Rc<CanonicalPath>,
     pub kind: BindingKind,
 }
 
@@ -45,6 +45,17 @@ impl CanonicalPath {
 
     fn pop_seg(&mut self) -> Option<Rc<String>> {
         self.segments.pop()
+    }
+
+    pub fn demangle(&self) -> String {
+        let mut s = String::new();
+        for (i, seg) in self.segments.iter().enumerate() {
+            if i != 0 {
+                s.push_str("..");
+            }
+            s.push_str(&seg);
+        }
+        s
     }
 }
 
@@ -96,7 +107,7 @@ impl Rib {
 pub struct Resolver {
     resolve_toplevel: ResolveTopLevel,
 
-    // local and param node to ribs mappings (use-use)
+    // (nodes of definitons of idents (local var, parameter, struct)) to ribs mappings (use-use)
     ident_to_rib: HashMap<Ident, RibId>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,

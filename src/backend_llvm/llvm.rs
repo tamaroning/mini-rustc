@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+use crate::resolve::CanonicalPath;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum LLTy {
     Void,
@@ -7,7 +9,7 @@ pub enum LLTy {
     I32,
     Ptr(Rc<LLTy>),
     Array(Rc<LLTy>, usize),
-    Adt(Rc<String>),
+    Adt(Rc<CanonicalPath>),
 }
 
 impl LLTy {
@@ -18,7 +20,7 @@ impl LLTy {
             LLTy::I32 => "i32".to_string(),
             LLTy::Ptr(inner) => format!("{}*", inner.to_string()),
             LLTy::Array(elem_ty, n) => format!("[{} x {}]", n, elem_ty.to_string()),
-            LLTy::Adt(name) => format!("%Struct.{}", name),
+            LLTy::Adt(name) => format!("%Struct.{}", name.demangle()),
         }
     }
 
@@ -37,7 +39,7 @@ impl LLTy {
         }
     }
 
-    pub fn get_adt_name(&self) -> Option<Rc<String>> {
+    pub fn get_adt_cpath(&self) -> Option<Rc<CanonicalPath>> {
         match self {
             LLTy::Adt(name) => Some(Rc::clone(name)),
             _ => None,

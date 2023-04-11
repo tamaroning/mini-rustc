@@ -1,7 +1,6 @@
-use crate::span::{Ident, Span};
-use std::rc::Rc;
-
 pub mod visitor;
+
+use crate::span::{Ident, Span};
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NodeId {
@@ -163,7 +162,7 @@ pub enum TyKind {
     I32,
     Str,
     Array(Box<Ty>, usize),
-    Adt(Rc<String>),
+    Adt(Path),
     Ref(Option<Region>, Box<Ty>),
     Never,
 }

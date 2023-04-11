@@ -50,10 +50,10 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         let frame = compute_frame(self, func);
         self.push_frame(frame);
 
-        let name = self.ctx.resolve_ident(&func.name).unwrap();
+        let binding = self.ctx.resolve_ident(&func.name).unwrap();
         let (_param_tys, ret_ty) = self
             .ctx
-            .lookup_cpath_type(&name)
+            .lookup_cpath_type(&binding.cpath)
             .unwrap()
             .get_func_type()
             .unwrap();

@@ -2,7 +2,6 @@ use super::Parser;
 use crate::ast::{ExternBlock, Func, Item, ItemKind, Module, StructItem, Ty, TyKind};
 use crate::lexer::{self, Token, TokenKind};
 use crate::span::Ident;
-use std::rc::Rc;
 
 pub fn is_item_start(token: &Token) -> bool {
     matches!(
@@ -278,6 +277,14 @@ impl Parser {
     }
 
     pub fn parse_type(&mut self) -> Option<Ty> {
+        if matches!(self.peek_token().kind, TokenKind::Ident(_)) {
+            let path = self.parse_path()?;
+            return Some(Ty {
+                span: path.span.clone(),
+                kind: TyKind::Adt(path),
+            });
+        }
+
         let t = self.skip_token();
         let span = t.span;
         match t.kind {
@@ -344,10 +351,9 @@ impl Parser {
                     span,
                 })
             }
-            TokenKind::Ident(s) => Some(Ty {
-                kind: TyKind::Adt(Rc::new(s)),
-                span,
-            }),
+            TokenKind::Ident(_) => {
+                unreachable!()
+            }
             TokenKind::BinOp(lexer::BinOp::And) => {
                 let t = self.peek_token();
                 let region = if let TokenKind::Lifetime(_) = t.kind {

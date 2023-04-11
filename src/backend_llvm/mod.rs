@@ -9,6 +9,7 @@ use self::llvm::*;
 use crate::ast::Crate;
 use crate::middle::ty::{AdtDef, Ty, TyKind};
 use crate::middle::Ctxt;
+use crate::resolve::CanonicalPath;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -21,7 +22,7 @@ pub fn compile<'ctx, 'gen: 'ctx>(ctx: &'gen mut Ctxt<'ctx>, krate: &'gen Crate) 
 pub struct Codegen<'gen, 'ctx> {
     ctx: &'gen mut Ctxt<'ctx>,
     current_frame: Option<Frame>,
-    ll_adt_defs: HashMap<Rc<String>, Rc<LLAdtDef>>,
+    ll_adt_defs: HashMap<Rc<CanonicalPath>, Rc<LLAdtDef>>,
     constants: Vec<Rc<LLConst>>,
     next_str_id: usize,
 }
@@ -69,11 +70,11 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
         LLAdtDef { fields }
     }
 
-    fn add_lladt(&mut self, name: &Rc<String>, lladt: LLAdtDef) {
+    fn add_lladt(&mut self, name: &Rc<CanonicalPath>, lladt: LLAdtDef) {
         self.ll_adt_defs.insert(Rc::clone(name), Rc::new(lladt));
     }
 
-    fn get_lladt(&self, name: &Rc<String>) -> Option<Rc<LLAdtDef>> {
+    fn get_lladt(&self, name: &CanonicalPath) -> Option<Rc<LLAdtDef>> {
         self.ll_adt_defs.get(name).map(Rc::clone)
     }
 
@@ -109,8 +110,8 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
             let lladt = self.construct_lladt(adt_def);
             lladts.push((Rc::clone(name), lladt));
         }
-        for (name, lladt) in lladts {
-            print!("%Struct.{} = type {{", name);
+        for (cpath, lladt) in lladts {
+            print!("%Struct.{} = type {{", cpath.demangle());
             for (i, (_, fd_llty)) in lladt.fields.iter().enumerate() {
                 print!(" {}", fd_llty.to_string());
                 if i != lladt.fields.len() - 1 {
@@ -118,7 +119,7 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
                 }
             }
             println!(" }}");
-            self.add_lladt(&name, lladt);
+            self.add_lladt(&cpath, lladt);
         }
 
         println!();

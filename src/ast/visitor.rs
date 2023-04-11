@@ -21,6 +21,7 @@ pub trait Visitor<'ctx>: Sized {
     fn visit_block(&mut self, _block: &'ctx Block) {}
     fn visit_block_post(&mut self, _block: &'ctx Block) {}
     fn visit_type(&mut self, _ty: &'ctx Ty) {}
+    fn visit_type_post(&mut self, _ty: &'ctx Ty) {}
     fn visit_path(&mut self, _path: &'ctx Path) {}
 }
 
@@ -116,6 +117,19 @@ fn walk_stmt<'ctx, V: Visitor<'ctx>>(v: &mut V, stmt: &'ctx Stmt) {
 
 fn walk_type<'ctx, V: Visitor<'ctx>>(v: &mut V, ty: &'ctx Ty) {
     v.visit_type(ty);
+    match &ty.kind {
+        TyKind::Bool | TyKind::I32 | TyKind::Never | TyKind::Str | TyKind::Unit => (),
+        TyKind::Array(elem_ty, _n) => {
+            walk_type(v, elem_ty);
+        }
+        TyKind::Ref(_region, inner_ty) => {
+            walk_type(v, inner_ty);
+        }
+        TyKind::Adt(path) => {
+            walk_path(v, path);
+        }
+    }
+    v.visit_type_post(ty);
 }
 
 fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
@@ -129,7 +143,9 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Unary(_op, inner) => {
             walk_expr(v, inner);
         }
-        ExprKind::Path(_path) => {}
+        ExprKind::Path(path) => {
+            walk_path(v, path);
+        }
         ExprKind::Return(inner) => {
             walk_expr(v, inner);
         }
@@ -156,7 +172,8 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
         ExprKind::Field(receiver, _field) => {
             walk_expr(v, receiver);
         }
-        ExprKind::Struct(_ident, fds) => {
+        ExprKind::Struct(path, fds) => {
+            walk_path(v, path);
             for (_ident, expr) in fds {
                 walk_expr(v, expr);
             }
@@ -176,4 +193,8 @@ fn walk_block<'ctx, V: Visitor<'ctx>>(v: &mut V, block: &'ctx Block) {
         walk_stmt(v, stmt);
     }
     v.visit_block_post(block);
+}
+
+fn walk_path<'ctx, V: Visitor<'ctx>>(v: &mut V, path: &'ctx Path) {
+    v.visit_path(path);
 }

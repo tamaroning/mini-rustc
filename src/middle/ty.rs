@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+use crate::resolve::CanonicalPath;
+
 #[derive(PartialEq, Eq)]
 pub struct Ty {
     pub kind: TyKind,
@@ -13,7 +15,7 @@ pub enum TyKind {
     Str,
     Array(Rc<Ty>, usize),
     Fn(Rc<Vec<Rc<Ty>>>, Rc<Ty>),
-    Adt(Rc<String>),
+    Adt(Rc<CanonicalPath>),
     Ref(Rc<Ty>),
     Never,
     Error,
@@ -24,7 +26,7 @@ impl Ty {
         Ty { kind }
     }
 
-    pub fn get_adt_name(&self) -> Option<&Rc<String>> {
+    pub fn get_adt_name(&self) -> Option<&Rc<CanonicalPath>> {
         if let TyKind::Adt(name) = &self.kind {
             Some(name)
         } else {

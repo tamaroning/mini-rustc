@@ -58,7 +58,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             .llty
             .peel_ptr()
             .unwrap()
-            .get_adt_name()
+            .get_adt_cpath()
             .unwrap();
         let lladt = self.get_lladt(&adt_name).unwrap();
         let field_index = lladt.get_field_index(&field.symbol).unwrap();
@@ -126,7 +126,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
 
         match &init.kind {
             ExprKind::Struct(path, fields) => {
-                let lladt = self.get_lladt(&path.ident.symbol).unwrap();
+                let binding = self.ctx.resolve_ident(&path.ident).unwrap();
+                let lladt = self.get_lladt(&binding.cpath).unwrap();
                 for (field, fd_expr) in fields {
                     if lladt.get_field_index(&field.symbol).is_none() {
                         continue;

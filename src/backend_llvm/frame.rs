@@ -116,11 +116,11 @@ impl VisitFrame<'_, '_, '_> {
 
 impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_func(&mut self, func: &'ctx ast::Func) {
-        let name = self.codegen.ctx.resolve_ident(&func.name).unwrap();
+        let binding = self.codegen.ctx.resolve_ident(&func.name).unwrap();
         let (param_tys, _ret_ty) = self
             .codegen
             .ctx
-            .lookup_cpath_type(&name)
+            .lookup_cpath_type(&binding.cpath)
             .unwrap()
             .get_func_type()
             .unwrap();
@@ -139,8 +139,8 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
     fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
-                let name = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
-                let var_ty = self.codegen.ctx.lookup_cpath_type(&name).unwrap();
+                let binding = self.codegen.ctx.resolve_ident(&let_stmt.ident).unwrap();
+                let var_ty = self.codegen.ctx.lookup_cpath_type(&binding.cpath).unwrap();
 
                 if self.codegen.ty_to_llty(&var_ty).is_void() {
                     // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`

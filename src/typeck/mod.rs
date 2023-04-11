@@ -56,7 +56,7 @@ impl<'ctx, 'chk> TypeChecker<'ctx, 'chk> {
             Rc::new(Ty::unit())
         }
     }
-    fn ast_ty_to_ty(&self, ast_ty: &ast::Ty) -> self::Ty {
+    fn ast_ty_to_ty(&mut self, ast_ty: &ast::Ty) -> self::Ty {
         let kind = match &ast_ty.kind {
             ast::TyKind::I32 => ty::TyKind::I32,
             ast::TyKind::Never => ty::TyKind::Never,
@@ -69,7 +69,14 @@ impl<'ctx, 'chk> TypeChecker<'ctx, 'chk> {
             ast::TyKind::Array(elem_ty, n) => {
                 ty::TyKind::Array(Rc::new(self.ast_ty_to_ty(elem_ty)), *n)
             }
-            ast::TyKind::Adt(name) => ty::TyKind::Adt(Rc::clone(name)),
+            ast::TyKind::Adt(path) => {
+                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                    ty::TyKind::Adt(Rc::clone(&binding.cpath))
+                } else {
+                    self.error(format!("{}", path.ident.symbol));
+                    ty::TyKind::Error
+                }
+            }
         };
         Ty::new(kind)
     }
@@ -95,14 +102,15 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             Rc::new(self.ast_ty_to_ty(&func.ret_ty)),
         )));
 
-        let name = self.ctx.resolve_ident(&func.name).unwrap();
-        self.ctx.set_cpath_type(name, func_ty);
+        let binding = self.ctx.resolve_ident(&func.name).unwrap();
+        self.ctx.set_cpath_type(Rc::clone(&binding.cpath), func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
-            let name_binding = self.ctx.resolve_ident(param).unwrap();
+            let binding = self.ctx.resolve_ident(param).unwrap();
+            let param_ty = self.ast_ty_to_ty(param_ty);
             self.ctx
-                .set_cpath_type(name_binding, Rc::new(self.ast_ty_to_ty(param_ty)));
+                .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(param_ty));
         }
         // push return type
         let ret_ty = self.ast_ty_to_ty(&func.ret_ty);
@@ -131,10 +139,11 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
         let field_tys: Vec<(Rc<String>, Rc<Ty>)> = strct
             .fields
             .iter()
-            .map(|(s, ty)| (Rc::clone(&s.symbol), Rc::new(self.ast_ty_to_ty(ty))))
+            .map(|(name, ty)| (Rc::clone(&name.symbol), Rc::new(self.ast_ty_to_ty(ty))))
             .collect();
         let adt = AdtDef { fields: field_tys };
-        self.ctx.set_adt_def(strct.ident.symbol.clone(), adt);
+        let binding = self.ctx.resolve_ident(&strct.ident).unwrap();
+        self.ctx.set_adt_def(Rc::clone(&binding.cpath), adt);
     }
 
     fn visit_stmt_post(&mut self, stmt: &'chk ast::Stmt) {
@@ -179,19 +188,16 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
                 // set local variable type
-                let name_binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
+                let binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
                 // set type of local variable
                 // TODO: unwrap
-                self.ctx.set_cpath_type(
-                    name_binding,
-                    Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
-                );
+                let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
+                self.ctx
+                    .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(annotated_ty));
                 // set type of statement
+                let stmt_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
                 // TODO: unwrap
-                self.ctx.insert_type(
-                    stmt.id,
-                    Rc::new(self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap())),
-                );
+                self.ctx.insert_type(stmt.id, Rc::new(stmt_ty));
             }
             _ => {}
         }
@@ -260,8 +266,8 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             }
             ExprKind::Path(path) => {
                 // find symbols in local variables, parameters, and in functions
-                if let Some(name_binding) = self.ctx.resolve_ident(&path.ident) {
-                    if let Some(ty) = self.ctx.lookup_cpath_type(&name_binding) {
+                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                    if let Some(ty) = self.ctx.lookup_cpath_type(&binding.cpath) {
                         ty
                     } else {
                         self.error(format!(
@@ -363,20 +369,20 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             }
             ExprKind::Field(receiver, field) => {
                 let maybe_adt = self.ctx.get_type(receiver.id);
-                if let Some(adt_name) = maybe_adt.get_adt_name() {
-                    if let Some(adt) = self.ctx.lookup_adt_def(adt_name) {
+                if let Some(cpath) = maybe_adt.get_adt_name() {
+                    if let Some(adt) = self.ctx.lookup_adt_def(cpath) {
                         let r = adt.fields.iter().find(|(f, _)| field.symbol == *f);
                         if let Some((_, ty)) = r {
                             Rc::clone(ty)
                         } else {
                             self.error(format!(
-                                "Type {} does not have field `{}`",
-                                adt_name, field.symbol
+                                "Type {:?} does not have field `{}`",
+                                cpath, field.symbol
                             ));
                             Rc::new(Ty::error())
                         }
                     } else {
-                        self.error(format!("Cannot find type {}", adt_name));
+                        self.error(format!("receiver is not struct, but {:?}", maybe_adt));
                         Rc::new(Ty::error())
                     }
                 } else {
@@ -385,12 +391,16 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
                 }
             }
             ExprKind::Struct(path, _fds) => {
-                let adt_name = &path.ident.symbol;
-                if let Some(_adt) = self.ctx.lookup_adt_def(adt_name) {
-                    // TODO: typecheck fields
-                    Rc::new(Ty::new(TyKind::Adt(Rc::clone(adt_name))))
+                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                    if let Some(_adt) = self.ctx.lookup_adt_def(&binding.cpath) {
+                        // TODO: typecheck fields
+                        Rc::new(Ty::new(TyKind::Adt(Rc::clone(&binding.cpath))))
+                    } else {
+                        self.error(format!("{:?} does not have struct type", binding.cpath));
+                        Rc::new(Ty::error())
+                    }
                 } else {
-                    self.error(format!("Cannot find type {}", adt_name));
+                    self.error(format!("Could not resolve {}", path.ident.symbol));
                     Rc::new(Ty::error())
                 }
             }

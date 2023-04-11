@@ -1,7 +1,7 @@
 pub mod ty;
 
 use crate::ast::{self, Crate, NodeId};
-use crate::hir::{self, HirId};
+//use crate::hir::{self, HirId, LocalDefId};
 //use crate::hir::HirId;
 use crate::middle::ty::{AdtDef, Ty};
 use crate::resolve::{Binding, Resolver};
@@ -15,8 +15,11 @@ pub struct Ctxt<'ctx> {
     // Set during name resolution stage
     resolver: Resolver,
 
-    hir: Option<hir::Crate<'ctx>>,
-    //hir_item_mappings: HashMap<HirId, &'hir Item>,
+    /// HIR root module
+    //hir_root_module: LocalDefId,
+    //hir_items: HashMap<LocalDefId, hir::Item<'ctx>>,
+    //hir_ty_mappings: HashMap<HirId, Rc<Ty>>,
+    phantom: std::marker::PhantomData<&'ctx ()>,
 
     // Set during typecheck stage
     /// Expr/Stmt/Block to type mappings
@@ -37,7 +40,10 @@ impl<'ctx> Ctxt<'ctx> {
             dump_enabled,
             resolver: Resolver::new(),
 
-            hir: None,
+            //hir_root_module: LocalDefId::dummy(),
+            //hir_items: HashMap::new(),
+            //hir_ty_mappings: HashMap::new(),
+            phantom: std::marker::PhantomData::default(),
 
             ty_mappings: HashMap::new(),
             name_ty_mappings: HashMap::new(),
@@ -48,7 +54,7 @@ impl<'ctx> Ctxt<'ctx> {
 
     // Resolution Stage
 
-    pub fn resolve(&mut self, krate: &'ctx Crate) {
+    pub fn resolve(&mut self, krate: &Crate) {
         ast::visitor::go(&mut self.resolver, krate);
     }
 
@@ -56,6 +62,9 @@ impl<'ctx> Ctxt<'ctx> {
     pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
         self.resolver.resolve_ident(ident)
     }
+
+    // AST lowering
+    // TODO:
 
     // Typecheck Stage
 

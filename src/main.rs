@@ -1,8 +1,8 @@
 #![feature(let_chains)]
 mod ast;
-mod ast_lower;
+//mod ast_lower;
 mod backend_llvm;
-mod hir;
+//mod hir;
 mod lexer;
 //mod lvalue;
 mod middle;
@@ -21,6 +21,7 @@ fn main() {
 
     // TODO: refine handling command line args
     let dump_enabled = args.contains(&"--dump".to_string());
+    let hir_enabled = args.contains(&"--hir".to_string());
 
     let path_or_src = args[1].clone();
     let src = if args[1].ends_with(".rs") {
@@ -51,33 +52,40 @@ fn main() {
         dbg!(&krate);
     }
 
-    // Name resolution stage
-    ctx.resolve(&krate);
+    if hir_enabled {
+        //ast_lower::lower_crate(&mut ctx, &krate);
+    } else {
+        // Name resolution stage
+        ctx.resolve(&krate);
 
-    if ctx.dump_enabled {
-        dbg!(&ctx);
-    }
-
-    // Typecheck stage
-    let typeck_result = typeck::typeck(&mut ctx, &krate);
-    let Ok(()) = typeck_result else {
-        if let Err(errors) = typeck_result {
-            for e in errors {
-                eprintln!("{}", e);
-            }
+        if ctx.dump_enabled {
+            dbg!(&ctx);
         }
-        eprintln!("Failed to typecheck crate");
-        std::process::exit(1);
-    };
+        // Typecheck stage
+        let typeck_result = typeck::typeck(&mut ctx, &krate);
+        let Ok(()) = typeck_result else {
+            if let Err(errors) = typeck_result {
+                for e in errors {
+                    eprintln!("{}", e);
+                }
+            }
+            eprintln!("Failed to typecheck crate");
+            std::process::exit(1);
+        };
 
-    // Lvalue analysis stage
-    // lvalue::analyze(&mut ctx, &krate);
+        if ctx.dump_enabled {
+            dbg!(&ctx);
+        }
 
-    // Codegen stage
-    let codegen_result = backend_llvm::compile(&mut ctx, &krate);
+        // Lvalue analysis stage
+        // lvalue::analyze(&mut ctx, &krate);
 
-    let Ok(()) = codegen_result else {
-        eprintln!("ICE: Failed to generate assembly");
-        std::process::exit(1);
-    };
+        // Codegen stage
+        let codegen_result = backend_llvm::compile(&mut ctx, &krate);
+
+        let Ok(()) = codegen_result else {
+            eprintln!("ICE: Failed to generate assembly");
+            std::process::exit(1);
+        };
+    }
 }

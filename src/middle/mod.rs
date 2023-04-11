@@ -54,7 +54,7 @@ impl<'ctx> Ctxt<'ctx> {
 
     // Resolution Stage
 
-    pub fn resolve(&mut self, krate: &Crate) {
+    pub fn run_resolver(&mut self, krate: &Crate) {
         ast::visitor::go(&mut self.resolver, krate);
     }
 

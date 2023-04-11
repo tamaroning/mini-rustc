@@ -37,6 +37,20 @@ impl CanonicalPath {
         CanonicalPath { segments: vec![] }
     }
 
+    fn krate() -> Self {
+        CanonicalPath {
+            segments: vec![Rc::new("crate".to_string())],
+        }
+    }
+
+    fn from_path(prefix: &CanonicalPath, path: &Path) -> Self {
+        let mut ret = prefix.clone();
+        for seg in &path.segments {
+            ret.segments.push(Rc::clone(&seg.symbol));
+        }
+        ret
+    }
+
     fn push_seg(&mut self, seg: Rc<String>) {
         self.segments.push(seg);
     }
@@ -51,10 +65,11 @@ impl CanonicalPath {
             // skip first `crate`
             if i == 0 {
                 continue;
-            } else if i != 1 && i != self.segments.len() - 1 {
-                s.push_str("..");
             }
             s.push_str(&seg);
+            if i != self.segments.len() - 1 {
+                s.push_str("..");
+            }
         }
         s
     }
@@ -82,19 +97,31 @@ pub struct Rib {
     // ↓
     // let a = 0; a
     //     ^
+    kind: RibKind,
+    cpath: CanonicalPath,
     bindings: HashMap<Rc<String>, Rc<Binding>>,
     parent: Option<RibId>,
-    cpath: CanonicalPath,
+    children: Vec<RibId>,
 }
 
 type RibId = u32;
+const DUMMY_RIB_ID: u32 = u32::MAX;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum RibKind {
+    Mod,
+    Func,
+    Block,
+}
 
 impl Rib {
-    fn new(rib_id: u32, parent: Option<RibId>, cpath: CanonicalPath) -> Self {
+    fn new(rib_id: u32, kind: RibKind, parent: Option<RibId>, cpath: CanonicalPath) -> Self {
         Rib {
             id: rib_id,
+            kind,
             bindings: HashMap::new(),
             parent,
+            children: vec![],
             cpath,
         }
     }
@@ -119,6 +146,7 @@ pub struct Resolver {
     next_rib_id: u32,
     // interned ribs
     interned: HashMap<RibId, Rib>,
+    crate_rib_id: RibId,
 
     cache: HashMap<Path, Rc<Binding>>,
 }
@@ -132,9 +160,18 @@ impl Resolver {
             current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
             next_rib_id: 0,
+            crate_rib_id: DUMMY_RIB_ID,
 
             cache: HashMap::new(),
         }
+    }
+
+    fn get_rib(&self, rib_id: RibId) -> &Rib {
+        self.interned.get(&rib_id).unwrap()
+    }
+
+    fn get_rib_mut(&mut self, rib_id: RibId) -> &mut Rib {
+        self.interned.get_mut(&rib_id).unwrap()
     }
 
     pub fn dump_ribs(&self) {
@@ -142,10 +179,12 @@ impl Resolver {
         for (rib_id, rib) in &self.interned {
             println!("{} => [", rib_id);
             println!("\tcpath: {:?}", rib.cpath);
+            println!("\tkind: {:?}", rib.kind);
             for (s, binding) in &rib.bindings {
                 println!("\t\"{}\" => {:?}, ", s, binding);
             }
             println!("\tparent: {:?}", rib.parent);
+            println!("\tchildren: {:?}", rib.children);
             println!("]");
         }
         for (ident, rib_id) in &self.def_to_rib {
@@ -188,7 +227,7 @@ impl Resolver {
         if let Some(binding) = self.cache.get(&path) {
             Some(Rc::clone(binding))
         } else if let Some(rib) = self.use_to_rib.get(path) {
-            let binding = self.resolve_segment_from_rib(path, *rib)?;
+            let binding = self.resolve_path_from_rib(path, *rib)?;
             let binding = Rc::clone(&binding);
             self.cache.insert(path.clone(), Rc::clone(&binding));
             Some(binding)
@@ -197,26 +236,77 @@ impl Resolver {
         }
     }
 
-    /// Utility function of resolve_ident
+    /// Items visibie from a name space: `crate`, siblings items, and `use`d namespace
+    /// `path`: path in question
+    /// `rib_id`s: RibId of rib where path is used
+    fn resolve_path_from_rib(&self, path: &Path, rib_id: RibId) -> Option<Rc<Binding>> {
+        let emp_cpath = CanonicalPath::empty();
+        let crate_cpath = CanonicalPath::krate();
+        let rib = self.get_rib(rib_id);
+        let prefixes = vec![&emp_cpath, &crate_cpath, &rib.cpath];
 
-    // just search in ancester ribs for now
-    // TODO: search in ribs other than ancester
-    fn resolve_segment_from_rib(&self, path: &Path, rib_id: RibId) -> Option<Rc<Binding>> {
-        let seg = &path.segments.last().unwrap().symbol;
-        let mut current_rib = self.get_rib(rib_id);
-        loop {
-            if let Some(binding) = current_rib.bindings.get(seg) {
-                return Some(Rc::clone(binding));
-            } else if let Some(parent_rib_id) = current_rib.parent {
-                current_rib = self.get_rib(parent_rib_id);
+        if *path.segments.first().unwrap().symbol == "crate" {
+            let mut result = None;
+            // prefix: ["", "crate"]
+            self.resolve_with_dfs(&prefixes, path, self.crate_rib_id, &mut result);
+            result
+        } else {
+            // search in all siblings
+            let mut result = None;
+
+            // search from this module (if this rib is not module, starts from its parent module)
+            if rib.kind != RibKind::Mod {
+                let parent_module_rib = self.get_parent_module(rib_id).unwrap();
+                self.resolve_with_dfs(&prefixes, path, parent_module_rib.id, &mut result);
             } else {
-                break;
+                self.resolve_with_dfs(&prefixes, path, rib_id, &mut result);
             }
+
+            result
         }
-        None
     }
 
-    fn get_rib(&self, rib_id: RibId) -> &Rib {
-        self.interned.get(&rib_id).unwrap()
+    fn get_parent_module(&self, rib_id: RibId) -> Option<&Rib> {
+        let rib = self.get_rib(rib_id);
+        if let Some(parent_rib_id) = rib.parent {
+            let parent_rib = self.get_rib(parent_rib_id);
+            if parent_rib.kind == RibKind::Mod {
+                Some(parent_rib)
+            } else {
+                self.get_parent_module(parent_rib_id)
+            }
+        } else {
+            None
+        }
+    }
+
+    fn resolve_with_dfs(
+        &self,
+        prefixes: &[&CanonicalPath],
+        path: &Path,
+        rib_id: RibId,
+        result: &mut Option<Rc<Binding>>,
+    ) {
+        if result.is_some() {
+            return;
+        }
+
+        let rib = self.get_rib(rib_id);
+
+        for (_, binding) in &rib.bindings {
+            for prefix in prefixes {
+                let path_with_prefix = CanonicalPath::from_path(prefix, path);
+                //eprintln!("compare {:?} with {:?}", &path_with_prefix, binding.cpath);
+                if *binding.cpath == path_with_prefix {
+                    *result = Some(Rc::clone(binding));
+                    return;
+                }
+            }
+        }
+
+        for child in &rib.children {
+            // TODO: if `pub`
+            self.resolve_with_dfs(prefixes, path, *child, result);
+        }
     }
 }

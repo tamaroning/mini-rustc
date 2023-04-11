@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::{Binding, BindingKind, Resolver, Rib, RibId};
+use super::{Binding, BindingKind, Resolver, Rib, RibId, RibKind};
 use crate::{
     ast::{self, Path, StmtKind},
     span::Ident,
@@ -12,9 +12,14 @@ impl Resolver {
         self.interned.get_mut(&current_rib_id).unwrap()
     }
 
-    fn push_rib(&mut self) {
-        let parent = self.current_ribs.last().copied();
-        let rib = Rib::new(self.get_next_rib_id(), parent, self.current_cpath.clone());
+    fn push_rib(&mut self, kind: RibKind) {
+        let new_rib_id = self.get_next_rib_id();
+        let parent_rib_id = self.current_ribs.last().copied();
+        if let Some(parent_rib_id) = parent_rib_id {
+            let parent_rib = self.get_rib_mut(parent_rib_id);
+            parent_rib.children.push(new_rib_id);
+        }
+        let rib = Rib::new(new_rib_id, kind, parent_rib_id, self.current_cpath.clone());
         self.current_ribs.push(rib.id);
         self.interned.insert(rib.id, rib);
     }
@@ -64,7 +69,9 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.push_segment_to_current_cpath(Rc::new("crate".to_string()));
 
         // push new rib
-        self.push_rib();
+        self.push_rib(RibKind::Mod);
+
+        self.crate_rib_id = self.get_current_rib_mut().id;
     }
 
     fn visit_crate_post(&mut self, _krate: &'ctx ast::Crate) {
@@ -84,7 +91,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         // push module name to cpath
         self.push_segment_to_current_cpath(Rc::clone(&module.name.symbol));
         // push new rib
-        self.push_rib();
+        self.push_rib(RibKind::Mod);
     }
 
     fn visit_module_item_post(&mut self, _module: &'ctx ast::Module) {
@@ -103,10 +110,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol));
 
         // push new rib
-        self.push_rib();
-
-        // push new rib
-        self.push_rib();
+        self.push_rib(RibKind::Func);
 
         // insert parameters to rib
         for (param, _) in &func.params {
@@ -121,7 +125,6 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
         // pop current rib
         self.pop_rib(); // func
-        self.pop_rib(); // param
     }
 
     fn visit_struct_item(&mut self, strct: &'ctx ast::StructItem) {
@@ -130,7 +133,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
     fn visit_block(&mut self, _block: &'ctx ast::Block) {
         // push new rib
-        self.push_rib();
+        self.push_rib(RibKind::Block);
     }
 
     fn visit_block_post(&mut self, _: &'ctx ast::Block) {

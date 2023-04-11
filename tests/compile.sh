@@ -92,7 +92,17 @@ compile 'fn main() -> () { } mod a { mod b { mod c { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { fn a() -> () { }  } } }'
 
-# [resolver] no forward decl
+# name resolution
+# no forward decl
 compile 'fn main() -> () { let s: S; } struct S { }'
+# absolute path `crate...`
+compile 'fn f() -> () { } fn main() -> () { crate::f() }'
+compile 'mod a { fn f() -> () { } } fn main() -> () { crate::a::f() }'
+compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () { crate::b::f() }'
+# relative path
+compile 'fn f() -> () { } fn main() -> () { crate::f() }'
+compile 'mod a { fn f() -> () { } } fn main() -> () { a::f() }'
+compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () { b::f() }'
+
 # TODO: typecheck all items first and then typecheck bodies
 #compile 'fn main() -> () { f(); } fn f() -> () { }'

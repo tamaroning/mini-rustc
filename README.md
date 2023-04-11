@@ -95,6 +95,7 @@ Hello mini-rustc!
   - [x] `extern` blocks (e.g. `extern "C" { ... }`)
     - Only `"C"` is available
   - [x] Modules `mod`
+    - Visibility (`pub`) is not suported
   - [ ] Global variables
 - statements
   - [x] `let` statement
@@ -116,13 +117,14 @@ Hello mini-rustc!
   - [x] Struct expressions `SomeName { field1: expr, .. }`
   - [x] Field expressions `strct.field`
   - [x] Index expressions `array[index]`
+  - [x] Paths in expressions `a`, `crate::foo`
 - Others
-  - [ ] Paths
+  - [x] Paths
   - [ ] Patterns (Pattern matching)
   - [x] Comments `//`
 - Internal
   - [ ] HIR
-  - [ ] Name Resolution
+  - [x] Name Resolution
   - [ ] Type Resolution
 
 ## ABI

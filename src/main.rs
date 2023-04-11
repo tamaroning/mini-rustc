@@ -52,7 +52,7 @@ fn main() {
     }
 
     // Name resolution stage
-    ctx.resolve(&krate);
+    ctx.run_resolver(&krate);
 
     if ctx.dump_enabled {
         ctx.dump_ribs();

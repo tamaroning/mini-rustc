@@ -119,10 +119,25 @@ pub enum ExprKind {
     Array(Vec<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Path {
-    pub ident: Ident,
+    pub segments: Vec<Ident>,
     pub span: Span,
+}
+
+impl std::fmt::Debug for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`")?;
+        for (i, seg) in self.segments.iter().enumerate() {
+            if i != 0 {
+                write!(f, "::")?;
+            }
+            write!(f, "{}", seg.symbol)?;
+        }
+        write!(f, "`")?;
+        write!(f, " ({:?})", self.span)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

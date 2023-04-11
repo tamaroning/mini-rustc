@@ -1,6 +1,6 @@
 pub mod ty;
 
-use crate::ast::{self, Crate, NodeId};
+use crate::ast::{self, Crate, NodeId, Path};
 //use crate::hir::{self, HirId, LocalDefId};
 //use crate::hir::HirId;
 use crate::middle::ty::{AdtDef, Ty};
@@ -58,13 +58,18 @@ impl<'ctx> Ctxt<'ctx> {
         ast::visitor::go(&mut self.resolver, krate);
     }
 
-    /// Resolve identifier (local variable, parameters, function name)
-    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        self.resolver.resolve_ident(ident)
+    /// Resolve identifiers in var decls (func params or local variables) to canonical paths
+    pub fn resolve_var_or_item_decl(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
+        self.resolver.resolve_var_or_item_decl(ident)
+    }
+
+    /// Resolve paths to canonical paths
+    pub fn resolve_path(&mut self, path: &Path) -> Option<Rc<Binding>> {
+        self.resolver.resolve_path(path)
     }
 
     pub fn dump_ribs(&self) {
-        self.resolver.dump_ribs_and_toplevel();
+        self.resolver.dump_ribs();
     }
 
     pub fn dump_resolution(&self) {

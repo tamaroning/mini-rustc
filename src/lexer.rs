@@ -31,7 +31,10 @@ pub enum TokenKind {
     Eq,
     /// ;
     Semi,
+    /// :
     Colon,
+    /// ::
+    ColCol,
     Comma,
     Dot,
     /// (
@@ -208,7 +211,12 @@ impl Lexer {
                 }
                 ':' => {
                     self.skip_input();
-                    self.new_token(TokenKind::Colon)
+                    if self.peek_input() == Some(&':') {
+                        self.skip_input();
+                        self.new_token(TokenKind::ColCol)
+                    } else {
+                        self.new_token(TokenKind::Colon)
+                    }
                 }
                 ',' => {
                     self.skip_input();

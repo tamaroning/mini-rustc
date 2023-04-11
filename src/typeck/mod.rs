@@ -70,10 +70,10 @@ impl<'ctx, 'chk> TypeChecker<'ctx, 'chk> {
                 ty::TyKind::Array(Rc::new(self.ast_ty_to_ty(elem_ty)), *n)
             }
             ast::TyKind::Adt(path) => {
-                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                if let Some(binding) = self.ctx.resolve_path(path) {
                     ty::TyKind::Adt(Rc::clone(&binding.cpath))
                 } else {
-                    self.error(format!("{}", path.ident.symbol));
+                    self.error(format!("{:?}", path));
                     ty::TyKind::Error
                 }
             }
@@ -102,12 +102,12 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             Rc::new(self.ast_ty_to_ty(&func.ret_ty)),
         )));
 
-        let binding = self.ctx.resolve_ident(&func.name).unwrap();
+        let binding = self.ctx.resolve_var_or_item_decl(&func.name).unwrap();
         self.ctx.set_cpath_type(Rc::clone(&binding.cpath), func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
-            let binding = self.ctx.resolve_ident(param).unwrap();
+            let binding = self.ctx.resolve_var_or_item_decl(param).unwrap();
             let param_ty = self.ast_ty_to_ty(param_ty);
             self.ctx
                 .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(param_ty));
@@ -142,7 +142,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             .map(|(name, ty)| (Rc::clone(&name.symbol), Rc::new(self.ast_ty_to_ty(ty))))
             .collect();
         let adt = AdtDef { fields: field_tys };
-        let binding = self.ctx.resolve_ident(&strct.ident).unwrap();
+        let binding = self.ctx.resolve_var_or_item_decl(&strct.ident).unwrap();
         self.ctx.set_adt_def(Rc::clone(&binding.cpath), adt);
     }
 
@@ -188,7 +188,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
                 // set local variable type
-                let binding = self.ctx.resolve_ident(&let_stmt.ident).unwrap();
+                let binding = self.ctx.resolve_var_or_item_decl(&let_stmt.ident).unwrap();
                 // set type of local variable
                 // TODO: unwrap
                 let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
@@ -266,18 +266,15 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             }
             ExprKind::Path(path) => {
                 // find symbols in local variables, parameters, and in functions
-                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                if let Some(binding) = self.ctx.resolve_path(path) {
                     if let Some(ty) = self.ctx.lookup_cpath_type(&binding.cpath) {
                         ty
                     } else {
-                        self.error(format!(
-                            "Cannot use varaible `{}` before declaration",
-                            path.ident.symbol
-                        ));
+                        self.error(format!("Cannot use `{:?}` before declaration", path));
                         Rc::new(Ty::error())
                     }
                 } else {
-                    self.error(format!("Could not resolve ident `{}`", path.ident.symbol));
+                    self.error(format!("Could not resolve ident `{:?}`", path));
                     Rc::new(Ty::error())
                 }
             }
@@ -391,7 +388,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
                 }
             }
             ExprKind::Struct(path, _fds) => {
-                if let Some(binding) = self.ctx.resolve_ident(&path.ident) {
+                if let Some(binding) = self.ctx.resolve_path(path) {
                     if let Some(_adt) = self.ctx.lookup_adt_def(&binding.cpath) {
                         // TODO: typecheck fields
                         Rc::new(Ty::new(TyKind::Adt(Rc::clone(&binding.cpath))))
@@ -400,7 +397,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
                         Rc::new(Ty::error())
                     }
                 } else {
-                    self.error(format!("Could not resolve {}", path.ident.symbol));
+                    self.error(format!("Could not resolve {}", path.span.to_snippet()));
                     Rc::new(Ty::error())
                 }
             }

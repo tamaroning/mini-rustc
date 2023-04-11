@@ -50,10 +50,10 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         let frame = compute_frame(self, func);
         self.push_frame(frame);
 
-        let binding = self.ctx.resolve_ident(&func.name).unwrap();
+        let fn_name_binding = self.ctx.resolve_var_or_item_decl(&func.name).unwrap();
         let (_param_tys, ret_ty) = self
             .ctx
-            .lookup_cpath_type(&binding.cpath)
+            .lookup_cpath_type(&fn_name_binding.cpath)
             .unwrap()
             .get_func_type()
             .unwrap();
@@ -61,7 +61,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         print!(
             "{} @{}(",
             self.ty_to_llty(&ret_ty).to_string(),
-            func.name.symbol
+            fn_name_binding.cpath.demangle()
         );
 
         // parameters
@@ -140,11 +140,11 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             }
             StmtKind::Expr(expr) => self.eval_expr(expr)?,
             StmtKind::Let(LetStmt { ident, ty: _, init }) => {
-                let name = self.ctx.resolve_ident(ident).unwrap();
-                let local = self.peek_frame().get_local(&name);
+                let binding = self.ctx.resolve_var_or_item_decl(ident).unwrap();
+                let local = self.peek_frame().get_local(&binding);
 
                 if let Some(init) = init && local.kind == LocalKind::Ptr {
-                    let ptr = self.gen_ident_lval(ident).unwrap();
+                    let ptr = self.gen_binding_lval(&binding).unwrap();
                     // assign initializer
                     self.initialize_memory_with_value(&ptr, init)?;
                 }

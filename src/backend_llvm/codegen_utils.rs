@@ -1,7 +1,8 @@
 use super::{frame::LocalKind, llvm::LLReg, Codegen};
 use crate::{
-    ast::{Expr, ExprKind},
+    ast::{Expr, ExprKind, Path},
     backend_llvm::llvm::LLTy,
+    resolve::Binding,
     span::Ident,
 };
 use std::rc::Rc;
@@ -10,7 +11,10 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
     // expr: LLTY -> LLTY*
     pub fn gen_lval(&mut self, expr: &'gen Expr) -> Result<Rc<LLReg>, ()> {
         match &expr.kind {
-            ExprKind::Path(path) => self.gen_ident_lval(&path.ident),
+            ExprKind::Path(path) => {
+                let binding = self.ctx.resolve_path(path).unwrap();
+                self.gen_binding_lval(&binding)
+            }
             ExprKind::Index(arr, index) => {
                 // TODO: move to another func
                 let arr_ptr_reg = self.gen_lval(arr)?;
@@ -79,9 +83,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
 
     // ident: LLTY* (i.e. LocalKind::Ptr) -> LLTY*
     // ident: LLTY  (i.e. LocalKind::Val)  -> Err
-    pub fn gen_ident_lval(&mut self, ident: &'gen Ident) -> Result<Rc<LLReg>, ()> {
-        let name = self.ctx.resolve_ident(ident).unwrap();
-        let local = self.peek_frame().get_local(&name);
+    pub fn gen_binding_lval(&mut self, binding: &Binding) -> Result<Rc<LLReg>, ()> {
+        let local = self.peek_frame().get_local(binding);
         match &local.kind {
             LocalKind::Value => Err(()),
             LocalKind::Ptr => Ok(Rc::clone(&local.reg)),
@@ -91,8 +94,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
     /// ident is allocated on stack => load fromm its reg and returns the value
     /// ident is not allocated => returns its reg
     /// ident: LLTY -> returns LLTY*
-    pub fn load_ident(&mut self, ident: &'gen Ident) -> Result<Rc<LLReg>, ()> {
-        let name = self.ctx.resolve_ident(ident).unwrap();
+    pub fn load_path(&mut self, path: &'gen Path) -> Result<Rc<LLReg>, ()> {
+        let name = self.ctx.resolve_path(path).unwrap();
         let local = &self.peek_frame().get_local(&name);
         match &local.kind {
             LocalKind::Value => Ok(Rc::clone(&local.reg)),
@@ -126,7 +129,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
 
         match &init.kind {
             ExprKind::Struct(path, fields) => {
-                let binding = self.ctx.resolve_ident(&path.ident).unwrap();
+                let binding = self.ctx.resolve_path(path).unwrap();
                 let lladt = self.get_lladt(&binding.cpath).unwrap();
                 for (field, fd_expr) in fields {
                     if lladt.get_field_index(&field.symbol).is_none() {

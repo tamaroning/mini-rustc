@@ -1,8 +1,6 @@
 mod resolve_crate;
-mod resolve_toplevel;
 
-use self::resolve_toplevel::ResolveTopLevel;
-use crate::span::Ident;
+use crate::{ast::Path, span::Ident};
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -50,7 +48,10 @@ impl CanonicalPath {
     pub fn demangle(&self) -> String {
         let mut s = String::new();
         for (i, seg) in self.segments.iter().enumerate() {
-            if i != 0 {
+            // skip first `crate`
+            if i == 0 {
+                continue;
+            } else if i != 1 && i != self.segments.len() - 1 {
                 s.push_str("..");
             }
             s.push_str(&seg);
@@ -81,34 +82,36 @@ pub struct Rib {
     // ↓
     // let a = 0; a
     //     ^
-    bindings: HashMap<Rc<String>, Binding>,
+    bindings: HashMap<Rc<String>, Rc<Binding>>,
     parent: Option<RibId>,
+    cpath: CanonicalPath,
 }
 
 type RibId = u32;
 
 impl Rib {
-    fn new(rib_id: u32, parent: Option<RibId>) -> Self {
+    fn new(rib_id: u32, parent: Option<RibId>, cpath: CanonicalPath) -> Self {
         Rib {
             id: rib_id,
             bindings: HashMap::new(),
             parent,
+            cpath,
         }
     }
 
     // TODO: shadowing
     pub fn insert_binding(&mut self, symbol: Rc<String>, binding: Binding) {
         // FIXME: duplicate symbol?
-        self.bindings.insert(symbol, binding);
+        self.bindings.insert(symbol, Rc::new(binding));
     }
 }
 
 #[derive(Debug)]
 pub struct Resolver {
-    resolve_toplevel: ResolveTopLevel,
-
-    // (nodes of idents (local var, parameter, struct)) to ribs mappings (use-use)
-    ident_to_rib: HashMap<Ident, RibId>,
+    // Lookup map
+    def_to_rib: HashMap<Ident, RibId>,
+    // Lookup map
+    use_to_rib: HashMap<Path, RibId>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
     // current canonical path
@@ -117,14 +120,14 @@ pub struct Resolver {
     // interned ribs
     interned: HashMap<RibId, Rib>,
 
-    cache: HashMap<Ident, Rc<Binding>>,
+    cache: HashMap<Path, Rc<Binding>>,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         Resolver {
-            resolve_toplevel: ResolveTopLevel::new(),
-            ident_to_rib: HashMap::new(),
+            def_to_rib: HashMap::new(),
+            use_to_rib: HashMap::new(),
             current_ribs: vec![],
             current_cpath: CanonicalPath::empty(),
             interned: HashMap::new(),
@@ -134,25 +137,24 @@ impl Resolver {
         }
     }
 
-    pub fn dump_ribs_and_toplevel(&self) {
+    pub fn dump_ribs(&self) {
         println!("===== Ribs in resolver =====");
         for (rib_id, rib) in &self.interned {
             println!("{} => [", rib_id);
+            println!("\tcpath: {:?}", rib.cpath);
             for (s, binding) in &rib.bindings {
                 println!("\t\"{}\" => {:?}, ", s, binding);
             }
+            println!("\tparent: {:?}", rib.parent);
             println!("]");
         }
-        for (i, (ident, rib_id)) in self.ident_to_rib.iter().enumerate() {
-            print!("{:?} =>  {}, ", ident, rib_id);
-            if i % 4 == 3 {
-                println!()
-            }
+        for (ident, rib_id) in &self.def_to_rib {
+            println!("def of {:?} =>  {}, ", ident, rib_id);
+        }
+        for (ident, rib_id) in &self.use_to_rib {
+            println!("use of {:?} =>  {}, ", ident, rib_id);
         }
         println!();
-        println!("============================");
-        println!("==== Toplevel resolver =====");
-        self.resolve_toplevel.dump();
         println!("============================");
     }
 
@@ -164,20 +166,31 @@ impl Resolver {
         println!("============================");
     }
 
-    /// Resolve identifiers to canonical paths
-    pub fn resolve_ident(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        if let Some(binding) = self.cache.get(ident) {
+    /// Resolve identifiers in declaration nodes (func params or local variables) to canonical paths
+    pub fn resolve_var_or_item_decl(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
+        if let Some(rib_id) = self.def_to_rib.get(ident) {
+            let rib = self.get_rib(*rib_id);
+            if let Some(binding) = rib.bindings.get(&ident.symbol) {
+                return Some(binding.clone());
+            } else {
+                panic!(
+                    "ICE: {:?} is in def_to_rib, but rib does not contain its def",
+                    ident
+                );
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Resolve paths to canonical paths
+    pub fn resolve_path(&mut self, path: &Path) -> Option<Rc<Binding>> {
+        if let Some(binding) = self.cache.get(&path) {
             Some(Rc::clone(binding))
-        }
-        // search in items
-        else if let Some(binding) = self.resolve_toplevel.search_item(&ident.symbol) {
-            self.cache.insert(ident.clone(), Rc::clone(&binding));
-            Some(binding)
-        }
-        // search in local and parameters
-        else if let Some(rib) = self.ident_to_rib.get(&ident) {
-            let binding = Rc::new(self.resolve_segment_from_rib(&ident.symbol, *rib)?);
-            self.cache.insert(ident.clone(), Rc::clone(&binding));
+        } else if let Some(rib) = self.use_to_rib.get(path) {
+            let binding = self.resolve_segment_from_rib(path, *rib)?;
+            let binding = Rc::clone(&binding);
+            self.cache.insert(path.clone(), Rc::clone(&binding));
             Some(binding)
         } else {
             None
@@ -188,12 +201,12 @@ impl Resolver {
 
     // just search in ancester ribs for now
     // TODO: search in ribs other than ancester
-    fn resolve_segment_from_rib(&self, seg: &Rc<String>, rib_id: RibId) -> Option<Binding> {
+    fn resolve_segment_from_rib(&self, path: &Path, rib_id: RibId) -> Option<Rc<Binding>> {
+        let seg = &path.segments.last().unwrap().symbol;
         let mut current_rib = self.get_rib(rib_id);
-
         loop {
             if let Some(binding) = current_rib.bindings.get(seg) {
-                return Some(binding.clone());
+                return Some(Rc::clone(binding));
             } else if let Some(parent_rib_id) = current_rib.parent {
                 current_rib = self.get_rib(parent_rib_id);
             } else {

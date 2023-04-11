@@ -92,11 +92,24 @@ impl Parser {
         }
     }
 
+    /// path ::= pathSegment ("::" PathSegment)*
+    /// pathSegment ::= ident
+    /// ref: https://doc.rust-lang.org/reference/paths.html#paths
     fn parse_path(&mut self) -> Option<Path> {
         let ident = self.parse_ident()?;
+        let mut span = ident.span.clone();
+        let mut segs = vec![ident];
+
+        while self.peek_token().kind == TokenKind::ColCol {
+            self.skip_token();
+            let new_seg = self.parse_ident()?;
+            span = span.concat(&new_seg.span);
+            segs.push(new_seg);
+        }
+
         Some(Path {
-            span: ident.span.clone(),
-            ident,
+            span,
+            segments: segs,
         })
     }
 }

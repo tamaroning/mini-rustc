@@ -1,0 +1,5 @@
+#!/bin/bash
+cargo run "$1" --llvm > tmp.ll
+llc tmp.ll -o tmp.s -opaque-pointers
+gcc tmp.s -o a.out
+chmod +x a.out

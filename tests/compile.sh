@@ -91,3 +91,8 @@ compile 'fn main() -> () { } mod a { fn f() -> () { } }'
 compile 'fn main() -> () { } mod a { mod b { mod c { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { fn a() -> () { }  } } }'
+
+# [resolver] no forward decl
+compile 'fn main() -> () { let s: S; } struct S { }'
+# TODO: typecheck all items first and then typecheck bodies
+#compile 'fn main() -> () { f(); } fn f() -> () { }'

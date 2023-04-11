@@ -54,3 +54,8 @@ compile_fail 'fn main() -> () { let a: [i32; 1] = [true]; }'
 compile_fail 'fn main() -> () { let a: [i32; 1]; a[0] = true; }'
 # if
 compile_fail 'fn main() -> () { if (true) { } else { 1 } }'
+# name space
+compile_fail 'mod a { fn f() -> () { } } fn main() -> () { f() }'
+# name space
+compile_fail 'mod a mod b { { fn f() -> () { } } } fn main() -> () { f() }'
+

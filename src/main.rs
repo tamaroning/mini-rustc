@@ -1,8 +1,6 @@
 #![feature(let_chains)]
 mod ast;
-mod ast_lower;
 mod backend_llvm;
-mod hir;
 mod lexer;
 //mod lvalue;
 mod middle;
@@ -69,6 +67,10 @@ fn main() {
         eprintln!("Failed to typecheck crate");
         std::process::exit(1);
     };
+
+    if ctx.dump_enabled {
+        dbg!(&ctx);
+    }
 
     // Lvalue analysis stage
     // lvalue::analyze(&mut ctx, &krate);

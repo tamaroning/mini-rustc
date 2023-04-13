@@ -220,7 +220,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             _ => panic!(),
         };
 
-        println!("; Starts expr `{}`", expr.span.to_snippet());
+        println!("; Finishes expr `{}`", expr.span.to_snippet());
         Ok(ret)
     }
 }

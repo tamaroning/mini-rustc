@@ -245,24 +245,65 @@ impl Resolver {
         let rib = self.get_rib(rib_id);
         let prefixes = vec![&emp_cpath, &crate_cpath, &rib.cpath];
 
+        // resolve to local variables or parameters
+        assert!(path.segments.len() > 0);
+        if path.segments.len() == 1 {
+            // TODO:
+            let mut result = None;
+            let ident = &path.segments[0];
+            self.resolve_to_local_with_dfs(ident, rib_id, &mut result);
+            if result.is_some() {
+                return result;
+            }
+        }
+
+        // absolute path
         if *path.segments.first().unwrap().symbol == "crate" {
             let mut result = None;
             // prefix: ["", "crate"]
-            self.resolve_with_dfs(&prefixes, path, self.crate_rib_id, &mut result);
+            self.resolve_to_item_with_dfs(&prefixes, path, self.crate_rib_id, &mut result);
             result
-        } else {
+        }
+        // relative path
+        else {
             // search in all siblings
             let mut result = None;
 
             // search from this module (if this rib is not module, starts from its parent module)
             if rib.kind != RibKind::Mod {
                 let parent_module_rib = self.get_parent_module(rib_id).unwrap();
-                self.resolve_with_dfs(&prefixes, path, parent_module_rib.id, &mut result);
+                self.resolve_to_item_with_dfs(&prefixes, path, parent_module_rib.id, &mut result);
             } else {
-                self.resolve_with_dfs(&prefixes, path, rib_id, &mut result);
+                self.resolve_to_item_with_dfs(&prefixes, path, rib_id, &mut result);
             }
 
             result
+        }
+    }
+
+    /// Resovle path to item or module
+    fn resolve_to_local_with_dfs(
+        &self,
+        ident: &Ident,
+        rib_id: RibId,
+        result: &mut Option<Rc<Binding>>,
+    ) {
+        let rib = self.get_rib(rib_id);
+        if !matches!(rib.kind, RibKind::Block | RibKind::Func) {
+            return;
+        }
+
+        for (name, binding) in &rib.bindings {
+            if matches!(binding.kind, BindingKind::Let | BindingKind::Param)
+                && *ident.symbol == **name
+            {
+                *result = Some(Rc::clone(binding));
+                return;
+            }
+        }
+
+        if let Some(parent) = rib.parent {
+            self.resolve_to_local_with_dfs(ident, parent, result);
         }
     }
 
@@ -280,7 +321,8 @@ impl Resolver {
         }
     }
 
-    fn resolve_with_dfs(
+    /// Resovle path to item or module
+    fn resolve_to_item_with_dfs(
         &self,
         prefixes: &[&CanonicalPath],
         path: &Path,
@@ -294,19 +336,21 @@ impl Resolver {
         let rib = self.get_rib(rib_id);
 
         for (_, binding) in &rib.bindings {
-            for prefix in prefixes {
-                let path_with_prefix = CanonicalPath::from_path(prefix, path);
-                //eprintln!("compare {:?} with {:?}", &path_with_prefix, binding.cpath);
-                if *binding.cpath == path_with_prefix {
-                    *result = Some(Rc::clone(binding));
-                    return;
+            if matches!(binding.kind, BindingKind::Item | BindingKind::Mod) {
+                for prefix in prefixes {
+                    let path_with_prefix = CanonicalPath::from_path(prefix, path);
+                    //eprintln!("compare {:?} with {:?}", &path_with_prefix, binding.cpath);
+                    if *binding.cpath == path_with_prefix {
+                        *result = Some(Rc::clone(binding));
+                        return;
+                    }
                 }
             }
         }
 
         for child in &rib.children {
             // TODO: if `pub`
-            self.resolve_with_dfs(prefixes, path, *child, result);
+            self.resolve_to_item_with_dfs(prefixes, path, *child, result);
         }
     }
 }

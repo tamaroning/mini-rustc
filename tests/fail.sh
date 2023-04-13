@@ -59,4 +59,8 @@ compile_fail 'fn main() -> () { if (true) { } else { 1 } }'
 compile_fail 'mod a { fn f() -> () { } } fn main() -> () { f() }'
 # name space
 compile_fail 'mod a mod b { { fn f() -> () { } } } fn main() -> () { f() }'
-
+# cannot use `::` for local variables
+compile_fail 'fn main() -> i32 { let a: i32; crate::main::a; }'
+# cannot use `::` for local variables
+compile_fail 'fn f(a: i32) -> i32 { crate::f::a; }'
+compile_fail 'fn f(a: i32) -> i32 { cf::a; }'

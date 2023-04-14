@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
-use super::{Binding, BindingKind, Resolver, Rib, RibId, RibKind};
+use super::{Binding, BindingKind, ResolvedOrRib, Resolver, Rib, RibId, RibKind};
 use crate::{
     ast::{self, Path, StmtKind},
     span::Ident,
@@ -42,8 +42,28 @@ impl Resolver {
         self.current_cpath.pop_seg()
     }
 
-    fn register_decl_to_current_rib(&mut self, ident: &Ident, kind: BindingKind) {
-        self.def_to_rib
+    fn push_variable_scope(&mut self) {
+        self.current_variable_scopes.push(HashMap::new());
+    }
+
+    fn pop_variable_scope(&mut self) {
+        self.current_variable_scopes.pop();
+    }
+
+    fn get_current_scope_mut(&mut self) -> Option<&mut HashMap<Rc<String>, Rc<Binding>>> {
+        self.current_variable_scopes.last_mut()
+    }
+
+    fn get_current_scope(&self) -> Option<&HashMap<Rc<String>, Rc<Binding>>> {
+        self.current_variable_scopes.last()
+    }
+
+    fn get_current_scopes(&self) -> &[HashMap<Rc<String>, Rc<Binding>>] {
+        &self.current_variable_scopes
+    }
+
+    fn insert_item_def(&mut self, ident: &Ident, kind: BindingKind) {
+        self.item_def_to_rib
             .insert(ident.clone(), *self.current_ribs.last().unwrap());
 
         let mut cpath = self.current_cpath.clone();
@@ -57,9 +77,47 @@ impl Resolver {
         );
     }
 
-    pub fn register_use_to_current_rib(&mut self, path: &Path) {
-        self.use_to_rib
-            .insert(path.clone(), *self.current_ribs.last().unwrap());
+    fn insert_var_decl(&mut self, ident: &Ident, kind: BindingKind) {
+        let mut cpath = self.current_cpath.clone();
+        cpath.push_seg(Rc::clone(&ident.symbol));
+        let binding = Binding {
+            kind,
+            cpath: Rc::new(cpath),
+        };
+        let binding = Rc::new(binding);
+        self.var_decl_to_res
+            .insert(ident.clone(), Rc::clone(&binding));
+
+        self.get_current_scope_mut()
+            .unwrap()
+            .insert(Rc::clone(&ident.symbol), binding);
+    }
+
+    // FIXME: use DFS
+    fn find_variable_in_scope(&self, path: &Path) -> Option<Rc<Binding>> {
+        if path.segments.is_empty() || path.segments.len() > 1 {
+            return None;
+        }
+        let ident = &path.segments[0];
+        // DFS!
+        for scope in self.get_current_scopes() {
+            if let Some(binding) = scope.get(&ident.symbol) {
+                return Some(Rc::clone(binding));
+            }
+        }
+        None
+    }
+
+    fn insert_use_of_variable(&mut self, path: &Path, binding: Rc<Binding>) {
+        self.path_use_to_rib
+            .insert(path.clone(), ResolvedOrRib::Resolved(binding));
+    }
+
+    fn insert_use_of_item(&mut self, path: &Path) {
+        self.path_use_to_rib.insert(
+            path.clone(),
+            ResolvedOrRib::UnResolved(*self.current_ribs.last().unwrap()),
+        );
     }
 }
 
@@ -86,7 +144,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
     fn visit_module_item(&mut self, module: &'ctx ast::Module) {
         // register cmodule name
-        self.register_decl_to_current_rib(&module.name, BindingKind::Mod);
+        self.insert_item_def(&module.name, BindingKind::Mod);
 
         // push module name to cpath
         self.push_segment_to_current_cpath(Rc::clone(&module.name.symbol));
@@ -104,7 +162,7 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
     fn visit_func(&mut self, func: &'ctx ast::Func) {
         // register func name
-        self.register_decl_to_current_rib(&func.name, BindingKind::Item);
+        self.insert_item_def(&func.name, BindingKind::Item);
 
         // push func name to cpath
         self.push_segment_to_current_cpath(Rc::clone(&func.name.symbol));
@@ -112,10 +170,13 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
         // push new rib
         self.push_rib(RibKind::Func);
 
+        // push variable scope
+        self.push_variable_scope();
+
         // insert parameters to rib
         for (param, _) in &func.params {
             // register param name
-            self.register_decl_to_current_rib(param, BindingKind::Param);
+            self.insert_var_decl(param, BindingKind::Param);
         }
     }
 
@@ -125,30 +186,44 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
 
         // pop current rib
         self.pop_rib(); // func
+
+        // pop varible scope
+        self.pop_variable_scope();
     }
 
     fn visit_struct_item(&mut self, strct: &'ctx ast::StructItem) {
-        self.register_decl_to_current_rib(&strct.ident, BindingKind::Item);
+        self.insert_item_def(&strct.ident, BindingKind::Item);
     }
 
     fn visit_block(&mut self, _block: &'ctx ast::Block) {
         // push new rib
         self.push_rib(RibKind::Block);
+
+        // push variable scope
+        self.push_variable_scope();
     }
 
     fn visit_block_post(&mut self, _: &'ctx ast::Block) {
         // pop current rib
         self.pop_rib();
+
+        // pop varible scope
+        self.pop_variable_scope();
     }
 
-    fn visit_stmt(&mut self, stmt: &'ctx ast::Stmt) {
+    fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
         if let StmtKind::Let(let_stmt) = &stmt.kind {
             // insert local variables
-            self.register_decl_to_current_rib(&let_stmt.ident, BindingKind::Let);
+            self.insert_var_decl(&let_stmt.ident, BindingKind::Let);
         }
     }
 
-    fn visit_path(&mut self, path: &'ctx ast::Path) {
-        self.register_use_to_current_rib(path);
+    fn visit_path(&mut self, path: &'ctx Path) {
+        // try to resolve path to local variables
+        if let Some(binding) = self.find_variable_in_scope(path) {
+            self.insert_use_of_variable(path, binding)
+        } else {
+            self.insert_use_of_item(path);
+        }
     }
 }

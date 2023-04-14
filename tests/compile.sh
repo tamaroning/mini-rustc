@@ -33,10 +33,10 @@ compile "fn main() -> () { // comment${NL}}"
 compile "//${NL}fn main() -> () { }"
 compile "fn main() -> () { //${NL}}"
 # ref type
-#compile 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
+compile 'fn main() -> i32 { let string: &'$QT'static str; 0  }'
 # string literal
-#compile 'fn main() -> i32 { "Hello"; "World"; 0 }'
-#compile 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
+compile 'fn main() -> i32 { "Hello"; "World"; 0 }'
+compile 'fn main() -> i32 { let s: &'$QT'static str; s = "Hello, World"; 0 }'
 # never type
 compile 'fn main() -> i32 { return 0; }'
 compile 'fn main() -> i32 { return 0 }'
@@ -91,11 +91,9 @@ compile 'fn main() -> () { } mod a { fn f() -> () { } }'
 compile 'fn main() -> () { } mod a { mod b { mod c { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { } } }'
 compile 'fn main() -> () { } mod a { mod a { mod a { fn a() -> () { }  } } }'
-
-# name resolution
 # no forward decl
 compile 'fn main() -> () { let s: S; } struct S { }'
-# absolute path `crate...`
+# absolute path (`crate...`)
 compile 'fn f() -> () { } fn main() -> () { crate::f() }'
 compile 'mod a { fn f() -> () { } } fn main() -> () { crate::a::f() }'
 compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () { crate::b::f() }'
@@ -103,6 +101,7 @@ compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () {
 compile 'fn f() -> () { } fn main() -> () { crate::f() }'
 compile 'mod a { fn f() -> () { } } fn main() -> () { a::f() }'
 compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () { b::f() }'
-
 # TODO: typecheck all items first and then typecheck bodies
 #compile 'fn main() -> () { f(); } fn f() -> () { }'
+# scope
+compile 'fn main() -> () { let a: i32 = 0; let b: i32 = { { a } }; }'

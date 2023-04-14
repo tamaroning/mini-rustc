@@ -59,8 +59,8 @@ impl<'ctx> Ctxt<'ctx> {
     }
 
     /// Resolve identifiers in var decls (func params or local variables) to canonical paths
-    pub fn resolve_var_or_item_decl(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        self.resolver.resolve_var_or_item_decl(ident)
+    pub fn get_binding(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
+        self.resolver.get_binding(ident)
     }
 
     /// Resolve paths to canonical paths

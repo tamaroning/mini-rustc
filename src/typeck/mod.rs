@@ -102,12 +102,12 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             Rc::new(self.ast_ty_to_ty(&func.ret_ty)),
         )));
 
-        let binding = self.ctx.resolve_var_or_item_decl(&func.name).unwrap();
+        let binding = self.ctx.get_binding(&func.name).unwrap();
         self.ctx.set_cpath_type(Rc::clone(&binding.cpath), func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
-            let binding = self.ctx.resolve_var_or_item_decl(param).unwrap();
+            let binding = self.ctx.get_binding(param).unwrap();
             let param_ty = self.ast_ty_to_ty(param_ty);
             self.ctx
                 .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(param_ty));
@@ -142,7 +142,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             .map(|(name, ty)| (Rc::clone(&name.symbol), Rc::new(self.ast_ty_to_ty(ty))))
             .collect();
         let adt = AdtDef { fields: field_tys };
-        let binding = self.ctx.resolve_var_or_item_decl(&strct.ident).unwrap();
+        let binding = self.ctx.get_binding(&strct.ident).unwrap();
         self.ctx.set_adt_def(Rc::clone(&binding.cpath), adt);
     }
 
@@ -188,7 +188,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
                 // set local variable type
-                let binding = self.ctx.resolve_var_or_item_decl(&let_stmt.ident).unwrap();
+                let binding = self.ctx.get_binding(&let_stmt.ident).unwrap();
                 // set type of local variable
                 // TODO: unwrap
                 let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());

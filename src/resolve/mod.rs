@@ -136,14 +136,17 @@ impl Rib {
 #[derive(Debug)]
 pub struct Resolver {
     // Lookup map
-    def_to_rib: HashMap<Ident, RibId>,
+    item_def_to_rib: HashMap<Ident, RibId>,
+    var_decl_to_res: HashMap<Ident, Rc<Binding>>,
     // Lookup map
-    use_to_rib: HashMap<Path, RibId>,
+    path_use_to_rib: HashMap<Path, ResolvedOrRib>,
     // stack of urrent name ribs
     current_ribs: Vec<RibId>,
     // current canonical path
     current_cpath: CanonicalPath,
     next_rib_id: u32,
+    // stack representing name scopes of variables
+    current_variable_scopes: Vec<HashMap<Rc<String>, Rc<Binding>>>,
     // interned ribs
     interned: HashMap<RibId, Rib>,
     crate_rib_id: RibId,
@@ -151,13 +154,21 @@ pub struct Resolver {
     cache: HashMap<Path, Rc<Binding>>,
 }
 
+#[derive(Debug)]
+pub enum ResolvedOrRib {
+    Resolved(Rc<Binding>),
+    UnResolved(RibId),
+}
+
 impl Resolver {
     pub fn new() -> Self {
         Resolver {
-            def_to_rib: HashMap::new(),
-            use_to_rib: HashMap::new(),
+            item_def_to_rib: HashMap::new(),
+            var_decl_to_res: HashMap::new(),
+            path_use_to_rib: HashMap::new(),
             current_ribs: vec![],
             current_cpath: CanonicalPath::empty(),
+            current_variable_scopes: vec![],
             interned: HashMap::new(),
             next_rib_id: 0,
             crate_rib_id: DUMMY_RIB_ID,
@@ -187,11 +198,11 @@ impl Resolver {
             println!("\tchildren: {:?}", rib.children);
             println!("]");
         }
-        for (ident, rib_id) in &self.def_to_rib {
+        for (ident, rib_id) in &self.item_def_to_rib {
             println!("def of {:?} =>  {}, ", ident, rib_id);
         }
-        for (ident, rib_id) in &self.use_to_rib {
-            println!("use of {:?} =>  {}, ", ident, rib_id);
+        for (ident, res_or_rib) in &self.path_use_to_rib {
+            println!("use of {:?} =>  {:?}, ", ident, res_or_rib);
         }
         println!();
         println!("============================");
@@ -206,8 +217,10 @@ impl Resolver {
     }
 
     /// Resolve identifiers in declaration nodes (func params or local variables) to canonical paths
-    pub fn resolve_var_or_item_decl(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
-        if let Some(rib_id) = self.def_to_rib.get(ident) {
+    pub fn get_binding(&mut self, ident: &Ident) -> Option<Rc<Binding>> {
+        if let Some(binding) = self.var_decl_to_res.get(ident) {
+            Some(Rc::clone(binding))
+        } else if let Some(rib_id) = self.item_def_to_rib.get(ident) {
             let rib = self.get_rib(*rib_id);
             if let Some(binding) = rib.bindings.get(&ident.symbol) {
                 return Some(binding.clone());
@@ -226,13 +239,16 @@ impl Resolver {
     pub fn resolve_path(&mut self, path: &Path) -> Option<Rc<Binding>> {
         if let Some(binding) = self.cache.get(&path) {
             Some(Rc::clone(binding))
-        } else if let Some(rib) = self.use_to_rib.get(path) {
-            let binding = self.resolve_path_from_rib(path, *rib)?;
-            let binding = Rc::clone(&binding);
-            self.cache.insert(path.clone(), Rc::clone(&binding));
-            Some(binding)
         } else {
-            None
+            match &self.path_use_to_rib.get(path).unwrap() {
+                ResolvedOrRib::Resolved(binding) => Some(Rc::clone(binding)),
+                ResolvedOrRib::UnResolved(rib_id) => {
+                    let binding = self.resolve_path_from_rib(path, *rib_id)?;
+                    let binding = Rc::clone(&binding);
+                    self.cache.insert(path.clone(), Rc::clone(&binding));
+                    Some(binding)
+                }
+            }
         }
     }
 
@@ -244,18 +260,6 @@ impl Resolver {
         let crate_cpath = CanonicalPath::krate();
         let rib = self.get_rib(rib_id);
         let prefixes = vec![&emp_cpath, &crate_cpath, &rib.cpath];
-
-        // resolve to local variables or parameters
-        assert!(path.segments.len() > 0);
-        if path.segments.len() == 1 {
-            // TODO:
-            let mut result = None;
-            let ident = &path.segments[0];
-            self.resolve_to_local_with_dfs(ident, rib_id, &mut result);
-            if result.is_some() {
-                return result;
-            }
-        }
 
         // absolute path
         if *path.segments.first().unwrap().symbol == "crate" {
@@ -278,32 +282,6 @@ impl Resolver {
             }
 
             result
-        }
-    }
-
-    /// Resovle path to item or module
-    fn resolve_to_local_with_dfs(
-        &self,
-        ident: &Ident,
-        rib_id: RibId,
-        result: &mut Option<Rc<Binding>>,
-    ) {
-        let rib = self.get_rib(rib_id);
-        if !matches!(rib.kind, RibKind::Block | RibKind::Func) {
-            return;
-        }
-
-        for (name, binding) in &rib.bindings {
-            if matches!(binding.kind, BindingKind::Let | BindingKind::Param)
-                && *ident.symbol == **name
-            {
-                *result = Some(Rc::clone(binding));
-                return;
-            }
-        }
-
-        if let Some(parent) = rib.parent {
-            self.resolve_to_local_with_dfs(ident, parent, result);
         }
     }
 

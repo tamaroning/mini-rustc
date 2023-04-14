@@ -45,9 +45,6 @@ compile_fail 'fn take_three(a: i32, b: i32, c: i32) -> () { } fn main() -> i32 {
 compile_fail 'fn take_bool(b: bool) -> () { } fn main() -> i32 { take_bool(0); 0 }'
 # type of let statement
 compile_fail 'fn main() -> i32 { { let unit: () = (); } }'
-# scope
-# TODO: fix typechecker
-#compile_fail 'fn main() -> () { { let a: () = (); } a }'
 # array expr with no element
 compile_fail 'fn main() -> () { []; }'
 compile_fail 'fn main() -> () { let a: [i32; 1] = [1, 2]; }'
@@ -64,3 +61,11 @@ compile_fail 'fn main() -> i32 { let a: i32; crate::main::a; }'
 # cannot use `::` for local variables
 compile_fail 'fn f(a: i32) -> i32 { crate::f::a; }'
 compile_fail 'fn f(a: i32) -> i32 { f::a; }'
+# scope
+compile_fail 'fn main() -> () { { let a: () = (); } a }'
+compile_fail 'fn main() -> () { { a; let a: i32 = 0; } }'
+compile_fail 'fn main() -> () { a; { let a: i32 = 0; } }'
+compile_fail 'fn main() -> () { { { let a: (); } }  { a } }'
+compile_fail 'fn main() -> () { a; let a: (); }'
+compile_fail 'fn main() -> () { let a: i32 = { { { let b: i32 = 0 } } b }; }'
+compile_fail 'fn main() -> () { let a: i32 = 0; let b: i32 = { { a + b } }; }'

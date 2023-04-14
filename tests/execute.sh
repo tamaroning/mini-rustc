@@ -107,3 +107,7 @@ fn main() -> i32 { Line { p1: Point { x: 1, y:2 }, p2: Point { x: 3, y: 4 } }.p2
 # memcpy
 assert 5 'struct Point { x: i32, y: i32 }
 fn main() -> i32 { let p1: Point = Point { x: 5, y: 4 }; let p2: Point; p2 = p1; p2.x }'
+# shadowing
+assert 1 'fn main() -> i32 { let a: i32 = 0; let a: i32 = 1; a }'
+assert 2 'fn main() -> i32 { let a: i32 = 0; { let a: i32 = 1; let a: i32 = 2; a } }'
+assert 4 'fn main() -> i32 { let a: i32 = 1; let a: i32 = a + a; a + a }'

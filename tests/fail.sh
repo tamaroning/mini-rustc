@@ -63,4 +63,4 @@ compile_fail 'mod a mod b { { fn f() -> () { } } } fn main() -> () { f() }'
 compile_fail 'fn main() -> i32 { let a: i32; crate::main::a; }'
 # cannot use `::` for local variables
 compile_fail 'fn f(a: i32) -> i32 { crate::f::a; }'
-compile_fail 'fn f(a: i32) -> i32 { cf::a; }'
+compile_fail 'fn f(a: i32) -> i32 { f::a; }'

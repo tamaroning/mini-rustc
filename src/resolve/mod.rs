@@ -9,13 +9,15 @@ pub struct Binding {
     pub kind: BindingKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BindingKind {
     Mod,
     Item,
-    Let,
+    Let(ShadowingIndex),
     Param,
 }
+
+pub type ShadowingIndex = u32;
 
 impl BindingKind {
     pub fn is_param(&self) -> bool {
@@ -23,7 +25,7 @@ impl BindingKind {
     }
 
     pub fn is_let(&self) -> bool {
-        matches!(self, BindingKind::Let)
+        matches!(self, BindingKind::Let(_))
     }
 }
 

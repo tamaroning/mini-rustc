@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::{Binding, BindingKind, ResolvedOrRib, Resolver, Rib, RibId, RibKind};
+use super::{Binding, BindingKind, ResolvedOrRib, Resolver, Rib, RibId, RibKind, ShadowingIndex};
 use crate::{
     ast::{self, Path, StmtKind},
     span::Ident,
@@ -75,6 +75,17 @@ impl Resolver {
                 cpath: Rc::new(cpath),
             },
         );
+    }
+
+    fn get_num_of_same_variable_name_in_scopes(&self, ident: &Ident) -> u32 {
+        let mut res = 0;
+        for scope in self.get_current_scopes() {
+            if let Some(bind) = scope.get(&ident.symbol)
+                && matches!(bind.kind, BindingKind::Let(_) | BindingKind::Param){
+                res+=1;
+            }
+        }
+        res
     }
 
     fn insert_var_decl(&mut self, ident: &Ident, kind: BindingKind) {
@@ -214,7 +225,8 @@ impl<'ctx> ast::visitor::Visitor<'ctx> for Resolver {
     fn visit_stmt_post(&mut self, stmt: &'ctx ast::Stmt) {
         if let StmtKind::Let(let_stmt) = &stmt.kind {
             // insert local variables
-            self.insert_var_decl(&let_stmt.ident, BindingKind::Let);
+            let shadowing_index = self.get_num_of_same_variable_name_in_scopes(&let_stmt.ident);
+            self.insert_var_decl(&let_stmt.ident, BindingKind::Let(shadowing_index));
         }
     }
 

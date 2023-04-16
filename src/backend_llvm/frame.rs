@@ -2,7 +2,7 @@ use super::{Codegen, LLReg, LLTy};
 use crate::{
     ast::{self, StmtKind},
     middle::ty::Ty,
-    resolve::Binding,
+    resolve::{Binding, BindingKind},
     span::Ident,
 };
 use std::{collections::HashMap, rc::Rc};
@@ -91,14 +91,25 @@ pub struct VisitFrame<'ctx, 'gen, 'frm> {
 }
 
 impl VisitFrame<'_, '_, '_> {
-    fn add_local(&mut self, ident: &Ident, ty: &Rc<Ty>, local_kind: LocalKind) {
+    fn add_local(
+        &mut self,
+        ident: &Ident,
+        ty: &Rc<Ty>,
+        binding_kind: BindingKind,
+        local_kind: LocalKind,
+    ) {
         // TODO: align
         let mut reg_ty = self.codegen.ty_to_llty(ty);
         if local_kind == LocalKind::Ptr {
             reg_ty = LLTy::Ptr(Rc::new(reg_ty));
         }
         let name_binding = self.codegen.ctx.get_binding(ident).unwrap();
-        let reg_name = format!("%{}", ident.symbol);
+        let reg_name_postfix = if let BindingKind::Let(shadowed_idx) = binding_kind {
+            format!(".spill{}", shadowed_idx)
+        } else {
+            "".to_owned()
+        };
+        let reg_name = format!("%{}{}", ident.symbol, reg_name_postfix);
         let reg = LLReg::new(reg_name, Rc::new(reg_ty));
         self.frame
             .locals
@@ -128,10 +139,10 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         for ((param, _), param_ty) in func.params.iter().zip(param_tys.iter()) {
             if self.codegen.ty_to_llty(param_ty).eval_to_ptr() {
                 // argument passed via memory (i.e. call by reference)
-                self.add_local(param, param_ty, LocalKind::Ptr);
+                self.add_local(param, param_ty, binding.kind, LocalKind::Ptr);
             } else {
                 // argument passed via register (i.e. call by value)
-                self.add_local(param, param_ty, LocalKind::Value);
+                self.add_local(param, param_ty, binding.kind, LocalKind::Value);
             }
         }
     }
@@ -144,9 +155,9 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
 
                 if self.codegen.ty_to_llty(&var_ty).is_void() {
                     // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`
-                    self.add_local(&let_stmt.ident, &var_ty, LocalKind::Value);
+                    self.add_local(&let_stmt.ident, &var_ty, binding.kind, LocalKind::Value);
                 } else {
-                    self.add_local(&let_stmt.ident, &var_ty, LocalKind::Ptr);
+                    self.add_local(&let_stmt.ident, &var_ty, binding.kind, LocalKind::Ptr);
                 }
             }
             _ => (),

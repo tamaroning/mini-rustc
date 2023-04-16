@@ -25,7 +25,7 @@ pub struct Ctxt<'ctx> {
     /// Expr/Stmt/Block to type mappings
     ty_mappings: HashMap<NodeId, Rc<Ty>>,
     /// local variables, paramters, function-name to type mappings
-    pub name_ty_mappings: HashMap<Rc<CanonicalPath>, Rc<Ty>>,
+    pub name_ty_mappings: HashMap<Rc<Binding>, Rc<Ty>>,
     // TODO: use NameBinding
     adt_defs: HashMap<Rc<CanonicalPath>, Rc<AdtDef>>,
     // Set during rvalue anlaysis stage
@@ -86,12 +86,12 @@ impl<'ctx> Ctxt<'ctx> {
         Rc::clone(self.ty_mappings.get(&node_id).unwrap())
     }
 
-    pub fn lookup_cpath_type(&self, cpath: &CanonicalPath) -> Option<Rc<Ty>> {
-        self.name_ty_mappings.get(cpath).map(Rc::clone)
+    pub fn lookup_name_type(&self, binding: &Binding) -> Option<Rc<Ty>> {
+        self.name_ty_mappings.get(binding).map(Rc::clone)
     }
 
-    pub fn set_cpath_type(&mut self, cpath: Rc<CanonicalPath>, fn_ty: Rc<Ty>) {
-        self.name_ty_mappings.insert(cpath, fn_ty);
+    pub fn set_name_type(&mut self, binding: Rc<Binding>, fn_ty: Rc<Ty>) {
+        self.name_ty_mappings.insert(binding, fn_ty);
     }
 
     pub fn lookup_adt_def(&self, cpath: &CanonicalPath) -> Option<Rc<AdtDef>> {

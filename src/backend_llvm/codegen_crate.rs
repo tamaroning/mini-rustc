@@ -53,7 +53,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         let fn_name_binding = self.ctx.get_binding(&func.name).unwrap();
         let (_param_tys, ret_ty) = self
             .ctx
-            .lookup_cpath_type(&fn_name_binding.cpath)
+            .lookup_name_type(&fn_name_binding)
             .unwrap()
             .get_func_type()
             .unwrap();

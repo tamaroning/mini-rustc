@@ -106,4 +106,5 @@ compile 'mod a { fn f() -> () { } } mod b { fn f() -> () { } } fn main() -> () {
 # scope
 compile 'fn main() -> () { let a: i32 = 0; let b: i32 = { { a } }; }'
 # shadowing
-# mpile 'struct S { a: i32 } fn main() -> () { let a: i32 = 4; let a: S; }'
+compile 'fn main() -> () { let a: i32 = 0; let a: i32 = 1; }'
+compile 'struct S { a: i32 } fn main() -> () { let a: i32 = 4; let a: S; }'

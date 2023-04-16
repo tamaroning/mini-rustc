@@ -131,7 +131,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         let (param_tys, _ret_ty) = self
             .codegen
             .ctx
-            .lookup_cpath_type(&binding.cpath)
+            .lookup_name_type(&binding)
             .unwrap()
             .get_func_type()
             .unwrap();
@@ -151,7 +151,7 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         match &stmt.kind {
             StmtKind::Let(let_stmt) => {
                 let binding = self.codegen.ctx.get_binding(&let_stmt.ident).unwrap();
-                let var_ty = self.codegen.ctx.lookup_cpath_type(&binding.cpath).unwrap();
+                let var_ty = self.codegen.ctx.lookup_name_type(&binding).unwrap();
 
                 if self.codegen.ty_to_llty(&var_ty).is_void() {
                     // cannot `alloca void` so register void-like (i.e. `()`) local variables as `LocalKind::Value`

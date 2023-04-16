@@ -104,14 +104,13 @@ impl Resolver {
             .insert(Rc::clone(&ident.symbol), binding);
     }
 
-    // FIXME: use DFS
     fn find_variable_in_scope(&self, path: &Path) -> Option<Rc<Binding>> {
         if path.segments.is_empty() || path.segments.len() > 1 {
             return None;
         }
         let ident = &path.segments[0];
-        // DFS!
-        for scope in self.get_current_scopes() {
+        // search path from the current scope to the old scope
+        for scope in self.get_current_scopes().iter().rev() {
             if let Some(binding) = scope.get(&ident.symbol) {
                 return Some(Rc::clone(binding));
             }

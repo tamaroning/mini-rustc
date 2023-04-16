@@ -103,14 +103,14 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
         )));
 
         let binding = self.ctx.get_binding(&func.name).unwrap();
-        self.ctx.set_cpath_type(Rc::clone(&binding.cpath), func_ty);
+        self.ctx.set_name_type(Rc::clone(&binding), func_ty);
 
         // push scope
         for (param, param_ty) in &func.params {
             let binding = self.ctx.get_binding(param).unwrap();
             let param_ty = self.ast_ty_to_ty(param_ty);
             self.ctx
-                .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(param_ty));
+                .set_name_type(Rc::clone(&binding), Rc::new(param_ty));
         }
         // push return type
         let ret_ty = self.ast_ty_to_ty(&func.ret_ty);
@@ -193,7 +193,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
                 // TODO: unwrap
                 let annotated_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
                 self.ctx
-                    .set_cpath_type(Rc::clone(&binding.cpath), Rc::new(annotated_ty));
+                    .set_name_type(Rc::clone(&binding), Rc::new(annotated_ty));
                 // set type of statement
                 let stmt_ty = self.ast_ty_to_ty(let_stmt.ty.as_ref().unwrap());
                 // TODO: unwrap
@@ -267,7 +267,7 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
             ExprKind::Path(path) => {
                 // find symbols in local variables, parameters, and in functions
                 if let Some(binding) = self.ctx.resolve_path(path) {
-                    if let Some(ty) = self.ctx.lookup_cpath_type(&binding.cpath) {
+                    if let Some(ty) = self.ctx.lookup_name_type(&binding) {
                         ty
                     } else {
                         self.error(format!("Cannot use `{:?}` before declaration", path));

@@ -111,3 +111,5 @@ fn main() -> i32 { let p1: Point = Point { x: 5, y: 4 }; let p2: Point; p2 = p1;
 assert 1 'fn main() -> i32 { let a: i32 = 0; let a: i32 = 1; a }'
 assert 2 'fn main() -> i32 { let a: i32 = 0; { let a: i32 = 1; let a: i32 = 2; a } }'
 assert 4 'fn main() -> i32 { let a: i32 = 1; let a: i32 = a + a; a + a }'
+assert 0 'fn f(a: i32) -> i32 { let a: i32 = a; let a: i32 = a; a } fn main() -> i32 { f(0)  }'
+assert 10 'struct S { a: i32 } fn main() -> i32 { let a: i32 = 4; let a: S = S { a: 10 }; a.a }'

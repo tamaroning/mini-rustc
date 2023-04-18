@@ -127,3 +127,4 @@ assert 0 'struct S { a: i32 } fn f() -> S { S { a: 0 } } fn main() -> i32 { f().
 assert 42 'struct S { a: i32 } fn f() -> S { S { a: 42 } } fn main() -> i32 { f().a }'
 assert 100 'struct S { a: i32 } fn f(s: S) -> S { s } fn main() -> i32 { f(S { a: 100 }).a }'
 assert 5 'struct S { a: i32, b: i32 } fn f() -> S { S { a: 3, b: 5 } } fn main() -> i32 { f().b }'
+assert 7 'struct S { a: i32 } fn f(b: i32, c: i32) -> S { S { a: b + c } } fn main() -> i32 { f(3, 4).a }'

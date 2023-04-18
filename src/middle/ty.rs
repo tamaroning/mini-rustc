@@ -18,6 +18,7 @@ pub enum TyKind {
     Adt(Rc<CanonicalPath>),
     Ref(Rc<Ty>),
     Never,
+    ConstPtr(Rc<Ty>),
     Error,
 }
 

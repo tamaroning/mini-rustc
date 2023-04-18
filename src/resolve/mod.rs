@@ -319,7 +319,6 @@ impl Resolver {
             if matches!(binding.kind, BindingKind::Item | BindingKind::Mod) {
                 for prefix in prefixes {
                     let path_with_prefix = CanonicalPath::from_path(prefix, path);
-                    //eprintln!("compare {:?} with {:?}", &path_with_prefix, binding.cpath);
                     if *binding.cpath == path_with_prefix {
                         *result = Some(Rc::clone(binding));
                         return;

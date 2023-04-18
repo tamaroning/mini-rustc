@@ -1,9 +1,9 @@
 extern "C" {
-    fn puts(s: &str) -> i32;
+    fn puts(c: *const i32) -> i32;
 }
 
 fn main() -> () {
     unsafe {
-        puts("Hello mini-rustc!");
+        puts("Hello mini-rustc!" as *const str as *const i32);
     };
 }

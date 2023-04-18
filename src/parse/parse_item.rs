@@ -286,7 +286,7 @@ impl Parser {
         }
 
         let t = self.skip_token();
-        let span = t.span;
+        let mut span = t.span;
         match t.kind {
             // Unit type: ()
             TokenKind::OpenParen => {
@@ -366,6 +366,21 @@ impl Parser {
                 let span = span.concat(&referent.span);
                 Some(Ty {
                     kind: TyKind::Ref(region, Box::new(referent)),
+                    span,
+                })
+            }
+            // *const T
+            TokenKind::BinOp(lexer::BinOp::Star) => {
+                // TODO: *mut T
+                let t = self.skip_token();
+                if t.kind != TokenKind::Const {
+                    eprintln!("Expected 'const', but found `{}`", t.span.to_snippet());
+                    return None;
+                }
+                let referent = self.parse_type()?;
+                span = span.concat(&referent.span);
+                Some(Ty {
+                    kind: TyKind::ConstPtr(Box::new(referent)),
                     span,
                 })
             }

@@ -77,6 +77,9 @@ impl<'ctx, 'chk> TypeChecker<'ctx, 'chk> {
                     ty::TyKind::Error
                 }
             }
+            ast::TyKind::ConstPtr(referent) => {
+                ty::TyKind::ConstPtr(Rc::new(self.ast_ty_to_ty(referent)))
+            }
         };
         Ty::new(kind)
     }
@@ -436,6 +439,24 @@ impl<'chk> ast::visitor::Visitor<'chk> for TypeChecker<'_, 'chk> {
                         } else {
                             Rc::new(Ty::new(TyKind::Array(first_elem_ty, elems.len())))
                         }
+                    }
+                }
+            }
+            ExprKind::Cast(expr, ty) => {
+                // ref: https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
+                let expr_ty = self.ctx.get_type(expr.id);
+                let cast_ty = self.ast_ty_to_ty(ty);
+
+                match (&expr_ty.kind, &cast_ty.kind) {
+                    (TyKind::Ref(_), TyKind::ConstPtr(_))
+                    | (TyKind::ConstPtr(_), TyKind::ConstPtr(_)) => Rc::new(cast_ty),
+                    _ => {
+                        self.error(format!(
+                            "Cannot cast {:?} to {}",
+                            expr_ty,
+                            ty.span.to_snippet()
+                        ));
+                        Rc::new(Ty::error())
                     }
                 }
             }

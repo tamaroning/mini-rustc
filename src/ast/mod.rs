@@ -117,6 +117,7 @@ pub enum ExprKind {
     Field(Box<Expr>, Ident),
     Struct(Path, Vec<(Ident, Box<Expr>)>),
     Array(Vec<Expr>),
+    Cast(Box<Expr>, Ty),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -179,6 +180,7 @@ pub enum TyKind {
     Array(Box<Ty>, usize),
     Adt(Path),
     Ref(Option<Region>, Box<Ty>),
+    ConstPtr(Box<Ty>),
     Never,
 }
 

@@ -61,12 +61,14 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
             TyKind::Array(elem_ty, n) => LLTy::Array(Rc::new(self.ty_to_llty(elem_ty)), *n),
             TyKind::Adt(name) => LLTy::Adt(Rc::clone(name)),
             TyKind::Never => LLTy::Void,
-            TyKind::Ref(inner) => match &inner.kind {
+            TyKind::Ref(inner) | TyKind::ConstPtr(inner) => match &inner.kind {
                 // FIXME: should be [N x i8]
                 TyKind::Str => LLTy::Ptr(Rc::new(LLTy::I8)),
-                _ => todo!(),
+                _ => LLTy::Ptr(Rc::new(self.ty_to_llty(inner))),
             },
-            _ => panic!(),
+            TyKind::Error => panic!("ICE: typecheck failed but codegen has started"),
+            TyKind::Str => todo!(),
+            TyKind::Fn(_, _) => todo!(),
         }
     }
 

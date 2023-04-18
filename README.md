@@ -76,17 +76,22 @@ Hello mini-rustc!
 # Status
 
 - Type system
-  - Primitives `i32`, `bool`, unit(`()`), never(`!`), `str`
+  - Primitives `i32`, `bool`, unit(`()`), never(`!`), `str`, `*const T`
   - References
     - [x] `&'static str`
-      - But represented as just a pointer, not as a fat pointer.
-  - [x] Srrays
+      - But **not** represented as a fat pointer.
+  - [x] Arrays
   - ADTs
     - [x] (Nested) Structs
     - [ ] Enums
   - [x] Typechecking
   - [ ] Type inference
   - [ ] Generics
+  - Type cast
+    - [x] `&T` to `*const T` 
+    - [x] `*const U` to `*const V`
+  - [ ] `impl`s
+  - [ ] Trait & Trait `impl`s
 - items
   - [x] Structs
   - [x] Functions
@@ -109,7 +114,7 @@ Hello mini-rustc!
   - [x] `if-else` expressions
   - [x] Block expressions `{ ... }`
   - [x] Return expressions `return expr`
-    - Omitting expression is not supported (i.e. Require `return ()` for `return`)
+    - Omitting expression is not supported (i.e. Use `return ()` instead of `return`)
   - [x] Call expressions `func(params...)`
     - Parameter passing: ZSTs and ADTs are supported
     - Return value: ADTs and arrays are not supported
@@ -122,6 +127,9 @@ Hello mini-rustc!
   - [x] Paths
   - [ ] Patterns (Pattern matching)
   - [x] Comments `//`
+  - `unsafe`
+    - [x] block
+    - [ ] `fn`
 - Internal
   - [x] Name Resolution
   - [x] Shadowing

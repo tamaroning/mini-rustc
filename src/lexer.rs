@@ -28,6 +28,9 @@ pub enum TokenKind {
     While,
     Break,
     Continue,
+    As,
+    Mut,
+    Const,
     /// ->
     Arrow,
     /// !
@@ -151,6 +154,7 @@ impl Lexer {
                 '\'' => self.parse_lifetime(),
                 '0'..='9' => self.parse_number_lit(),
                 // skip comments
+                // TODO: div `/`
                 '/' => {
                     // skip first '/'
                     self.skip_input().unwrap();
@@ -312,6 +316,9 @@ impl Lexer {
             "while" => self.new_token(TokenKind::While),
             "break" => self.new_token(TokenKind::Break),
             "continue" => self.new_token(TokenKind::Continue),
+            "as" => self.new_token(TokenKind::As),
+            "mut" => self.new_token(TokenKind::Mut),
+            "const" => self.new_token(TokenKind::Const),
             _ => self.new_token(TokenKind::Ident(s)),
         }
     }

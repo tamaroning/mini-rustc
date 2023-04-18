@@ -128,6 +128,9 @@ fn walk_type<'ctx, V: Visitor<'ctx>>(v: &mut V, ty: &'ctx Ty) {
         TyKind::Adt(path) => {
             walk_path(v, path);
         }
+        TyKind::ConstPtr(referent) => {
+            walk_type(v, &referent);
+        }
     }
     v.visit_type_post(ty);
 }
@@ -182,6 +185,10 @@ fn walk_expr<'ctx, V: Visitor<'ctx>>(v: &mut V, expr: &'ctx Expr) {
             for e in elems {
                 walk_expr(v, e);
             }
+        }
+        ExprKind::Cast(inner, ty) => {
+            walk_expr(v, inner);
+            walk_type(v, ty);
         }
     }
     v.visit_expr_post(expr);

@@ -218,6 +218,15 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                 let res = self.gen_if_expr(cond, then, els)?;
                 LLValue::Reg(res.0)
             }
+            ExprKind::Cast(inner, _) => {
+                // ref: https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
+                let to = self.ty_to_llty(&self.ctx.get_type(expr.id));
+                let from = self.ty_to_llty(&self.ctx.get_type(inner.id));
+                match (from, to) {
+                    (LLTy::Ptr(_), LLTy::Ptr(_)) => self.eval_expr(inner)?,
+                    _ => panic!("ICE"),
+                }
+            }
             ExprKind::Struct(..) | ExprKind::Array(..) => panic!("ICE"),
         };
 

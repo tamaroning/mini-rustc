@@ -159,9 +159,9 @@ impl Parser {
         })
     }
 
-    /// mul ::= unary ("*" mul)?
+    /// mul ::= typeCastExpr ("*" mul)?
     fn parse_binary_mul(&mut self) -> Option<Expr> {
-        let lhs = self.parse_binary_unary()?;
+        let lhs = self.parse_binary_cast()?;
         let t = self.lexer.peek_token();
         let binop = match t.kind {
             TokenKind::BinOp(lexer::BinOp::Star) => ast::BinOp::Mul,
@@ -178,6 +178,24 @@ impl Parser {
             kind: ExprKind::Binary(binop, Box::new(lhs), Box::new(rhs)),
             id: self.get_next_id(),
         })
+    }
+
+    /// typeCastExpr ::= unary ("as" type)*
+    fn parse_binary_cast(&mut self) -> Option<Expr> {
+        let mut ret = self.parse_binary_unary()?;
+
+        while self.peek_token().kind == TokenKind::As {
+            self.skip_token();
+            let mut span = ret.span.clone();
+            let ty = self.parse_type()?;
+            span = span.concat(&ty.span);
+            ret = Expr {
+                kind: ExprKind::Cast(Box::new(ret), ty),
+                id: self.get_next_id(),
+                span,
+            };
+        }
+        Some(ret)
     }
 
     /// unary ::= ("+"|"-")? primary
@@ -209,7 +227,9 @@ impl Parser {
     ///     | unsafeBlock | block
     ///     | arrayExpr
     ///     | fieldExpr | structExpr
+    ///     | typeCastExpr
     /// returnExpr ::= "return" expr
+    /// ref: https://doc.rust-lang.org/reference/expressions.html#expression-precedence
     fn parse_binary_primary(&mut self) -> Option<Expr> {
         let t = &self.lexer.peek_token();
         let mut expr = match t.kind {
@@ -323,6 +343,7 @@ impl Parser {
                 return None;
             }
         };
+
         // deal with tailing `(...)` (func call), `[...]` (indexing), .ident (field access)
         // FIXME: disambiguity: () () => FuncCall or ExprStmt ExprStmt
         loop {
@@ -336,6 +357,7 @@ impl Parser {
                 _ => break,
             }
         }
+
         Some(expr)
     }
 

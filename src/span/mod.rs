@@ -18,15 +18,8 @@ impl Span {
         assert!(self.hi <= self.src.len());
         let src = &*self.src;
         let s = &src[self.lo()..self.hi()];
-        // compress whitespaces
-        // FIXME: dirty
-        s.replace('\n', " ")
-            .replace(['\r', '\t'], "")
-            .replace("  ", " ")
-            .replace("  ", " ")
-            .replace("  ", " ")
-            .replace("  ", " ")
-            .replace("  ", " ")
+        // replace tabs and newlines
+        s.replace("\r\n", "").replace('\n', "").replace("    ", " ")
     }
 
     pub fn concat(&self, span: &Span) -> Span {

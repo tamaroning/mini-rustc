@@ -1,6 +1,6 @@
 use super::{Codegen, LLValue};
 use crate::{
-    ast::{self, Expr, ExprKind},
+    ast::{self, Expr, ExprKind, NodeId},
     backend_llvm::{llvm::LLConst, LLImm, LLReg, LLTy},
 };
 use std::rc::Rc;
@@ -130,8 +130,19 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                 LLValue::Reg(LLReg::new(reg_name, Rc::new(llty)))
             }
             ExprKind::Return(inner) => {
-                let inner_val = self.eval_expr(inner)?;
-                println!("\tret {}", inner_val.to_string_with_type());
+                // pointer if sret used, o.w. value
+                let inner_val_or_ptr = self.eval_expr(inner)?;
+                if let Some(sret_reg) = self.peek_frame().get_sret_reg() {
+                    // ptr
+                    let LLValue::Reg(reg) = inner_val_or_ptr else {
+                        panic!("ICE");
+                    };
+                    self.memcpy(&sret_reg, &reg);
+                    println!("\tret void");
+                } else {
+                    // value
+                    println!("\tret {}", inner_val_or_ptr.to_string_with_type());
+                }
                 LLValue::Imm(LLImm::Void)
             }
             ExprKind::Block(block) => self.gen_block(block)?,
@@ -164,56 +175,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
 
                 LLValue::Imm(LLImm::Void)
             }
-            ExprKind::Call(func, args) => {
-                let ExprKind::Path(path) = &func.kind else {
-                    // TODO:
-                    todo!();
-                };
-
-                let mut arg_vals = vec![];
-                for arg in args {
-                    let arg_ty = &self.ctx.get_type(arg.id);
-                    let llty = self.ty_to_llty(arg_ty);
-                    if !llty.is_void() {
-                        let arg_val = self.eval_expr(arg)?;
-                        arg_vals.push(arg_val);
-                    }
-                }
-
-                let ret_llty = self.ty_to_llty(&self.ctx.get_type(expr.id));
-
-                // instructions returning void cannot have a reg name
-                print!("\t");
-                let reg_name = if !ret_llty.is_void() {
-                    let r = self.peek_frame_mut().get_fresh_reg();
-                    print!("{} = ", r);
-                    Some(r)
-                } else {
-                    None
-                };
-
-                let binding = self.ctx.resolve_path(path).unwrap();
-                print!(
-                    "call {} @{}(",
-                    ret_llty.to_string(),
-                    binding.cpath.demangle()
-                );
-                for (i, arg_val) in arg_vals.iter().enumerate() {
-                    if !arg_val.llty().is_void() {
-                        print!("{}", arg_val.to_string_with_type());
-                        if i != arg_vals.len() - 1 {
-                            print!(", ");
-                        }
-                    }
-                }
-                println!(")");
-
-                if let Some(reg_name) = reg_name {
-                    LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty)))
-                } else {
-                    LLValue::Imm(LLImm::Void)
-                }
-            }
+            ExprKind::Call(func, args) => self.gen_call_expr(expr.id, func, args)?,
             ExprKind::If(cond, then, els) => {
                 let res = self.gen_if_expr(cond, then, els)?;
                 LLValue::Reg(res.0)
@@ -306,6 +268,84 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                 then_label,
             );
             Ok((LLReg::new(reg_name, then_result.llty()), endif_label))
+        }
+    }
+
+    pub fn gen_call_expr(
+        &mut self,
+        // node id of this call expression
+        node_id: NodeId,
+        func: &'gen Expr,
+        args: &'gen [Expr],
+    ) -> Result<LLValue, ()> {
+        let ExprKind::Path(path) = &func.kind else {
+            // TODO:
+            todo!();
+        };
+
+        let mut arg_vals = vec![];
+        for arg in args {
+            let arg_ty = &self.ctx.get_type(arg.id);
+            let llty = self.ty_to_llty(arg_ty);
+            if !llty.is_void() {
+                let arg_val = self.eval_expr(arg)?;
+                arg_vals.push(arg_val);
+            }
+        }
+
+        let ret_llty = self.ty_to_llty(&self.ctx.get_type(node_id));
+        // We use `sret` to return ADTs or arrays. In this case, actual return type become `void`
+        let actual_ret_llty = if ret_llty.is_void() || ret_llty.eval_to_ptr() {
+            &LLTy::Void
+        } else {
+            &ret_llty
+        };
+
+        // instructions returning void cannot have a reg name
+        print!("\t");
+        let return_reg = if !actual_ret_llty.is_void() {
+            let r = self.peek_frame_mut().get_fresh_reg();
+            print!("{} = ", r);
+            Some(r)
+        } else {
+            None
+        };
+
+        let binding = self.ctx.resolve_path(path).unwrap();
+        print!(
+            "call {} @{}(",
+            actual_ret_llty.to_string(),
+            binding.cpath.demangle()
+        );
+
+        // sret
+        if ret_llty.eval_to_ptr() {
+            let temp = self.peek_frame().get_ptr_to_temporary(node_id).unwrap();
+            print!(
+                "ptr sret({}) {}",
+                temp.llty.peel_ptr().unwrap().to_string(),
+                temp.name
+            );
+            if !args.is_empty() {
+                print!(",")
+            }
+        }
+
+        // arguments
+        for (i, arg_val) in arg_vals.iter().enumerate() {
+            if !arg_val.llty().is_void() {
+                print!("{}", arg_val.to_string_with_type());
+                if i != arg_vals.len() - 1 {
+                    print!(", ");
+                }
+            }
+        }
+        println!(")");
+
+        if let Some(reg_name) = return_reg {
+            Ok(LLValue::Reg(LLReg::new(reg_name, Rc::new(ret_llty))))
+        } else {
+            Ok(LLValue::Imm(LLImm::Void))
         }
     }
 }

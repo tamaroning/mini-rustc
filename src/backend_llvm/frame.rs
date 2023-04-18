@@ -22,6 +22,7 @@ pub struct Frame {
     /// Registers pointing to memory for temporary variables
     /// Can be used only for non-lvalue array and structs
     temporary_regs: HashMap<ast::NodeId, Rc<LLReg>>,
+    sret_reg: Option<Rc<LLReg>>,
     next_reg: usize,
     next_tmp_reg: usize,
 }
@@ -51,9 +52,18 @@ impl Frame {
         Frame {
             locals: HashMap::new(),
             temporary_regs: HashMap::new(),
-            next_reg: 1,
-            next_tmp_reg: 1,
+            sret_reg: None,
+            next_reg: 0,
+            next_tmp_reg: 0,
         }
+    }
+
+    pub fn set_sret_reg(&mut self, reg: Rc<LLReg>) {
+        self.sret_reg = Some(reg);
+    }
+
+    pub fn get_sret_reg(&self) -> Option<Rc<LLReg>> {
+        self.sret_reg.as_ref().map(Rc::clone)
     }
 
     pub fn get_local(&self, name: &Binding) -> Rc<Local> {
@@ -168,7 +178,12 @@ impl<'ctx: 'a, 'a> ast::visitor::Visitor<'ctx> for VisitFrame<'_, '_, '_> {
         if matches!(
             &expr.kind,
             ast::ExprKind::Array(_) | ast::ExprKind::Struct(_, _)
-        ) {
+        ) || (matches!(&expr.kind, ast::ExprKind::Call(_, _))
+            && self
+                .codegen
+                .ty_to_llty(&self.codegen.ctx.get_type(expr.id))
+                .eval_to_ptr())
+        {
             let ty = self.codegen.ctx.get_type(expr.id);
             self.add_temporary(expr.id, &ty);
         }

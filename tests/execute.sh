@@ -122,3 +122,8 @@ assert 1 'struct S { a: i32 }
 fn main() -> i32 { let s: S; s = if false { S { a: 0 } } else { S { a: 1 } }; s.a }'
 assert 30 'fn main() -> i32 { let a: i32 = 3; if a == 1 { 10 } else if a == 2 { 20 } else { 30 } }'
 assert 20 'fn main() -> i32 { let a: i32 = 2; if a == 1 { 10 } else if a == 2 { 20 } else { 30 } }'
+# return struct
+assert 0 'struct S { a: i32 } fn f() -> S { S { a: 0 } } fn main() -> i32 { f().a }'
+assert 42 'struct S { a: i32 } fn f() -> S { S { a: 42 } } fn main() -> i32 { f().a }'
+assert 100 'struct S { a: i32 } fn f(s: S) -> S { s } fn main() -> i32 { f(S { a: 100 }).a }'
+assert 5 'struct S { a: i32, b: i32 } fn f() -> S { S { a: 3, b: 5 } } fn main() -> i32 { f().b }'

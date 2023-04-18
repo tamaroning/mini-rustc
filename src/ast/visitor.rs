@@ -65,6 +65,7 @@ fn walk_func<'ctx, V: Visitor<'ctx>>(v: &mut V, func: &'ctx Func) {
     for (_param, ty) in &func.params {
         walk_type(v, ty);
     }
+    walk_type(v, &func.ret_ty);
     if let Some(body) = &func.body {
         walk_block(v, body)
     }

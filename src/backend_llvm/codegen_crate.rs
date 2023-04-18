@@ -1,8 +1,10 @@
+use std::rc::Rc;
 use super::{Codegen, LLValue};
 use crate::{
     ast::{Block, Crate, ExternBlock, Func, Item, ItemKind, LetStmt, Stmt, StmtKind},
     backend_llvm::{
         frame::{compute_frame, LocalKind},
+        llvm::{LLReg, LLTy},
         LLImm,
     },
 };
@@ -58,11 +60,31 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             .get_func_type()
             .unwrap();
 
+        let ret_llty = Rc::new(self.ty_to_llty(&ret_ty));
+        let actual_ret_llty = if ret_llty.is_void() || ret_llty.eval_to_ptr() {
+            &LLTy::Void
+        } else {
+            &ret_llty
+        };
+
         print!(
             "{} @{}(",
-            self.ty_to_llty(&ret_ty).to_string(),
+            actual_ret_llty.to_string(),
             fn_name_binding.cpath.demangle()
         );
+
+        // sret
+        if ret_llty.eval_to_ptr() {
+            let sret_reg_name = self.peek_frame_mut().get_fresh_reg();
+            print!("ptr sret({}) {}", ret_llty.to_string(), sret_reg_name);
+            self.peek_frame_mut().set_sret_reg(LLReg::new(
+                sret_reg_name,
+                Rc::new(LLTy::Ptr(Rc::clone(&ret_llty))),
+            ));
+            if !func.params.is_empty() {
+                print!(",");
+            }
+        }
 
         // parameters
         let mut it = self
@@ -86,6 +108,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         };
 
         println!(" {{");
+        println!("start:");
 
         // allocate local variables
         for (bind, local) in self.peek_frame().get_locals() {
@@ -111,7 +134,15 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
         let body_val = self.gen_block(body)?;
 
         if !self.ctx.get_type(body.id).is_never() {
-            println!("\tret {}", body_val.to_string_with_type());
+            if ret_llty.eval_to_ptr() {
+                let LLValue::Reg(body_val_reg) = body_val else {
+                    panic!("ICE");
+                };
+                self.memcpy(&self.peek_frame().get_sret_reg().unwrap(), &body_val_reg);
+                println!("\tret void");
+            } else {
+                println!("\tret {}", body_val.to_string_with_type());
+            }
         }
 
         println!("}}");

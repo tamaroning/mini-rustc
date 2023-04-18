@@ -64,6 +64,12 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                     panic!("ICE");
                 }
             }
+            ExprKind::Call(func, args) => {
+                let must_be_void = self.gen_call_expr(expr.id, func, args)?;
+                assert_eq!(*must_be_void.llty(), LLTy::Void);
+                let temp = self.peek_frame().get_ptr_to_temporary(expr.id).unwrap();
+                Ok(temp)
+            }
             _ => todo!("{:?}", expr),
         }
     }

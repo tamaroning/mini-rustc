@@ -1,5 +1,4 @@
 use std::rc::Rc;
-
 use crate::resolve::CanonicalPath;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

@@ -106,7 +106,7 @@ Hello mini-rustc!
   - [x] Arithmetic operators `+`, `-`, `*`
   - [x] Comparison operators `==`, `<`, `>`
   - [x] Literals: integer, boolean, string
-  - [ ] `if-else` expressions
+  - [x] `if-else` expressions
   - [x] Block expressions `{ ... }`
   - [x] Return expressions `return expr`
     - Omitting expression is not supported (i.e. Require `return ()` for `return`)
@@ -123,8 +123,8 @@ Hello mini-rustc!
   - [ ] Patterns (Pattern matching)
   - [x] Comments `//`
 - Internal
-  - [ ] HIR
   - [x] Name Resolution
+  - [x] Shadowing
   - [ ] Type Resolution
 
 ## ABI

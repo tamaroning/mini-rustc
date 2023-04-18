@@ -5,8 +5,9 @@ use crate::resolve::CanonicalPath;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum LLTy {
     Void,
-    I8,
-    I32,
+    I1,  // bool
+    I8,  // &'static str
+    I32, // i32
     Ptr(Rc<LLTy>),
     Array(Rc<LLTy>, usize),
     Adt(Rc<CanonicalPath>),
@@ -16,6 +17,7 @@ impl LLTy {
     pub fn to_string(&self) -> String {
         match self {
             LLTy::Void => "void".to_string(),
+            LLTy::I1 => "i1".to_string(),
             LLTy::I8 => "i8".to_string(),
             LLTy::I32 => "i32".to_string(),
             LLTy::Ptr(inner) => format!("{}*", inner.to_string()),
@@ -116,6 +118,7 @@ impl LLReg {
 pub enum LLImm {
     I32(i32),
     I8(i8),
+    I1(bool),
     Void,
 }
 
@@ -124,6 +127,7 @@ impl LLImm {
         match self {
             LLImm::I32(n) => format!("{n}"),
             LLImm::I8(n) => format!("{n}"),
+            LLImm::I1(b) => format!("{}", if *b { 1 } else { 0 }),
             LLImm::Void => "void".to_string(),
         }
     }
@@ -132,6 +136,7 @@ impl LLImm {
         match self {
             LLImm::I32(n) => format!("i32 {n}"),
             LLImm::I8(n) => format!("i8 {n}"),
+            LLImm::I1(b) => format!("i1 {}", if *b { 1 } else { 0 }),
             LLImm::Void => "void".to_string(),
         }
     }
@@ -140,6 +145,7 @@ impl LLImm {
         Rc::new(match self {
             LLImm::I32(_) => LLTy::I32,
             LLImm::I8(_) => LLTy::I8,
+            LLImm::I1(_) => LLTy::I1,
             LLImm::Void => LLTy::Void,
         })
     }

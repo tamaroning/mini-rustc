@@ -113,3 +113,12 @@ assert 2 'fn main() -> i32 { let a: i32 = 0; { let a: i32 = 1; let a: i32 = 2; a
 assert 4 'fn main() -> i32 { let a: i32 = 1; let a: i32 = a + a; a + a }'
 assert 0 'fn f(a: i32) -> i32 { let a: i32 = a; let a: i32 = a; a } fn main() -> i32 { f(0)  }'
 assert 10 'struct S { a: i32 } fn main() -> i32 { let a: i32 = 4; let a: S = S { a: 10 }; a.a }'
+# if
+assert 1 'fn main() -> i32 { if true { 1 } else { 0 }  }'
+assert 0 'fn main() -> i32 { if false { 1 } else { 0 }  }'
+assert 0 'struct S { a: i32 }
+fn main() -> i32 { let s: S; s = if true { S { a: 0 } } else { S { a: 1 } }; s.a }'
+assert 1 'struct S { a: i32 }
+fn main() -> i32 { let s: S; s = if false { S { a: 0 } } else { S { a: 1 } }; s.a }'
+assert 30 'fn main() -> i32 { let a: i32 = 3; if a == 1 { 10 } else if a == 2 { 20 } else { 30 } }'
+assert 20 'fn main() -> i32 { let a: i32 = 2; if a == 1 { 10 } else if a == 2 { 20 } else { 30 } }'

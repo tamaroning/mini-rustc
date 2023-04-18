@@ -24,6 +24,10 @@ pub enum TokenKind {
     Extern,
     Unsafe,
     Mod,
+    Loop,
+    While,
+    Break,
+    Continue,
     /// ->
     Arrow,
     /// !
@@ -304,6 +308,10 @@ impl Lexer {
             "extern" => self.new_token(TokenKind::Extern),
             "unsafe" => self.new_token(TokenKind::Unsafe),
             "mod" => self.new_token(TokenKind::Mod),
+            "loop" => self.new_token(TokenKind::Loop),
+            "while" => self.new_token(TokenKind::While),
+            "break" => self.new_token(TokenKind::Break),
+            "continue" => self.new_token(TokenKind::Continue),
             _ => self.new_token(TokenKind::Ident(s)),
         }
     }

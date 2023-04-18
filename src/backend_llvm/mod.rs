@@ -23,6 +23,7 @@ pub struct Codegen<'gen, 'ctx> {
     ctx: &'gen mut Ctxt<'ctx>,
     current_frame: Option<Frame>,
     ll_adt_defs: HashMap<Rc<CanonicalPath>, Rc<LLAdtDef>>,
+    next_label_id: usize,
     constants: Vec<Rc<LLConst>>,
     next_str_id: usize,
 }
@@ -33,12 +34,19 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
             ctx,
             current_frame: None,
             ll_adt_defs: HashMap::new(),
+            next_label_id: 1,
             constants: vec![],
             next_str_id: 1,
         }
     }
 
-    pub fn get_fresh_str_name(&mut self) -> String {
+    fn get_fresh_label_name(&mut self) -> String {
+        let i = self.next_label_id;
+        self.next_label_id += 1;
+        format!("bb{i}")
+    }
+
+    fn get_fresh_str_name(&mut self) -> String {
         let i = self.next_str_id;
         self.next_str_id += 1;
         format!("@.str.{i}")
@@ -142,6 +150,7 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
         match llty {
             LLTy::I32 => 4,
             LLTy::I8 => 1,
+            LLTy::I1 => 1,
             LLTy::Ptr(_) => 1,
             LLTy::Array(elem_llty, n) => self.get_align(elem_llty) * n,
             LLTy::Void => panic!(),
@@ -167,6 +176,7 @@ impl<'ctx, 'gen> Codegen<'ctx, 'gen> {
         match llty {
             LLTy::I32 => 4,
             LLTy::I8 => 1,
+            LLTy::I1 => 1,
             LLTy::Ptr(_) => 1,
             LLTy::Array(elem_llty, _) => self.get_align(elem_llty),
             LLTy::Void => panic!(),

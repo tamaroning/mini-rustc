@@ -24,9 +24,9 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             }
             ExprKind::BoolLit(b) => {
                 if *b {
-                    LLValue::Imm(LLImm::I8(1))
+                    LLValue::Imm(LLImm::I1(true))
                 } else {
-                    LLValue::Imm(LLImm::I8(0))
+                    LLValue::Imm(LLImm::I1(false))
                 }
             }
             ExprKind::Unit => LLValue::Imm(LLImm::Void),
@@ -66,9 +66,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                     ast::BinOp::Add => {
                         assert!(rhs_lhs_llty.is_integer());
                         println!(
-                            "\t{reg_name} = add {} {}, {}",
-                            rhs_lhs_llty.to_string(),
-                            l.to_string(),
+                            "\t{reg_name} = add {}, {}",
+                            l.to_string_with_type(),
                             r.to_string()
                         );
                         rhs_lhs_llty
@@ -76,9 +75,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                     ast::BinOp::Sub => {
                         assert!(rhs_lhs_llty.is_integer());
                         println!(
-                            "\t{reg_name} = sub {} {}, {}",
-                            rhs_lhs_llty.to_string(),
-                            l.to_string(),
+                            "\t{reg_name} = sub {}, {}",
+                            l.to_string_with_type(),
                             r.to_string()
                         );
                         rhs_lhs_llty
@@ -86,9 +84,8 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                     ast::BinOp::Mul => {
                         assert!(rhs_lhs_llty.is_integer());
                         println!(
-                            "\t{reg_name} = mul {} {}, {}",
-                            rhs_lhs_llty.to_string(),
-                            l.to_string(),
+                            "\t{reg_name} = mul {}, {}",
+                            l.to_string_with_type(),
                             r.to_string()
                         );
                         rhs_lhs_llty
@@ -97,37 +94,37 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                         assert!(rhs_lhs_llty.is_integer());
                         println!(
                             "\t{reg_name} = icmp eq {}, {}",
-                            l.to_string(),
+                            l.to_string_with_type(),
                             r.to_string()
                         );
-                        LLTy::I8
+                        LLTy::I1
                     }
                     ast::BinOp::Ne => {
                         assert!(rhs_lhs_llty.is_integer());
                         println!(
                             "\t{reg_name} = icmp ne {}, {}",
-                            l.to_string(),
+                            l.to_string_with_type(),
                             r.to_string()
                         );
-                        LLTy::I8
+                        LLTy::I1
                     }
                     ast::BinOp::Gt => {
                         assert!(rhs_lhs_llty.is_signed_integer());
                         println!(
                             "\t{reg_name} = icmp sgt {}, {}",
-                            l.to_string(),
+                            l.to_string_with_type(),
                             r.to_string()
                         );
-                        LLTy::I8
+                        LLTy::I1
                     }
                     ast::BinOp::Lt => {
                         assert!(rhs_lhs_llty.is_signed_integer());
                         println!(
                             "\t{reg_name} = icmp slt {}, {}",
-                            l.to_string(),
+                            l.to_string_with_type(),
                             r.to_string()
                         );
-                        LLTy::I8
+                        LLTy::I1
                     }
                 };
                 LLValue::Reg(LLReg::new(reg_name, Rc::new(llty)))
@@ -169,6 +166,7 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
             }
             ExprKind::Call(func, args) => {
                 let ExprKind::Path(path) = &func.kind else {
+                    // TODO:
                     todo!();
                 };
 
@@ -216,11 +214,89 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                     LLValue::Imm(LLImm::Void)
                 }
             }
-
-            _ => panic!(),
+            ExprKind::If(cond, then, els) => {
+                let res = self.gen_if_expr(cond, then, els)?;
+                LLValue::Reg(res.0)
+            }
+            ExprKind::Struct(..) | ExprKind::Array(..) => panic!("ICE"),
         };
 
         println!("; Finishes expr `{}`", expr.span.to_snippet());
         Ok(ret)
+    }
+
+    /// Generate code for if expression. Returns the label of the last bb.
+    pub fn gen_if_expr(
+        &mut self,
+        cond: &'gen Expr,
+        then: &'gen Expr,
+        els: &'gen Option<Box<Expr>>,
+    ) -> Result<(Rc<LLReg>, String), ()> {
+        let cond = self.eval_expr(cond)?;
+        let then_label = self.get_fresh_label_name();
+        let endif_label = self.get_fresh_label_name();
+        let mut else_result = None;
+        // if `else if` is found, this contains its endif label
+        let mut else_label = None;
+
+        if let Some(els) = els {
+            else_label = Some(self.get_fresh_label_name());
+            println!(
+                "\tbr {}, label %{}, label %{}",
+                cond.to_string_with_type(),
+                then_label,
+                else_label.as_ref().unwrap()
+            );
+            // else_label:
+            println!("{}:\t; Else", else_label.as_ref().unwrap());
+            // else block
+            else_result = match &els.kind {
+                ExprKind::If(cond2, then2, else2) => {
+                    let res = self.gen_if_expr(cond2, then2, else2)?;
+                    else_label = Some(res.1);
+                    Some(LLValue::Reg(res.0))
+                }
+                ExprKind::Block(_) => Some(self.eval_expr(els)?),
+                _ => panic!("ICE: else must be if expr or block expr"),
+            };
+            println!("\tbr label %{}", endif_label);
+        } else {
+            println!(
+                "\tbr {}, label %{}, label %{}",
+                cond.to_string_with_type(),
+                then_label,
+                endif_label
+            );
+        }
+        // then_label:
+        println!("{}:\t;Then", then_label);
+        // then block
+        let then_result = self.eval_expr(then)?;
+        println!("\tbr label %{}", endif_label);
+
+        println!("{}:\t; Endif", endif_label);
+        if let Some(else_result) = else_result {
+            let reg_name = self.peek_frame_mut().get_fresh_reg();
+            println!(
+                "\t{} = phi {} [{}, %{}], [{}, %{}]",
+                reg_name,
+                then_result.llty().to_string(),
+                then_result.to_string(),
+                then_label,
+                else_result.to_string(),
+                else_label.as_ref().unwrap(),
+            );
+            Ok((LLReg::new(reg_name, then_result.llty()), endif_label))
+        } else {
+            let reg_name = self.peek_frame_mut().get_fresh_reg();
+            println!(
+                "\t{} = phi {} [{}, %{}]",
+                reg_name,
+                then_result.llty().to_string(),
+                then_result.to_string(),
+                then_label,
+            );
+            Ok((LLReg::new(reg_name, then_result.llty()), endif_label))
+        }
     }
 }

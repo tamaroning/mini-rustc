@@ -1,4 +1,8 @@
-use super::{frame::LocalKind, llvm::LLReg, Codegen};
+use super::{
+    frame::LocalKind,
+    llvm::{LLReg, LLValue},
+    Codegen,
+};
 use crate::{
     ast::{Expr, ExprKind, Path},
     backend_llvm::llvm::LLTy,
@@ -48,7 +52,19 @@ impl<'gen, 'ctx> Codegen<'gen, 'ctx> {
                 self.initialize_memory_with_value(&ptr, expr)?;
                 Ok(ptr)
             }
-            _ => todo!(),
+            ExprKind::If(cond, then, els) => {
+                let res = self.gen_if_expr(cond, then, els)?;
+                Ok(res.0)
+            }
+            ExprKind::Block(block) => {
+                let llval = self.gen_block(block)?;
+                if let LLValue::Reg(reg) = llval {
+                    Ok(reg)
+                } else {
+                    panic!("ICE");
+                }
+            }
+            _ => todo!("{:?}", expr),
         }
     }
 

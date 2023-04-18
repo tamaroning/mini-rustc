@@ -117,7 +117,6 @@ impl LLReg {
 
 pub enum LLImm {
     I32(i32),
-    I8(i8),
     I1(bool),
     Void,
 }
@@ -126,7 +125,6 @@ impl LLImm {
     pub fn to_string(&self) -> String {
         match self {
             LLImm::I32(n) => format!("{n}"),
-            LLImm::I8(n) => format!("{n}"),
             LLImm::I1(b) => format!("{}", if *b { 1 } else { 0 }),
             LLImm::Void => "void".to_string(),
         }
@@ -135,7 +133,6 @@ impl LLImm {
     pub fn to_string_with_type(&self) -> String {
         match self {
             LLImm::I32(n) => format!("i32 {n}"),
-            LLImm::I8(n) => format!("i8 {n}"),
             LLImm::I1(b) => format!("i1 {}", if *b { 1 } else { 0 }),
             LLImm::Void => "void".to_string(),
         }
@@ -144,7 +141,6 @@ impl LLImm {
     pub fn llty(&self) -> Rc<LLTy> {
         Rc::new(match self {
             LLImm::I32(_) => LLTy::I32,
-            LLImm::I8(_) => LLTy::I8,
             LLImm::I1(_) => LLTy::I1,
             LLImm::Void => LLTy::Void,
         })

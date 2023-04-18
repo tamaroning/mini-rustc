@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::{Binding, BindingKind, ResolvedOrRib, Resolver, Rib, RibId, RibKind, ShadowingIndex};
+use super::{Binding, BindingKind, ResolvedOrRib, Resolver, Rib, RibId, RibKind};
 use crate::{
     ast::{self, Path, StmtKind},
     span::Ident,
@@ -52,10 +52,6 @@ impl Resolver {
 
     fn get_current_scope_mut(&mut self) -> Option<&mut HashMap<Rc<String>, Rc<Binding>>> {
         self.current_variable_scopes.last_mut()
-    }
-
-    fn get_current_scope(&self) -> Option<&HashMap<Rc<String>, Rc<Binding>>> {
-        self.current_variable_scopes.last()
     }
 
     fn get_current_scopes(&self) -> &[HashMap<Rc<String>, Rc<Binding>>] {
